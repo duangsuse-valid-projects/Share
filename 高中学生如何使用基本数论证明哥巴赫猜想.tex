@@ -1,0 +1,139 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb}
+
+% XeTex is utf8 based
+%\usepackage[utf8]{inputenc}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+
+% CJK Support
+\usepackage{fontspec, xunicode, xltxtra}
+
+% CJK style
+\usepackage[top = 1in, bottom = 1in, left = 1.25in, right = 1.25in]{geometry}
+
+\XeTeXlinebreaklocale "zh"
+\XeTeXlinebreakskip = 0pt plus 1pt minus 0.1pt
+
+\renewcommand{\baselinestretch}{1.25}
+
+\parindent 2em
+
+% Set main font
+
+\newfontfamily\opensans{Open Sans}
+\newfontfamily\sourcehanserif{Source Han Serif CN}
+
+\usepackage[CJK]{ucharclasses}
+\setTransitionsForCJK{\sourcehanserif}{\opensans}{\opensans}
+
+\setmainfont{Open Sans}
+
+\title{哥巴赫猜想的证明}
+\author{知乎用户 $\textbf{@ 证明}$}
+
+\begin{document}
+
+\maketitle
+
+\begin{center}
+	思路： 有借有还， 再借不难； 分类讨论， 逐一判断
+\end{center}
+
+\section{准备}
+
+\begin{itemize}
+	\item 设集合 $\textit{A}$ 为所有满足两个质数之和的偶数的集合， 且此时质数包括正质数和负质数
+	\item 设集合 $\textit{B}$ 为所有满足两个质数之和的偶数的集合， 且此时质数只包括正质数
+	\item $\forall$ 任意大于等于 $4$ 的偶数 \\ 均可以表示为 $(6k-2), 6k, (6k + 2)$ 中的一种， 其中 $k\in\mathbb{N}_+$
+	\item 约定全体素数集为 $\mathbb{P}$， 且有 $k\in\mathbb{N}_+$
+\end{itemize}
+
+目的： 证明 $\forall{n}\in\mathbb{N}_+$ 且 $n\ge2$ 则 $2n\in{B}$
+
+\section{证明}
+
+\paragraph{1}
+
+$\because{2=(-1)+3}$ \\
+$\therefore$ 得到一个新猜想， 即
+
+\begin{equation}
+	\forall{n}\in\mathbb{N}_+,2n\in{B}
+\end{equation}
+
+或
+
+\begin{equation}
+	2n=(-1)+(2n+1),2n+1\in\mathbb{P}
+\end{equation}
+
+将其称为哥德巴赫猜想变式一
+
+\pagebreak
+
+如果把 $-1$ 归到质数集中， 可得命题：
+
+\begin{quotation}
+	若 $-1$ 是质数， 则 $\forall{n}\in\mathbb{N}_+,2n\in{A}$ ， 且 $-1$ 为唯一的负质数
+\end{quotation}
+
+这个命题的逆否命题为：
+
+\begin{quotation}
+	若 $\exists{n_0}\in\mathbb{N}_+,2n_0\notin{A}$ ， 则 $-1$ 不是质数
+\end{quotation}
+
+当 $n_0=1$ 时， 若 $2\notin{A}$ ， 则 $-1$ 不是质数： 这是一个真命题， 所以该存在命题是真命题
+
+由于原命题和其逆否命题具有等价关系， 所以原命题是真命题， 哥德巴赫猜想变式一正确
+
+令 $2n=6k+2$ ， 则有 $6k+2\in{B}$ 或 $6k+2=-1+(6k+3), (6k+3)\in\mathbb{P}$ 成立 。 显然 $6k+3=3(2k+1)\notin\mathbb{P}$ ， 从而有 $6k+2\in{B}$
+
+\paragraph{2}
+
+$\because{2=(-3)+5}$， 又可以提出另一个猜想：
+
+\begin{equation}
+	\forall{n}\in\mathbb{N}_+,2n\in{B}
+\end{equation}
+
+或
+
+\begin{equation}
+	2n=-3+(2n+3),2n+3\in\mathbb{P}
+\end{equation}
+
+成立， 将其称为哥德巴赫猜想变式二
+
+如果把 $-3$ 归到质数的集合中， 可得命题：
+
+\begin{quotation}
+	若 $-3$ 是质数， 则 $\forall{n}\in\mathbb{N}_+,2n\in{A}$ ， 且 $-3$ 为唯一的负质数
+\end{quotation}
+
+这个命题的逆否命题为：
+
+\begin{quotation}
+	若 $\exists{n_0}\in\mathbb{N}_+,2n_0\notin{A}$ ， 则 $-3$ 不是质数
+\end{quotation}
+
+
+当 $n_0=1$ 时， 若 $2\notin{A}$ ， 则 $-3$ 不是质数： 这是一个真命题， 所以该存在命题是真命题
+
+由于原命题和其逆否命题具有等价关系， 所以原命题是真命题， 哥德巴赫猜想变式二正确
+
+令 $2n=6k$ ， 则有 $6k\in{B}$ 或 $6k=-3+(6k+3)$,$(6k+3)\in\mathbb{P}$ 成立 。 显然 $6k+3=3(2k+1)\notin\mathbb{P}$ ， 从而有 $6k\in{B}$ 。
+
+\paragraph{3}
+
+同理可证 $\forall{n}\in\mathbb{N}_+$,$2n\in{B}$ 或 $2n=-5+(2n+5)$,$2n+5\in\mathbb{P}$ 成立 。 取 $2n=6k-2 $， 同理可得 $6k-2\in{B}$
+
+%（编者注：mmp 实在写不下去了，就是把上面 -1 和 -3 换成 -5 而已）
+
+
+\paragraph{4}
+由于 $6k-2,6k,6k+2\in{B}$ 且 $k\in\mathbb{N}_+$ ， 故 $\forall{n}\in\mathbb{N}_+$ 且 $n\ge2$ ， $2n\in{B}$ ， 从而哥德巴赫猜想正确
+
+\end{document}
