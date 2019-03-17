@@ -1,0 +1,288 @@
+% 选主元的高斯-约当（Gauss-Jordan）消元法解线性方程组/求逆矩阵
+% author: learnhard
+% origin: http://www.codelast.com/?p=1288
+
+\documentclass[a4paper, 8pt]{article}
+
+%%
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\usepackage{lmodern}
+
+\usepackage[top = 1em, bottom = 1em, left=4em, right=4em]{geometry}
+
+\usepackage[normalem]{ulem}
+\usepackage[colorlinks]{hyperref}
+
+\usepackage{amsmath, amssymb}
+
+% CJK support
+\usepackage{fontspec, xunicode, xltxtra}
+\XeTeXlinebreaklocale "zh"
+\XeTeXlinebreakskip 0pt plus 1pt minus 0.1pt
+
+%%
+\newfontfamily\opensans{Open Sans}
+\newfontfamily\sourcehanserif{Source Han Serif CN}
+
+\usepackage[CJK]{ucharclasses}
+\setTransitionsForCJK{\sourcehanserif}{\opensans}{\opensans}
+
+\setmainfont{Open Sans}
+
+%%
+\newcommand{\matr}[1]{\mathbf{#1}}
+\newcommand*\rfrac[2]{{}^{#1}\!/_{#2}}
+
+%%
+\parindent 2em
+\renewcommand{\baselinestretch}{1.25}
+
+\title{选主元的高斯-约当 (Gauss-Jordan) 消元法解线性方程组 / 求逆矩阵}
+\author{learnhard (codelast.com)}
+\date{2011 年 03 月 13 日}
+
+%%
+\begin{document}
+\maketitle
+\begin{abstract}
+Tagged on:	Gauss-Jordan	optimization	最优化	消元	线性方程组	选主元	高斯-约当 \\
+Category:	Algorithm, 原创. 14 Comments 
+\end{abstract}
+
+	选主元的高斯-约当 (Gauss-Jordan) 消元法在很多地方都会用到, 例如求一个矩阵的逆矩阵/解线性方程组 （ 插一句: \href{http://www.codelast.com/?p=29}{LM 算法}求解的一个步骤）, 等等 。 它的速度不是最快的, 但是它非常稳定\footnote{来自网上的定义: 一个计算方法, 如果在使用此方法的计算过程中, 舍入误差得到控制, 对计算结果影响较小, 称此方法为数值稳定的}, 同时它的求解过程也比较清晰明了, 因而人们使用较多 。 下面我就用一个例子来告诉你 Gauss-Jordan 法的求解过程吧 。 顺便再提及一些注意事项以及扩展话题 。
+
+对本文中所提到的“主元”等概念的解释， 可以参考\href{http://www.codelast.com/?page_id=963}{此链接} 。 \\
+假设有如下的方程组：
+
+\begin{equation}
+\left\{
+\begin{array}{lr}
+x_1 + 3x_2 + x_3 = 11 \\
+2x_1 + x_2 + x_3 = 8 \\
+2x_1 + 2x_2 + x_3 = 10
+\end{array}
+\right.
+\end{equation}
+
+写成矩阵形式就是：$\matr{A}\matr{X}=\matr{B}$， 其中：
+
+\begin{equation}
+A = \begin{pmatrix}
+1 & 3 & 1 \\
+2 & 1 & 1 \\
+2 & 2 & 1 \\
+\end{pmatrix}, B = \begin{pmatrix}
+11 \\ 8 \\ 10
+\end{pmatrix}
+\end{equation}
+
+且 $X=(X_1, X_2, X_3)^T$ 。
+
+
+
+现对矩阵 $\matr{A}$ 作\href{http://www.codelast.com/?page_id=963}{初等行变换}， 同时矩阵 $\matr{B}$ 也作同样的初等变换， 则当 $\matr{A}$ 化为单位矩阵的时候， 有：
+
+\begin{equation}
+\begin{pmatrix}
+1&0&0\\
+0&1&0\\
+0&0&1
+\end{pmatrix} \matr{X} = \begin{pmatrix}
+1\\2\\4
+\end{pmatrix}
+\end{equation}
+
+显而易见， 我们得到了方程组的解 $\matr{X}=(1, 2, 4)^T$。
+
+	所以， 我们要以一定的策略， 对 $\matr{A}$ 和 $\matr{B}$ 施以一系列的初等变换\footnote{\label{elementary_trans} 过程如下： \begin{itemize}\item[1] 交换矩阵的两行或列
+\item[2] 用一个不为零的数乘矩阵的某一行或列
+\item[3] 用一个数乘矩阵某一行或列加到另一行或列上\end{itemize}}， 当 $\matr{A}$ 化为单位矩阵的时候，$\matr{B}$ 就为方程组的解 。
+
+	选主元的 G-J 消元法通过这样的方法来进行初等变换： 在每一个循环过程中， 先寻找到主元， 并将主元通过行变换 （ 无需列变换） 移动到矩阵的主对角线上， 然后将主元所在的行内的所有元素除以主元， 使得主元化为 $1$； 然后观察主元所在的列上的其他元素， 将它们所在的行减去主元所在的行乘以一定的倍数， 使得主元所在的列内 、 除主元外的其他元素化为 $0$， 这样就使得主元所在的列化为了单位矩阵的形式 。 这就是一个循环内做的工作 。 然后， 在第二轮循环的过程中， 不考虑上一轮计算过程中主元所在的行和列内的元素， 在剩下的矩阵范围内寻找主元， 然后（ 如果其不在主对角线上的话） 将其移动到主对角线上， 并再次进行列的处理， 将列化为单位矩阵的形式 。 余下的步骤依此类推 。 具体的计算过程的一个例子， 请看下面我举的求逆矩阵的过程 。
+
+	如果要解系数矩阵相同 、 右端向量不同的 $n$ 个方程组， 在设计程序的时候， 没有必要“解 $n$ 次方程组”， 我们完全可以在程序中， 将所有的右端向量以矩阵的数据结构（ 类似于二维数组） 来表示， 在系数矩阵作行变换的时候， 矩阵里的每一个右端向量也做同样的变换， 这样， 我们在一次求解运算的过程中， 实际上就是同时在解 $n$ 个方程组了， 这是要注意的地方 。 \\
+
+
+%%
+
+	那么，G-J 法为什么可以用来求逆矩阵？
+	
+	假设 \label{ax_eq_e}$\matr{A}\matr{X}=\matr{E}$， 其中，$\matr{A}$ 为 $n$ 阶系数矩阵（ 与上面的解线性方程组对照）；$\matr{E}$ 为单位矩阵， 即 $\matr{E}=(e_1,e_2,\cdots,e_n)$， 其中 $e_i (i=1,2,\cdots,n)$ 为单位列向量；$\matr{X}$ 为 $n$ 个列向量构成的矩阵， 即$\matr{X}=(x_1,x_2,\cdots,x_n)$， 其中 $x_i (i=1,2,\cdots,n)$ 为列向量 。
+
+	于是， 可以把等式 $\hyperref[ax_eq_e]{\matr{AX=E}}$ 看成是求解 $n$ 个线性方程组 $Ax_i=e_i (i=1,2,\cdots,n)$， 求出了所有的 $x_i$ 之后， 也即得到了矩阵 $\matr{X}$。而由 $\hyperref[ax_eq_e]{\matr{AX=E}}$ 可知， 矩阵 $\matr{X}$ 是 $\matr{A}$ 的逆矩阵， 即 $\matr{X}=\matr{A}-1$。这样， 就求出了 $\matr{A}$ 的逆矩阵了 。于是， 求逆矩阵的过程被化成了解线性方程组的过程， 因此我们可以用 Gauss-Jordan 消元法来求逆矩阵 。
+
+	求逆矩阵时， 系数矩阵 $\matr{A}$ 和单位矩阵 $\matr{E}$ 可以共用一块存储区， 在每一次约化过程中， 系数矩阵逐渐被其逆矩阵替代 。 \\
+
+	在这里， 我用一个实际的例子来说明 G-J 法求逆矩阵的过程：
+
+有如下的方程组：
+
+\begin{equation}
+\left\{\begin{array}{lr}
+x_1 + 3x_2 + x_3 = 11 \\
+2x_1 + x_2 + x_3 = 8 \\
+2x_1 + 2x_2 + x_3 = 10
+\end{array}\right.
+\end{equation}
+
+显而易见， 该方程组对应的系数矩阵 $\matr{A}$ 和右端向量矩阵 $\matr{B}$（ 此处只有一个右端向量） 分别为：
+
+\begin{equation}
+A = \begin{pmatrix}
+1 & 3 & 1 \\
+2 & 1 & 1 \\
+2 & 2 & 1 \\
+\end{pmatrix}, B = \begin{pmatrix}
+11 \\ 8 \\ 10
+\end{pmatrix}
+\end{equation}
+
+其实在求逆矩阵的过程中， 矩阵 $\matr{B}$ 无关紧要， 可以忽略， 不过此处还是把它写出来了 。下面， 把单位矩阵 $\matr{E}$ 附在 $\matr{A}$ 的右边， 构成另一个矩阵 $(\matr{A}|\matr{E})$：
+
+\begin{equation}
+(\matr{A}|\matr{E}) = \begin{pmatrix}
+1 & 3 & 1 & \vline & 1&0&0 \\
+2 & 1 & 1 & \vline & 0&1&0 \\
+2 & 2 & 1 & \vline & 0&0&1\\
+\end{pmatrix}
+\end{equation}
+
+下面， 我们就通过矩阵的初等变换 $\hyperref[elementary_trans]{elementary transformation}$， 将 $\matr{A}$ 化为单位矩阵 $\matr{E}$， 而 $\matr{E}$ 则化为了 $\matr{A}$ 的逆矩阵 。以下是转化步骤：
+
+\begin{itemize}
+\item[1] 主元选为 $3$， 所以将 $Row1$ （ 第一行） 与 $Row2$ （ 第二行） 交换：
+
+\begin{equation}
+\begin{pmatrix}
+2 & 1 & 1 & \vline & 0&1&0 \\
+1 & 3 & 1 & \vline & 1&0&0 \\
+2 & 2 & 1 & \vline & 0&0&1\\
+\end{pmatrix}
+\end{equation}
+
+\item[2] 主元所在行的所有元素除以主元：
+
+\begin{equation}
+\begin{pmatrix}
+2 & 1 & 1 & \vline & 0&1&0 \\
+\rfrac{1}{3} & \rfrac{3}{3} & \rfrac{1}{3} & \vline & \rfrac{1}{3}&0&0 \\
+2 & 2 & 1 & \vline & 0&0&1\\
+\end{pmatrix}
+\end{equation}
+
+\item[3] $Row1 - Row2$ ， $Row3 - (2 \times Row2)$ ：
+
+\begin{equation} \label{row1_sub_row2_andon}
+\begin{pmatrix}
+2-\rfrac{1}{3} & 1-\rfrac{3}{3} & 1-\rfrac{1}{3} & \vline & 0-\rfrac{1}{3}&1&0 \\
+\rfrac{1}{3} & \rfrac{3}{3} & \rfrac{1}{3} & \vline & \rfrac{1}{3}&0&0 \\
+2-\rfrac{1\times 2}{3} & 2-\rfrac{3\times 2}{3} & 1-\rfrac{1\times 2}{3} & \vline & 0-\rfrac{1\times 2}{3}&0&1\\
+\end{pmatrix}
+\end{equation}
+
+\ref{row1_sub_row2_andon} 式最终被计算为：
+
+\begin{equation}
+\begin{pmatrix}
+1\frac{2}{3} & 0 & \rfrac{2}{3} & \vline & -\rfrac{1}{3} &1&0 \\
+\rfrac{1}{3} & 1 & \rfrac{1}{3} & \vline & \rfrac{1}{3} &0&0 \\
+1\frac{1}{3} & 0 & \rfrac{1}{3} & \vline & -\rfrac{2}{3} &0&1
+\end{pmatrix}
+\end{equation}
+
+（ 现在， 原来的矩阵 $\matr{A}$ 有一列被化为了单位阵的形式）
+
+\item[4] 重新选主元， 这一次主元选为 $5/3$ ， 于是 $Row1 \div \rfrac{5}{3}$ （ 主元所在行的所有元素除以主元）：
+
+\begin{equation} \label{row1_div_frac_5_3}
+\begin{pmatrix}
+\rfrac{5}{3} \div \rfrac{5}{3} & 0 \div \rfrac{5}{3} & \rfrac{2}{3} \div \rfrac{5}{3} & \vline & -\rfrac{1}{3} \div \rfrac{5}{3} &1 \div \rfrac{5}{3} & 0 \div \rfrac{5}{3} \\
+\rfrac{1}{3} & 1 & \rfrac{1}{3} & \vline & \rfrac{1}{3} &0&0 \\
+1\frac{1}{3} & 0 & \rfrac{1}{3} & \vline & -\rfrac{2}{3} &0&1
+\end{pmatrix}
+\end{equation}
+
+\ref{row1_div_frac_5_3} 式最终被计算为：
+
+\begin{equation} \label{row1_div_frac_5_3_result}
+\begin{pmatrix}
+1 & 0 & \rfrac{2}{5} & \vline & -\rfrac{1}{5} & \rfrac{5}{3} & 0 \\
+\rfrac{1}{3} & 1 & \rfrac{1}{3} & \vline & \rfrac{1}{3} &0&0 \\
+1\frac{1}{3} & 0 & \rfrac{1}{3} & \vline & -\rfrac{2}{3} &0&1
+\end{pmatrix}
+\end{equation}
+
+\item[5] $Row2 - (\rfrac{1}{3} \times Row1)$ ， $Row3 - (\rfrac{4}{3} \times Row1)$ ：
+
+\begin{equation} \label{row2_sub_frac_1_3mul_row1_andon}
+\begin{pmatrix}
+1 & 0 & \rfrac{2}{5} & \vline & -\rfrac{1}{5} & \rfrac{5}{3} & 0 \\
+\rfrac{1}{3}-(1\times\rfrac{1}{3}) & 1-(0\times\rfrac{1}{3}) & \rfrac{1}{3}-(\rfrac{2}{5}\times\rfrac{1}{3}) & \vline & \rfrac{1}{3}-(-\rfrac{1}{5}\times\rfrac{1}{3}) &0-(\rfrac{5}{3}\times\rfrac{1}{3})&0-(0\times\rfrac{1}{3}) \\
+1\frac{1}{3} & 0 & \rfrac{1}{3} & \vline & -\rfrac{2}{3} &0&1
+\end{pmatrix}
+\end{equation}
+
+\begin{equation} \label{row2_sub_frac_1_3mul_row1_andon_step2}
+\begin{pmatrix}
+1 & 0 & \rfrac{2}{5} & \vline & -\rfrac{1}{5} & \rfrac{5}{3} & 0 \\
+\rfrac{1}{3}-(1\times\rfrac{1}{3}) & 1-(0\times\rfrac{1}{3}) & \rfrac{1}{3}-(\rfrac{2}{5}\times\rfrac{1}{3}) & \vline & \rfrac{1}{3}-(-\rfrac{1}{5}\times\rfrac{1}{3}) &0-(\rfrac{5}{3}\times\rfrac{1}{3})&0-(0\times\rfrac{1}{3}) \\
+\rfrac{4}{3}-(1\times\rfrac{4}{3}) & 0-(0\times\rfrac{4}{3}) & \rfrac{1}{3}-(\rfrac{2}{5}\times\rfrac{4}{3}) & \vline & -\rfrac{2}{3}-(-\rfrac{1}{5}\times\rfrac{4}{3}) & 0-(\rfrac{5}{3}\times\rfrac{4}{3}) & 1-(0\times\rfrac{4}{3})
+\end{pmatrix}
+\end{equation}
+
+式子 \ref{row2_sub_frac_1_3mul_row1_andon_step2} 可以被简化为：
+
+\begin{equation} \label{row2_sub_frac_1_3mul_row1_andon_result}
+\begin{pmatrix}
+1&0&\frac{2}{5} &\vline& -\frac{1}{5} & \frac{3}{5} & 0 \\
+0&1&\frac{1}{5} &\vline& \frac{2}{5} & -\frac{1}{5} & 0  \\
+0&0&-\frac{1}{5} &\vline& -\frac{2}{5} & -\frac{4}{5} & 1
+\end{pmatrix}
+\end{equation}
+
+
+（ 现在， 原来的矩阵 $\matr{A}$ 又有一列被化为了单位阵的形式）
+
+\item[6] 重新选主元， 这一次主元选为 $-1/5$ ， 于是 $Row3 \div (-1/5)$ （ 主元所在行的所有元素除以主元）：
+
+\begin{equation}
+\begin{pmatrix}
+1&0&\frac{2}{5} &\vline& -\frac{1}{5} & \frac{3}{5} & 0 \\
+0&1&\frac{1}{5} &\vline& \frac{2}{5} & -\frac{1}{5} & 0  \\
+0&0&1 &\vline& 2 & 4 & -5
+\end{pmatrix}
+\end{equation}
+
+\item[7] $Row1 - (2/5) \times Row3$ ， $Row2 - (1/5) \times Row3$ ：
+
+\begin{equation}
+\begin{pmatrix}
+1&0&0 &\vline& -1 & -1 & 2 \\
+0&1&0 &\vline& 0 & -1 & 1  \\
+0&0&1 &\vline& 2 & 4 & -5
+\end{pmatrix}
+\end{equation}
+
+现在， 原来的矩阵 $\matr{A}$ 的所有列都被化为了单位阵的形式 。
+
+\end{itemize}
+
+可见， 以上过程非常适合于计算机编程求解 。
+
+	至此， 我们完成了从 $\matr{A}$ 到 $\matr{E}$ 的转换， 这个过程中使用了选主元的方法， 但没有使用列交换 。于是， 原来的单位矩阵 $\matr{E}$ 就变成了 $\matr{A}-1$， 即：
+
+\begin{equation}
+A^{-1} = \begin{pmatrix}
+-1 & -1 & 2 \\
+0 & -1 & 1 \\
+2 & 4 & 5
+\end{pmatrix}
+\end{equation}
+
+	有人说， 在进行转化的过程中， 如果某一步发现选中的主元为 $0$， 怎么办？ 当然， 这种情况就进行不下去了 （ 矩阵是奇异的） 。
+
+\end{document}
+
+
