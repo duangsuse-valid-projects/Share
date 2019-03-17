@@ -1,0 +1,403 @@
+\documentclass[11pt]{article}
+
+\usepackage{amsmath, amssymb}
+\usepackage[normalem]{ulem}
+
+% XeTex is utf8 based
+%\usepackage[utf8]{inputenc}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[colorlinks]{hyperref}
+
+% Tikz
+\usepackage{tikz}
+
+\usepackage{float}
+\usepackage{caption}
+\usetikzlibrary{shapes.geometric, arrows, positioning}
+
+\tikzstyle{start} = [rectangle, rounded corners, minimum width=3cm, minimum height=1cm,text centered, draw=black]
+\tikzstyle{process} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, draw=black]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+
+% CJK Support
+\usepackage{fontspec, xunicode, xltxtra}
+
+% CJK style
+\usepackage[top = 1in, bottom = 1in, left = 1.25in, right = 1.25in]{geometry}
+
+\XeTeXlinebreaklocale "zh"
+\XeTeXlinebreakskip = 0pt plus 1pt minus 0.1pt
+
+\renewcommand{\baselinestretch}{1.25}
+
+\parindent 2em
+
+% Set main font
+\newfontfamily\opensans{Open Sans}
+\newfontfamily\sourcehanserif{Source Han Serif CN}
+
+\usepackage[CJK]{ucharclasses}
+\setTransitionsForCJK{\sourcehanserif}{\opensans}{\opensans}
+
+\setmainfont{Open Sans}
+
+\title{$ \LaTeX $ Document Test Page (class aritcle 11pt)}
+\author{duangsuse (maketitle, title, author)}
+\date{March 10, 2019 with amsmath,amssymb,tikz,hyperref,caption,.$\cdots$}
+
+\begin{document}
+
+\maketitle
+
+\section{Made by duangsuse with love and $ \LaTeXe $}
+
+\begin{equation}
+Y = (lambda) \lambda f. (\lambda x. f (x x)) (\lambda x. f (x x))
+\end{equation}
+
+\begin{equation}
+Matrix_0 = \begin{Bmatrix}
+	1 & 9 & 3 & 5 & 10 \\
+	3 & \mathbf{5} & 9 & 4 & 71 \\
+	2 & 3 & 1 & 9 & 34 \\
+	9 & 4 & 3 & 2 & 29 \\
+	2 & 8 & 4 & 3 & 12
+\end{Bmatrix}
+(begin equation, mathbf, Bmatrix)
+\end{equation}
+
+\begin{equation}
+{{Matrix_0}_2}_2 (equiv) \equiv 5
+\end{equation}
+
+\begin{equation}
+(sum, dash_sub, accent^sup) \sum_{i = 2}^4 \sum_{j = 1}^4 {{Matrix_0}_i}_j
+\end{equation}
+
+\section{Made by others with unbelievable IQ}
+
+\begin{equation}
+x = {-b (pm)\pm (sqrt)\sqrt{b^2-4ac} (frac)\frac 2a}.
+\end{equation}
+
+\begin{equation}
+d_i=(displaystyle)\displaystyle{\sum_{j=1}^{n} a_{ij}}
+\end{equation}
+
+\begin{equation}
+(sigma)\sigma = \sqrt{ \frac{1}{N} \sum_{i=1}^N (x_i -(mu)\mu)^2}
+\end{equation}
+
+\begin{equation}
+((nabla)\nabla_X Y)^k = X^i (\nabla_i Y)^k = X^i (left)\left( \frac{(partial)\partial Y^k}{\partial x^i} + (Gamma)\Gamma_{im}^k Y^m (right)\right)
+\end{equation}
+
+\begin{equation}
+(vec)\vec{\nabla} (times)\times \vec{F} = \left( \frac{\partial F_z}{\partial y} - \frac{\partial F_y}{\partial z} \right) (mathbf)\mathbf{i}
+        + \left( \frac{\partial F_x}{\partial z} - \frac{\partial F_z}{\partial x} \right) \mathbf{j} + \left( \frac{\partial
+        F_y}{\partial x} - \frac{\partial F_x}{\partial y} \right) \mathbf{k}
+\end{equation}
+
+\begin{equation}
+f(x) = \begin{cases} (begin cases)
+	0 & x(leq)\leq 0 \\
+	\frac{100-x}{100} & 0\leq x\leq 100 \\
+	0 & 100\leq x 
+\end{cases}
+\end{equation}
+
+\begin{equation}
+z = (overbrace)\overbrace{
+	(underbrace)\underbrace{x}_\text{real} + i
+	\underbrace{y}_\text{imaginary}
+}^\text{complex number}
+\end{equation}
+
+\begin{equation}
+C_n^i=\frac{n!}{i!(n-i)!}
+\end{equation}
+\begin{equation}
+B_{i,n}(t)=C_n^i(1-t)^{n-i}t^i
+\end{equation}
+\begin{equation}
+R(t)=\sum_{i=0}^n R_iB_{i,n}(t),(quad)\quad 0\leq t\leq 1
+\end{equation}
+
+\setmainfont{WenQuanYi Zen Hei}
+
+\section{$\lambda$ - 算子 (section)}
+
+(textit) \textit{formal system italic} \quad (textbf) \textbf{黑体 bold} \\
+(textsc) \textsc{Hello 小体大写} \quad (textsf) \textsf{World } \\
+\quad (textsl) \textsl{slanted goodbye} \quad (texttt) \texttt{science} \\
+(textup) \textup{Sample} \quad (textmd) \textmd{Hello}
+
+\begin{center}
+math (begin center)
+\end{center}
+
+\begin{math}
+(mathbb) \mathbb{Z^+} (\mathbb{N}) \mathbb{Z} \mathbb{Q} \mathbb{R} \mathbb{I} \mathbb{C}
+\end{math}
+
+$\lambda$ (lambda) $U$ (U) $\Gamma$ (Gamma) $\emptyset$ (emptyset) (pagebreak) (bigskip)
+
+(Gamma vdash lambda x. x) $\Gamma \vdash \lambda x . x$ \\
+$$(forall)\forall x(in)\in\mathbb{Z}_+. x\in{A} \wedge x\ge2$$
+$$(beacuse)\because{2=(-1)+3} \quad(therefore)\therefore p$$
+
+\begin{equation}
+2n=(-1)+(2n+1),2n+1\in\mathbb{P}
+\end{equation}
+\begin{equation}
+(exists)\exists{n_0}\in\mathbb{N}_+,2n_0(notin)\notin{A}
+\end{equation}
+
+\subsection{(subsection) lambda calculus}
+
+(f(x) = x) $f(x) = x$ (f) $f$ (lambda) $\lambda$
+
+$$\Gamma (vdash)\vdash (\lambda x . x) (\lambda y . y)$$
+$$(\lambda x . x) (\lambda y . y) = (beta)\beta \lambda y . y$$
+$$ (\lambda xy.x) (\lambda a.a) (\lambda b.b) (equiv)\equiv (\lambda x.\lambda y.x) (\lambda a.a) (\lambda b.b) \\ = _\beta (\lambda y.(\lambda a.a)) (\lambda b.b) \\ = _\beta \lambda a.a $$
+$$\beta-reduction (alpha)\alpha-X$$
+$$ (\lambda x . x) (\lambda x . x) \\ = _\alpha (\lambda x . x) (\lambda y . y) $$
+
+\section{Hello World}
+
+\begin{equation}
+\cos(θ+φ)=\cos(θ)\cos(φ)−\sin(θ)\sin(φ)
+\end{equation}
+
+\begin{equation}
+f(a) = \frac{1}{2(pi)\pi i} (oint)\oint\frac{f(z)}{z-a}dz
+\end{equation}
+
+\begin{equation}
+(int)\int_D ({\nabla(cdot)\cdot} F)dV=\int_{\partial D} F\cdot ndS
+\end{equation}
+% From https://liolok.github.io/zh-CN/B%C3%A9zier-%E6%9B%B2%E7%BA%BF%E5%8F%8A%E5%85%B6-deCasteljau-%E5%89%96%E5%88%86%E7%AE%97%E6%B3%95/
+\begin{equation}
+(\nabla_X Y)^k = X^i (\nabla_i Y)^k = X^i \left( \frac{\partial Y^k}{\partial x^i} + \Gamma_{im}^k Y^m \right)
+\end{equation}
+
+一条 $n$ 次 Bézier 曲线可以表示为：$R(t)=\sum_{i=0}^n R_iB_{i,n}(t),\quad 0\leq t\leq 1$
+
+\paragraph{(paragraph) Bezier 曲线}
+
+\label{helo} \begin{quote}
+(label helo begin quote) $R_i$ 是控制顶点， 我们可以看出， 一条 $n$ 次 Bézier 曲线有 $n+1$ 个控制顶点， 即 $n$ 次 $n+1$ 阶曲线，$B_{i,n}(t)$ 是 Bernstein 基函数
+\end{quote}
+
+\begin{equation}
+B_{i,n}(t)=C_n^i(1-t)^{n-i}t^i
+\end{equation}
+\begin{equation}
+C_n^i=\frac{n!}{i!(n-i)!}
+\end{equation}
+
+\hypertarget{helo}{(hypertarget helo) hello} (ref helo) \ref{helo}
+
+\begin{itemize}
+	\item (begin itemize) (item) 从几何意义上看， 当参数 $t=0$ 时， 对应的是曲线的第 $0$ 个控制顶点;  而当参数 $t=1$ 时， 对应的是曲线的第 $n$ 个控制顶点 。 这就是 Bézier 曲线的端点插值特性， 即 $R(0)=R_0, R(1)=R_1$
+	\item 由于二项式系数的对称特性 $C_n^i=C_n^{n-i}$， Bézier 曲线控制顶点的也具有几何地位上的对称性， 即 $\sum_iR_iB_{i,n}(t)=\sum_iR_{n-i}B_{i,n}(t)$
+\end{itemize}
+
+\subsection{时间线}
+\begin{tabular}{|c|c|c|c|}
+\hline
+(begin tabular) 全局名称 (and)& 类型 & 格式 & 解释 (newline)(hline)\\
+\hline
+owner & Integer & Int32 & 时间线所属人 \\
+\hline
+type & SmallInt & Int16 & 时间线类型 \\
+\hline
+data & Integer & Int32 & 时间线数据 \\
+\hline
+created & TimeStamp & Date & 时间线发布（ 创建） 时间 (end tabular) \\
+\hline
+\end{tabular}
+
+\bigskip
+
+% From https://lexuge.github.io/jekyll/update/2018/07/24/lib_blaster%E4%BC%98%E5%8C%96%E7%AC%94%E8%AE%B0.html
+
+\begin{math}
+\mu ' = \frac{1s}{3.2731\mu s}\\
+(approx)\approx 305530.094714329 pps
+\end{math}
+
+\begin{align}
+t_{2}\%=\frac{n\cdot{}t_{b}}{n\cdot{}t_{b}}=100\%
+\end{align}
+
+\begin{align}(lim limits)\lim\limits_{n(to)\to+(infty)\infty}\frac{t_{b}}{t_{b}+n\cdot{}t_{e}}=0=0\%\end{align}
+
+\begin{align}
+\lim
+  \limits_{n\to+\infty}k &= \lim\limits_{n\to+\infty} [\frac{t_{b}}{n\cdot (t_{b}+t_{e})}+\frac{n\cdot t_{e}}{n\cdot (t_{b}+t_{e})}]\\
+&=\lim\limits_{n\to+\infty}\frac{t_{b}}{n\cdot(t_{b}+t_{e})}+\lim\limits_{n\to+\infty}\frac{n\cdot t_{e}}{n\cdot (t_{b}+t_{e})}\\
+&=0+\frac{t_{e}}{t_{b}+t_{e}}\\
+&=\frac{t_{e}}{t_{b}+t_{e}}\\
+\end{align}
+
+% From https://github.com/Sleepwalking/prometheus-spark/blob/master/writings/ib-ia-hnm/hua-ia-hnm.tex
+
+\newcommand{\matr}[1]{\mathbf{#1}}
+(newcommand matr [1] lbrace mathbf sharp1 rbrace)
+
+\begin{equation} \label{linsys}
+(matr)\matr{R}x = \matr{b}
+\end{equation}
+
+\begin{equation} \label{origh}
+(label origh) (hat)\hat{h}(t) = \sum_{k = 1}^{L} a_k(t^i_a)(cos)\cos(2\pi k f_0(t^i_a)(t - t^i_a) + (phi)\phi_k(t^i_a))
+\end{equation}
+
+$\matr{b}$ in (\ref{linsys}) is a $(2L + 1) \times 1$ vector with elements $b_k$ as
+
+\begin{equation} \label{rl}
+r_{ik} = r_l = \sum_{t = -N}^{N} w_{2N + 1}^2(t) e^{-j 2\pi t f_0 l} (mid)\mid_{l = k - i, -2L \leq l \leq 2L}
+\end{equation}
+
+\begin{equation} \label{objective}
+\{a_k^*(t^i_a), \phi_k^*(t^i_a)\} = (underset)\underset{a_k(t^i_a), \phi_k(t^i_a)}{(underset of)(arg)\arg(min)\min} \sum_{t = t^i_a - N}^{t^i_a + N} \left(w_{2N + 1}(t)(s(t) - \hat{h}(t))\right)^2
+\end{equation}
+
+ref to rl (\ref{rl}) (cite hua-2014) \cite{hua-2014}
+
+(tips: use (input file) to reference external input file to processed by \TeX)
+\begin{figure}
+\centering
+
+\caption{(begin figure, centering, caption)estimated parameters of harmonics}
+\label{fig:harest}
+\end{figure}
+
+\section{Greek character (alphabet)}
+% https://en.wikipedia.org/wiki/Greek_alphabet
+
+\begin{tabular}{|c|c|c|c|}
+\hline
+letter & name & IPA & Approximate western European equivalent \\
+\hline
+A $\alpha$ & alpha & [a] & f(uline)\uline{a}ther \\
+\hline
+B $\beta$ & beta & [b] & \uline{v}ote \\
+\hline
+$\Gamma \gamma$ & gamma & [$\gamma$] ~ [j], [ŋ] ~ [jn] & \uline{y}ellow \\
+\hline
+$\Delta \delta$ & delta & [ð] & \uline{th}en \\
+\hline
+$Ε(E) \epsilon \varepsilon$ & epsilon & [e] & \uline{p}et \\
+\hline
+$Z \zeta$ & zeta & [z] & \uline{z}oo \\
+\hline
+$H \eta$ & eta & [i] & mach\uline{i}ne \\
+\hline
+$\Theta \theta \vartheta$ & theta & $[\theta]$ & \uline{th}in \\
+\hline
+$I \iota$ & iota & [i], [ç], [j], [jn] & \uline{i} \\
+\hline
+$K \kappa$ & kappa & [k] ~ [c] & \uline{k} \\
+\hline
+$\Lambda \lambda$ & lambda & [l] & \uline{l}antern \\
+\hline
+$M \mu$ & mu & [m] & \uline{m}usic \\
+\hline
+$N \nu$ & nu & [n] & \uline{n}et \\
+\hline
+$\Xi \xi$ & xi & [ks] & fo\uline{x} \\
+\hline
+$O o$ & omicron & [o] & s\uline{o}ft \\
+\hline
+$\Pi \pi \varpi$ & pi & [p] & to\uline{p} \\
+\hline
+$P \rho \varrho$ & rho & [r] & \uline{r} in \\
+\hline
+$\Sigma \sigma \varsigma$ & sigma & [s] ~ [z] & mu\uline{s}e \\
+\hline
+$T \tau$ & tau & [t] & coa\uline{t} \\
+\hline
+$\Upsilon \upsilon$ & upsilon & [i] & \uline{i} \\
+\hline
+$\Phi \phi$ & phi & [f] & \uline{f}ive \\
+\hline
+$X \chi$ & chi & [x] ~ [ç] & Scottish lo\uline{ch} \\
+\hline
+$\Psi \psi$ & psi & [ps] & la\uline{ps}e \\
+\hline
+$\Omega \omega$ & omega & [o] & s\uline{o}ft \\
+\hline
+
+\end{tabular}
+
+\section{Operators}
+
+$(oplus)\oplus (ominus)\ominus (perp)\perp (cap)\cap (cup)\cup (vee)\vee (ni)\ni$ \\
+$(sum)\sum (prod)\prod (coprod)\coprod (int)\int (oint)\oint (sqsupset)\sqsupset (subsetneq)\subsetneq (nsubseteq)\nsubseteq (nsupseteq)\nsupseteq$ \\
+$(varsupsetneq)\varsupsetneq (supset)\supset (sqsupseteq)\sqsupseteq (star)\star (ast)\ast$ \\
+$(rightleftharpoons)\rightleftharpoons (rightarrow)\rightarrow (Leftrightarrow)\Leftrightarrow (circlearrowleft)\circlearrowleft (nRightarrow) \nRightarrow (Rightarrow)\Rightarrow$ \\
+$cdots \cdots vdots \vdots ddots \ddots aleph \aleph flat \flat sharp \sharp bigstar \bigstar$ \\
+$(complement)\complement (backslash)\backslash (Bbbk)\Bbbk (varnothing)\varnothing (nexists)\nexists (infty)\infty (surd)\surd (top)$ \\
+$\top (bot)\bot (neg)\neg (hslash)\hslash (emptyset)\emptyset$
+
+\section{Introduction . Reunderstand PSOLA}
+
+\subsection{PSOLA as a Source-Filter Model}
+
+What leaves me wondering is: seems like there's always a blind spot in all tutorials, slides and papers about PSOLA. In a few sentences they tell you something like,
+\footnote{(footnote)A much more detailed yet easy-to-understand video introduction can be found on Professor Simon King's website, \url{(url)http://www.speech.zone/td-psola-the-hard-way/}}
+
+\begin{quotation}
+Tikzpicture [node distance = xcm] \\
+node (name) [type: start|process(right|below = float| of=name)] {text}; \\
+draw [type: arrow] (name) -- (name);
+\end{quotation}
+
+\begin{center}
+\begin{tikzpicture}[node distance=4cm]
+\node (input) [start] {(node)Speech Input};
+\node (epoch) [process, right of=input] {Epoch Marking};
+\node (window) [process, right of=epoch] {Windowing};
+\node (ft) [process, right of=window] {FT};
+\node (ift) [process, below = 0.5 of ft] {IFT};
+\node (shift-ola) [process, left of=ift] {Shift and Overlap-Add};
+\node (output) [start, left of=shift-ola] {Speech Output};
+\draw [arrow] (input) -- (epoch);
+\draw [arrow] (epoch) -- (window);
+\draw [arrow] (window) -- (ft);
+\draw [arrow] (ft) -- (ift);
+\draw [arrow] (ift) -- (shift-ola);
+\draw [arrow] (shift-ola) -- (output);
+\end{tikzpicture}
+\end{center}
+
+\bigskip
+
+\begin{center}
+\begin{tikzpicture}[node distance=4cm]
+\node (ptrain) [start] {Pulse Train};
+\node (vtract) [process, right of=ptrain] {Vocal-tract Filter};
+\draw [arrow] (ptrain) -- (vtract);
+\end{tikzpicture}
+\end{center}
+
+\begin{center}
+\begin{tikzpicture}[node distance=4cm]
+\node (ift) [process] {IFT};
+\node (shift-ola) [process, right of=ift] {Shift and Overlap-Add};
+\node (output) [start, right of=shift-ola] {Speech Output};
+\draw [arrow] (ift) -- (shift-ola);
+\draw [arrow] (shift-ola) -- (output);
+\end{tikzpicture}
+\end{center}
+
+\begin{thebibliography}{99}
+
+\bibitem{hua-2014}{(begin thebibliography 99 bibitem hua-2014) Hua, Kanru. ``A method to improve the extraction quality of periodic component of speech". Patent Application. CN201410457379. 2014.}
+\end{thebibliography}
+
+\end{document}
