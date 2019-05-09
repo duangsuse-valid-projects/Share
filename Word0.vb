@@ -1,5 +1,3 @@
-
-
 Sub 输入作文列表()
 '
 ' 输入作文列表 宏
@@ -48,6 +46,7 @@ Sub 输入作文列表()
           If Strings.StrComp(linecs(0), "=") = 0 Then
             MsgBox linecs(1)
             klass = linecs(1)
+            num = 1
           Else
             Dim author, title, fin As String
             Dim split As Variant
@@ -58,6 +57,9 @@ Sub 输入作文列表()
             author = split(0)
             title = fin
             MsgBox title + ": " + author
+
+            EnterTable num, school, klass, author, title, teacher
+            num = num + 1
           End If
         Else
           Dim teacherSchool As Variant
@@ -72,6 +74,21 @@ Sub 输入作文列表()
 ForNext:
   Next
 End Sub
+Sub EnterTable(ByVal num As String, ByVal school As String, ByVal klass As String, ByVal name As String, ByVal title As String, ByVal teacher As String)
+  EnterText text:=num
+  NextCol
+  NextCol
+  EnterText text:=school
+  NextCol
+  EnterText text:=klass
+  NextCol
+  EnterText text:=name
+  NextCol
+  EnterText text:=title
+  NextCol
+  EnterText text:=teacher
+  NextNLine
+End Sub
 Sub EnterText(text As String)
   Selection.TypeText text
 End Sub
@@ -82,7 +99,6 @@ Sub NextCol(Optional ByVal i = 1)
   Selection.Move Unit:=wdCell, Count:=i
 End Sub
 
-Import Application.FileDialog
 
 Function GetFilePath() As String
   Dim fd As FileDialog
