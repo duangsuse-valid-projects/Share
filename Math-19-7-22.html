@@ -1,0 +1,752 @@
+<!DOCTYPE HTML public "-//duangsuse//GNU Nano//ZH">
+<html lang="zh-CN"dir="ltr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>几个数学模板</title>
+  <meta name="description" content="从 Telegram 上必须转移过来的迫真数学模板" />
+  <meta name="keywords" content="Math,数学,Telegram,duangsuse" />
+
+  <!-- deps -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-MML-AM_CHTML"
+   crossorigin="anonymous" async></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.8/styles/atom-one-light.min.css"
+   integrity="sha256-VCcaD9+X/d4QGYRX7l5aMJ8BWgwfA8d3S7i/HC9rvvw=" crossorigin="anonymous" />
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.8/highlight.min.js"
+   integrity="sha256-js+I1fdbke/DJrW2qXQlrw7VUEqmdeFeOW37UC0bEiU=" crossorigin="anonymous"></script>
+
+  <script defer id="hl-haskell" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.8/languages/haskell.min.js"
+   integrity="sha256-6F6BmMj4gGdcbRj8goKpiuzZcK7OonuNEwr+TRhAsVI=" crossorigin="anonymous"></script>
+
+  <style>
+table {
+  display: table;
+  border-collapse: separate;
+  border-spacing: 2px;
+  border: dashed;
+  border-width: 4px;
+  border-color: gray;
+}
+th {
+  border: 2px solid red;
+}
+td {
+  border: 2px solid green;
+}
+body blockquote {
+  border-left: 2px solid limegreen;
+  padding-left: 20px;
+  margin-left: 2px;
+}
+template {
+  color: yellowgreen;
+}
+.nsfw {
+  color: yellowgreen;
+}
+  </style>
+</head>
+
+<body>
+  <script>
+    function map(f, xs) { var ys=[]; for(var x of xs) ys.push(f(x)); return ys; }
+    function showTemplate(node, proc, setup) {
+      var rendered = (typeof proc === 'function')? proc(node.innerHTML) : node.innerHTML;
+      //var visibles = map(function(it){document.importNode(it, true)}, node.content.getRootNode().children);
+      var visible = document.createElement('a');
+      if ( typeof setup === 'function' ) setup(visible);
+      visible.innerHTML = rendered;
+      //node.previousSibling.appendChild(visible);
+      node.parentNode.insertBefore(visible, node); }
+  </script><script type="text/javascript">
+    function highlight() {
+      var s = document.getElementById('hl-haskell');
+      s.onload = s.onreadystatechange = function() {
+      if (this.readystate ==undefined || this.readystate === 'loaded' || this.readystate === 'complete')
+        hljs.initHighlighting(); }}
+    //document.addEventListener('DOMContentLoaded', highlight);
+    highlight();
+  </script><script>
+    function setNsfwButton() {
+      var q = document.getElementById.bind(document);
+      var but = q('show-nsfw'), verb = q('verb-show-nsfw'), nsfws = document.querySelectorAll('template[nsfw=""]');
+      // var state_deci = (nsfws.length!=0)? nsfws[0] : verb; // or die 
+      var isshown = false;
+      function makeShown(st) { if(st) 
+        for (var nsfw of nsfws) { showTemplate(nsfw, null, function(nd){ nd.classList.add('nsfw'); }); }
+        else for (var nsfw of document.querySelectorAll('.nsfw')) { console.log(nsfw); nsfw.remove(); } }
+      function changeVerb(st) { verb.innerText = (st)? "隐藏" : "显示"; }
+      but.onclick = function() { makeShown((isshown = !isshown)); changeVerb(isshown); };
+    }
+    document.addEventListener('DOMContentLoaded', setNsfwButton);
+  </script>
+
+  <div id="roll" align="center">
+    <div id="title"><h2>几个<template nsfw>（迫真）</template>数学模板</h2></div>
+    <div id="author">duangsuse</div>
+    <div id="date"><time>22, Jul 2019</time></div>
+  </div>
+
+  <div id="main"><article>
+
+<p id="scary-math"><h3>要命的数学 | F**king Math</h3>
+今天谈几个数学相关的问题。<template nsfw>🤔</template><br>
+首先我们看看某 <abbr title="Olympiad in Informatics">OI</abbr> 题目<template nsfw>，顺便可怜一下某位<s>帮助可怜的码队</s>弟弟每天要解决这种题目</template>：
+
+<p id="excited">
+\[ resolve(n, m) = \sum^{n}_{i=1} \sum^{m}_{j=1} ij (n\mod{i}) (m\mod{j}) \mod{10^9+7} \]
+<br><b>where</b><br>
+
+\[ n\geq{10} \land m\leq{10^9}  \]
+</p>
+
+输入输出格式这种 <abbr title="泛泛">trivial</abbr> 的问题我们就不管了<template nsfw>，幼儿园的儿童都写的出来 <code>while (!std::cin.eof()) std::cin >> n >> m;</code></template>。
+输入的是一组参数数据、输出结果。
+<br><br>
+<template nsfw>就有这么一个问题，码队的小弟弟怎么就突然遇到了这个数学问题，</template>
+还得在 <time>1s</time><template nsfw>🐸</template> 内解出来，不然还不行
+（ICPC 赛制，答案正确 <abbr title="Time Limit Exceeded">TLE</abbr> 还没分）
+<br>
+
+给的复杂度要求是 \( \omicron(\sqrt{n}) \)<template nsfw>, 沃日</template><template nsfw>，算不出复杂度就拿时间限制…</template>
+<br>
+
+然后可以给个例子：
+
+<samp>
+\[ resolve(10, 10) = 6561 \]
+<samp>
+
+<br>
+我<template nsfw>（🌞）</template>这个半工程系半理论系的看到首先以为是<template nsfw>弱智</template>翻译题，没有注意到时间限制和数值稳定问题
+
+<blockquote id="ref-0"><bdo dir="ltr"><pre>
+Young Zy, [21.07.19 17:33]
+> 完全自闭
+> 然后我因为取余写自闭了，至少白给了8发
+
+duang suz, [21.07.19 18:53]
+[In reply to Young Zy]
+< 卡了你两个小时，本来已经通过了，可是你为了优化 10x 就又多花了很多时间？...
+
+duang suz, [21.07.19 18:56]
+[In reply to Young Zy]
+def resolve(n, m)
+ac = 0
+(1..n).each do|i|
+  (1..m).each do |j|
+    ac += i*j*(n % i)*(m % j)
+  end
+end
+return ac % (10**9 + 7)
+end
+
+（也可以 Map & Sum, Kotlin 里一般这么做大概，当然这都应该看优化了的说，比如并行计算和代数化简）
+我还以为是高大上算法题呢... 数学公式翻译啊... 连列数学公式都不需要自己做，这降低了好大难度档次的说...
+
+开始看这 MathJax 的排版我还以为是逆天级别的题目... 数学 + 算法...
+
+[In reply to Young Zy]
+< 又不是位运算优化取余或者自己实现整除和取余(divmod)（
+< def fmod(n, m): return (n|m)-n
+< 话说那个『快速』取余是怎么定义来着...
+
+[In reply to Young Zy]
+< 是数值安全（防溢出什么的）的题？
+
+ߓߎߏߔߜߗߙ ߌߋߎߖߘߛߟ, [21.07.19 19:12]
+> 多久算出来？
+> 要速度的
+
+[In reply to Young Zy]
+< 我还以为会溢出（
+
+ߓߎߏߔߜߗߙ ߌߋߎߖߘߛߟ, [21.07.19 20:22]
+> 会
+> 绝对会
+> 多个错误撞一起
+> 看哪个先碰到
+
+duang suz, [21.07.19 20:22]
+< 等价变换啊，很多嵌入式算法都是这么解决的
+</pre></bdo></blockquote>
+
+<template nsfw><br>
+结果帅<sub><s>（迫真）</s></sub>不过三秒，气死了，我要报复！😡
+</template>
+<br>
+</p>
+
+<p id="deeper-dive"><h3>我考虑了一会后想到 | What I Thought</h3>
+因为有这个题目，我出门散步的时候连歌都没有听好，
+一直在想 \( \sum^{max}_{accum=initial} \) operator 变换和 \( \mod{} \) 操作符定义的问题…
+<br>
+而之前我好像连<abbr title="power">乘方</abbr> \( x^2 \) 
+和 \( \log_2 \)、\( \sqrt[3]{x} \) 都分不清… <template nsfw>管他呢</template>
+<br>
+
+走路的时候我想到了一种『优化』可能：
+
+\[ \forall{a, b, a_1, a_2, \cdots, a_n}. 
+a_1=a_2=\cdots=a_n \Rightarrow [a_1, a_2, \cdots, a_n] \mod{b} = a \mod b \]
+
+（其中 \( a_0, \cdots, a_n\) 是从 \(a\) 中截取到相等的部分）
+<br>
+（开始的时候思路蛮不清晰的，式子还写错了，我整理了一下）
+<br>
+但是早在我想到的时候就被推翻了…<template nsfw>（逃跑</template>
+
+\[ 100 \mod{10} \neq \overbrace{[10, \cdots, 10]}^{10} \mod{10} \]
+
+但是我依然怀疑这个式子是<template nsfw>极其</template>正确的，于是又想是不是
+
+\[ a \mod{b} = \overbrace{[a_1, a_2, \cdots, a_n]}^{n} \mod{b} + n \]
+
+但是又瞬间被打脸了<template nsfw>（绝望）</template>：
+
+\[ 100 \mod 1 \neq \overbrace{[10, \cdots, 10]}^{10} \mod 1 + 10 \]
+<br>
+
+<blockquote id="ref-1"><pre>
+duang suz, [21.07.19 20:23]
+我走路的时候想了一会，否定了以下的脑残假设，打算过会整理一下成文，算作进步... 虽然我还是不会
+
+（此处省略若干行）
+
+我...
+
+数值的我直觉比较差... 因为完全模拟做不到、一些别人都已知道的代数套用我又不会记，然后我整理的速度也比别人慢很多...
+</pre></blockquote>
+
+<figure id="codecogs">
+  <img alt="之前排版的相同式子" src="https://latex.codecogs.com/png.latex?\sum^{n}_{i=1}%20\sum^{m}_{j=1}%20ij%20(n%20\mod%20i)%20(m%20\mod%20j)%20mod%20(10^9+7)" />
+  <figcaption>之前排版过相同的题目式子</figcaption>
+</figure>
+<br>
+
+<blockquote id="ref-2"><bdo dir="ltr"><pre>
+duang suz, [21.07.19 20:38]
+[In reply to Young Zy]
+< 🤔 我要手动展开很久... 你是怎么解的？是代数化简吗？
+
+ߓߎߏߔߜߗߙ ߌߋߎߖߘߛߟ, [21.07.19 20:39]
+> 你知道同余定理嘛
+
+duang suz, [21.07.19 20:39]
+[In reply to ߓߎߏߔߜߗߙ ߌߋߎߖߘߛߟ]
+< 不知道，恐怕我得手动推...
+</pre></bdo></blockquote>
+<br>
+然后我就去 Haskell <a href="https://hackage.haskell.org/package/base-4.12.0.0/docs/Prelude.html#v:mod">haddoc base:v:mod</a> 
+那里找了一下 <pre style="display: inline-flex"><code class="haskell">div</code></pre> 的定义，找不到（估计是 Intrinsic），但是找到了一个性质
+<br>
+\[ (a \div{b} \times{b}) + a \mod{b} = a \]
+<br>
+<q>甚至我连 mod 的定义都得再确认一遍，如果除数大于被除数应该怎么办，现在看来... <code>10/100=0; 10 mod 100 = 100</code></q>
+<br>
+结果我正在准备<template nsfw><s>拿命🐸</s></template>分析的时候，直接发答案了
+<br>
+
+<blockquote id="ref-3"><pre>
+Young Zy, [21.07.19 20:54]
+> 官方的题解出来了，我截个图给你们
+> 反正是个数学题
+</pre></blockquote>
+</p>
+
+<p id="resolution"><h3>题解 | "Immediate" Solution<template nsfw> 🤪</template></h3>
+
+\[ \sum^{n}_{i} \sum^{m}_{j} ij (n\mod{i})(m\mod{j}) \mod{10^9+7}
+  \\ = \sum^{n}_{i} i(n\mod{i}) \sum^{m}_{j} j(m\mod{j})  \]
+
+这<template nsfw> TMD </template>是完<template nsfw><s>Van♂</s></template>全一致，所以 \( \mod{10^9}+7 \) 根本就是障眼法，而且 \( \mod{} \) <s>有分配律？</s>
+<br> \( ij \) 都容易计算（等差求和公式修改一下），可是 \( \mod{10^9+7} \) 难道是永远 \( \frac{x}{10^9+7} = 0 \) ？
+为什么？这个计算怎么就等价？常量 \( 10^9+7 \) 是怎么来的？
+<br>
+所谓的两个 \( \sum{} \) 『独立』是怎么个『独立』法？为什么 \( \sum^{n}_{i} \sum^{m}_{j} ija = \sum^{n}_{i} ia \sum^{m}_{j} ja  \)？
+（也可能和后面的 \( \mod{10^9+7}\) 有关）这些事情必须知道
+<br>
+这些事情我不擅长（因为我有点讨厌变形），所以这里不能说（
+<br>
+我编程的方法和数学有相通之处，但我又不是学数学的人
+<br><br>
+我从小数学不好的原因，一方面是我自己不能理清思维，并且想的很天真
+（比如 \(1+1\) 就是 \(2\)、\(2*2\) 就是 \(4\)，我不知道 \(4 \equiv(2*2)\equiv{2+2}\)，这也是后来我连完全平方公式都只能勉强强记强行套用的缘由），
+另一方面是很多数学老师太 <abbr title="含糊">implicit</abbr> 了，他们就是只告诉你『该怎么做』，就是不把最细致的过程写明白，因为在他们眼里
+那些东西都是极其 <abbr title="即得易见平凡">immediate</abbr> 的，当然那对聪明的学生不算什么，
+他们很轻易地就能立即 get 到老师的 point，迅速进入思考问题本身的模式，而我偏偏是个笨学生，被拦在几个看不懂的基本组合之外永远不得要领。
+<br><br>
+我觉得有时候数学比起计算机科学来说更不够亲民的锅 <i>更可能是在做学问的人身上</i>，
+数学家对『简洁』的崇尚使得它对那些没有那么强隐式推导能力的人来说，太反直觉了，即便是数学基础教育，
+那些『看不懂』的孩子就没有人跟他们去解释『为什么』，所有教程也都只是为大部分人准备的，
+这些资料不会告诉你那些简单却是最基础构造单元的东西，只是在你已经（或许是隐约地）感受到他们后直接开始暴力训练
+<br><br>
+按天资去选择啊。
+<br><br>
+
+余下的部分主要放一些简单的相关内容
+</p>
+
+<p id="power"><h3>sqrt, log 和乘方函数 | Power Operators</h3>
+乘方是乘法的组合，
+
+\[ x^n = x \overbrace{\times{x} \times{x} \times{\cdots} \times{x}}^{n} \]
+
+其中 \(x\) 为『底数』、\(n\) 为<abbr title="exponents">『指数』</abbr>（重复次数），实例比如
+
+\[ 2^1 = 2 = 2 \]
+\[ x^2 = xx = x \times{x} \]
+\[ 3^3 = 3\cdot 3\cdot 3 = 3 \times{3} \times{3} = 9 \] 
+
+有时候认为是乘法，其实更多时候都是『直接并列』而已。
+只是因为数学并列两个数值变量可以作为乘(times) 的简记法，所以可以这样。
+（以 『\(+\)』并列则可以做加法）
+<br><br>
+
+有一个问题：除了这样，\(n\) 个 \(x\) 相乘还能做什么计算？
+
+<div id="power-root"><h4>开方 | Roots</h4>
+开方是给定最终表示、并列次数求并列项
+
+\[ (8\times{8}) \equiv{64} \Rightarrow \sqrt[2]{64} = 8 \]
+
+\[ \sqrt[n]{x^n} = x \]
+\[ \sqrt[n]{(\overbrace{x \cdot x \cdots x}^{n})} = x \]
+
+牛顿开方法就是把每个可能的乘法因子尝试一遍，逼近求解<br>
+</div>
+
+<div id="power-log"><h4>对数 | Logarithm</h4>
+对数是给定最终表示、并列项求并且次数
+
+\[ (2^{8}) \equiv{256} \Rightarrow \log_2{256} = 8  \]
+
+\[ \log_x (x^n) = n \]
+\[ \log_x {(\overbrace{x \cdot x \cdots x}^{n})} = n \]
+
+利用定义，也可以进行变换得到派生性质，这是转化的基础。
+
+\[ \forall n x. k=\log_n{x} \Rightarrow x = n^k \]
+\[ x = 64, n = 8 \Rightarrow k = \log_8{64} = 2; 64 = 8^{k} = 8^{2} \]
+
+</div>
+</p>
+
+<p id="divrem"><h3>divrem 的『图示』 | Property Definition for <code>div</code> & </code>rem</code></h3>
+
+<ul>
+  <li id="what-is-num">数是什么？<sub>这里的数是<ruby>自然数<rt>Natural Numbers</rt></ruby></sub>
+\[
+\begin{eqnarray}
+  Nat & = & \begin{cases} 0 \in{Nat} \\ x\in{Nat} \Rightarrow (x + 1)\in{Nat} \end{cases} \\
+  zero & = & 0 \\
+  succ(x\in{Nat}) & = & x +1 \\
+  pred(x\in{Nat}) & = & x -1 \\
+  pred(zero)   & = & undefined \\
+  \forall{x}. (x+1) -1 & = & x \\
+\end{eqnarray}
+\]
+由 \( \forall{x}. (x+1) -1 = x \) 可以推出   \( \forall{x}\in{Nat}. (x-1)\in{Nat} \)<br>
+\[
+\begin{eqnarray}
+  (0+1)\in{Nat} & \Rightarrow & ((0+1) - 1)\equiv{0} & \in{Nat} \\
+  \forall{(x+1)}\in{Nat} & . & ((x+1) - 1)\equiv{x} & \in{Nat} \\
+  pred(succ & (0)) & \equiv{0} & \in{Nat} \\
+  \forall{succ(x)} & . & pred(succ(x))\equiv{x} & \in{Nat}
+\end{eqnarray}
+\]
+<details><summary>Haskell</summary>
+<pre><code class="haskell">
+-- data Nat = O | S Nat
+data Nat where
+  O :: Nat
+  S :: Nat -> Nat
+zero = O :: Nat
+succ = S :: Nat -> Nat
+pred (S x) = x
+pred O = undefined
+-- (succ . pred) = (S . \(S x) -> x) = id
+</code></pre>
+</details>
+  </li>
+  <li id="what-is-add">加法是什么？
+\[
+add(a, b) = \begin{cases}
+  b, & a = zero \\
+  add(pred(a), succ(b)), & otherwise
+\end{cases}
+\]
+
+In other words，把 \(a\) 的每个 \(succ\) 转移到 \(b\) 上
+
+\[
+\begin{eqnarray}
+  add(succ(x), & b) & = & add(x, succ(b)) \\
+  add(zero, & b) & = & b
+\end{eqnarray}
+\]
+<details><summary>Haskell</summary>
+<pre><code class="haskell">
+add :: (Nat, Nat) -> Nat
+add (a, b)
+  | a == zero = b
+  | otherwise = add (pred a, succ b)
+
+add' :: (Nat, Nat) -> Nat
+add' (S x, b) = add' (x, S b)
+add' O b = b
+</code></pre>
+</details>
+  </li>
+  <li id="what-is-sub">减法是什么？
+\[
+sub(b, a) = \begin{cases}
+  b, & a = zero \\
+  zero, & b = a = zero \\
+  undefined, & b = zero \\ 
+  sub(pred(b), pred(a)), & otherwise
+\end{cases}
+\]
+
+换句话说，把每个 \(pred\) 转移到 \(b\) 上
+
+\[
+\begin{eqnarray}
+  sub(b, & zero) & = & b \\
+  sub(succ(b'), & succ(a')) & = & sub(b', a') \\
+  sub(zero, & zero) & = & zero\\
+  sub(zero, & a) & = & undefined
+\end{eqnarray}
+\]
+
+<details><summary>Haskell</summary>
+<pre><code class="haskell">
+sub :: (Nat, Nat) -> Nat
+sub (b, a)
+  | b == O & a /= O = undefined -- 负数不是自然数
+  | a == O = b
+  | otherwise = sub (pred b, pred a)
+
+sub' :: (Nat, Nat) -> Nat
+sub (b, O) = b
+sub (O, S _) = undefined
+sub (S b', S a') = sub (b', a')
+</code></pre>
+</details>
+  </li>
+  <li id="what-is-times">乘法是什么？
+\[
+  a \times{b} = \overbrace{a + a + \cdots + a}^{b}
+\]
+\[
+times(a, b, n=0) = \begin{cases}
+  n, & a = 0 \\
+  times(pred(a), b, add(b, n)), & otherwise
+\end{cases}
+\]
+<details><summary>Haskell</summary>
+<pre><code class="haskell">
+times :: (Nat, Nat) -> Nat
+times a b = times' a b O
+  where
+    times' O _ n = n
+    times' (S a') b n = times' a' b (add (b, n))
+
+times' :: (Nat, Nat) -> Nat
+times' a b = foldl (\ac, x -> add (x, ac)) 0 (take b (repeat a))
+
+foldn :: (Nat -> Nat -> Nat) -> Nat -> (Nat -> Nat)
+foldn f v O = v
+foldn f v x = let (S x') = x in foldn f (f v x) x'
+
+times'' = foldn (curry add) O
+</code></pre>
+</details>
+  </li>
+  <li id="what-is-pow">求幂（乘方）是什么？
+写累了<template nsfw> QAQ</template>，说起来，其实即便有<abbr title="commutative">交换律</abbr>存在，顺序（主语和宾语）很重要，可惜我级别太低无力维护了。
+<br>
+\[
+a^b = \overbrace{a \times a \times \cdots \times a}^{b}
+\]
+<details><summary>Haskell</summary>
+<pre><code class="haskell">
+power a b = foldn ((curry times) a) (S O) b
+</code></pre>
+</details>
+  </li>
+  <li id="what-is-div">除法是什么？<sub>\(b\) 里面有几个 \(a\)</sub>
+\[
+div(b, a, n=0) = \begin{cases}
+  div(sub(b, a), a, succ(n)), & gt(b, a) \lor a \equiv b \\
+  n, & otherwise
+\end{cases} 
+\]
+<details><summary>Haskell</summary>
+<pre><code class="haskell">
+div :: (Nat, Nat) -> Nat
+div (b, a) = div' (b, a, O)
+  where div' (b, a, n)
+    | eq(b, a) or gt(b, a) = div(sub(b, a), a, succ(n))
+    | otherwise = n
+</code></pre>
+</details>
+  </li>
+  <li id="what-is-mod">取余法是什么？<sub>神奇海螺：为啥不用 divrem 呢？</sub>
+\[
+rem(b, a, n=0) = \begin{cases}
+  rem(rem(b, a), a, succ(n)), & gt(b, a) \lor a \equiv b \\
+  b, & otherwise
+\end{cases} 
+\]
+
+从取余数也可以推出一个简单的性质：当除数大于被除数，余数等于被除数、商等于零
+
+\[ \neg{gt(b, a)} \Rightarrow rem(b, a) \equiv{b} \land div(b, a) \equiv{0} \]
+\[ b < a \Rightarrow rem(b, a) \equiv{b} \land div(b, a) \equiv{0} \]
+
+所以取余操作符的性质等式才能成立：
+
+\[ \forall{b a}. a\times{\llcorner\frac{b}{a}\lrcorner} + rem(b, a) = b \]
+
+<details><summary>Haskell</summary>
+<pre><code class="haskell">
+rem :: (Nat, Nat) -> Nat
+rem (b, a) = rem' (b, a, O)
+  where rem' (b, a, n)
+    | eq(b, a) or gt(b, a) = rem(sub(b, a), a, succ(n))
+    | otherwise = b
+
+divrem :: (Nat, Nat) -> (Nat, Nat)
+divrem (b, a) = rem' (b, a, (O, O))
+  where divrem' (b, a, (dn, rn))
+    | eq(b, a) or gt(b, a) = divrem(sub(b, a), a, (succ(n), O))
+    | otherwise = (dn, b)
+</code></pre>
+</details>
+  </li>
+  <li id="what-is-cmp">比较法是什么？<sub>包含相等性和『小于』lessThan</sub>
+\[
+eq(a, b) = \begin{cases}
+  true, & a = b = 0 \\
+  eq(pred(a), pred(b)), & a \ne{0} \land b \neq{0} \\
+  false, & otherwise
+\end{cases}
+\]
+
+\[
+gt(b, a) = \begin{cases}
+  true, & a = 0 \land b \neq{0} \\
+  false, & b = 0 \land a \neq{0} \\
+  false, & a = b = 0 \\
+  gt(pred(b), pred(a)), & otherwise
+\end{cases}
+\]
+
+\[ lessThan(a, b) = gt(b, a) \]
+
+<details><summary>Haskell</summary>
+<pre><code class="haskell">
+eq :: (Nat, Nat) -> Bool
+eq (O, O) = True
+eq (S a', S b') = eq (a', b')
+eq (_, _) = False
+
+gt :: (Nat, Nat) -> Bool
+gt (O, S _) = False
+gt (S _, O) = True
+gt (O, O) = False
+gt (S b', S a') = gt (b', a')
+
+lessThan :: Nat -> Nat -> Bool
+lessThan = flip (curry gt)
+</code></pre>
+</details>
+  </li>
+  <li id="what-is-div-b">被除数是什么？<sub>最后一问，实在没有力气写了，我相信我是这个问题写的最仔细<template nsfw><s>废话多</s></template>的人了可能</sub>
+
+\[ \underbrace{ \overbrace{a + a + \cdots + a}^{\frac{b}{a}} + \overbrace{c}^{b-a\times\frac{b}{a}} }_{b} \]
+
+然后你可能要问了，那 \( b-a\times\frac{b}{a} \) 不是可以
+<abbr title="消除公共乘法因子">约分</abbr>嘛，这不 \(c \equiv{b-b} \equiv{0}\)  
+
+\[ \underbrace{ \overbrace{a + a + \cdots + a}^{\frac{b}{a}} }_{b} \]
+
+<br>
+所以算 \(c\) 要<abbr title="允许除不尽（有余数）的情况，也可以 floor(b/a)">整除</abbr>（Haskell 里 <code>b `div` a</code> 
+是整除 <code>(/) b a</code> 是<abbr title="Real numbers">实</abbr>除）
+<br>
+<s>（虽然引入小数后除不尽就不可能了</s>
+
+<dfn id="int-div" title="Integeral Division">
+\[ \underbrace{ \overbrace{a + a + \cdots + a}^{\llcorner\frac{b}{a}\lrcorner} + \overbrace{c}^{b-a\times\llcorner\frac{b}{a}\lrcorner} }_{b} \]
+</dfn>
+
+<abbr title="准确来说只是性质定义">定义</abbr>是递归的，所以不好理解
+（应该说这是对 \( \frac{b}{a}\) 的定义，可是 \(\llcorner \frac{b}{a}\lrcorner\) 
+实际应该被… 认为是先除法再取整的操作，而不是取整和除法定义的
+<abbr title="整除法">结合</abbr>，这是『模式』化可能造成的一个混淆）
+
+<details><summary>Haskell</summary>
+<pre><code class="haskell">
+{- 不好意思，我已经不知道如何使用 Haskell 表达它了 -}
+Integral :: * -> Constraint
+div :: Integral a => a -> a -> a
+(/) :: Fractional a => a -> a -> a
+instance Integral Int -- Defined in ‘GHC.Real’
+</code></pre>
+</details>
+  </li>
+  <li id="what-is-convert">如何和普通的数字进行转换？<sub>不过 Nat 和 Int 并不是<abbr title="isomorphism">同构</title>的</sub>
+<br>
+请读者自己开动脑筋，用 Haskell 完成 <code>fromInt</code> 和 <code>toInt</code> 函数的定义
+<template nsfw><br>别问为什么，这里就是不添加类型签名，我不会告诉你是因为<del>高亮块想内联在一行里太麻烦；不写是因为我懒得写了</del></template>
+  </li>
+</ul>
+
+</p>
+
+<p id="sum"><h3>从等式分析（变换）看 sum （求和公式） | The \( \sum{} \) Operator</h3>
+学到了很多（虽然都只是加强理解而已），这很好，但是以后这种问题在编程中还可能遇到很多次，
+比这更难的问题也可能遇到很多次。
+<br>
+既然这次遇到了，就解决它，不要下次摸瞎。
+<br>
+\[ resolve(n \in{(10, \infty)}, m \in{(0, 10^9)}) = \sum^{n}_{i=1} \sum^{m}_{j=1} ij (n\mod{i}) (m\mod{j}) \mod{10^9+7} \]
+
+看起来好像是铁石一样坚固，并且无法有任何的拆分变换，其实也可能是理解还不够深，首先从最简单的例子开始。
+<br>
+
+\[ \sum^{100}_{i=0}i \]
+
+先尝试计算一下它，进行定义展开（也可以叫<abbr title="apply">施用</abbr>）：
+
+\[ \sum^{n}_{i=a} \mathit{body} = joinBy (+) (let \square i=a'\in{(a, n)} in \square\mathit{body}) \]
+
+其实这个定义模板没有多大用，因为大家基本都看不出什么…
+
+\[ \sum^{100}_{i=0}i = 0 + 1 + 2 + \cdots + 100 = (0+100)+(1+99)+(2+98)+ \cdots + (50+50) = \frac{(0+100) \cdot 100}{2} = 5000 \]
+
+呃… 等差求和公式是『首项+末项*项数/2』，大概就是 zip rev 一下，从每项差 1 的推广下去吧，本身属于数学的一种优化变形方案
+<br>
+据说是某位西方国家的天才少年弄出来的，在那之前都在用傻方法…<template nsfw> 是欧拉吗？（开个玩笑</template>
+<br>
+你看它会每次从 \(xs\) 和 \(reverse xs\) 取出一项操作，直到（inclusive，包含此 <abbr title="情况">case</abbr>）取出的两项相等
+
+\[ \frac{(first+last)*size}{2} \]
+
+我们现在先推广一下这个公式，让它能适合每项偏差 \(d\) 的序列，
+那就是在设计一个算法了，一般来说，像我<template nsfw>这种辣鸡，要设计算法的话，</template>是不得不列一个表格来找规律的<template nsfw>（逃）</template>
+<br>
+据说大佬都是直接从属性和定义推，列表的是那种不需要草稿纸的列（
+<br><br>
+
+<table id="sum-data-1">
+  <caption>如果 \(first = 1\); \(last = 100\); \(d = 2\) 如何</caption>
+  <thead>
+  <tr><th colspan="3" abbr="this">\(i\)</th> <th colspan="6" abbr="next">\(A_{i+1}\)</th> <th colspan="10" abbr="sum">\(A_i+(A_{i+1})\)</th></tr>
+  </thead>
+  <tbody>
+  <tr><td>1</td> <td>3</td> <td>4</td></tr>
+  <tr><td>3</td> <td>5</td> <td>8</td></tr>
+  <tr><td>5</td> <td>7</td> <td>12</td></tr>
+  <tr><td>7</td> <td>9</td> <td>16</td></tr>
+  <tr><td>9</td> <td>11</td> <td>20</td></tr>
+  </tbody>
+</table>
+
+<br><br>
+看来即使 \( d \neq 1\) 也是比较有规律，看看原公式是否可以直接推广
+<br><br>
+
+<table id="sum-data-2">
+  <caption>如果 \(first = 1\); \(last = 100\); \(d = 2\) 如何</caption>
+  <thead>
+  <tr><th colspan="3" abbr="this">\(i\)</th> <th colspan="6" abbr="mirror">\(A_{n-i}\)</th> <th colspan="10" abbr="sum">\(A_i+(A_{n-i})\)</th></tr>
+  </thead>
+  <tbody>
+  <tr><td>1</td> <td>99</td> <td>100</td></tr>
+  <tr><td>3</td> <td>97</td> <td>100</td></tr>
+  <tr><td>5</td> <td>95</td> <td>100</td></tr>
+  <tr><td>7</td> <td>93</td> <td>100</td></tr>
+  <tr><td>9</td> <td>91</td> <td>100</td></tr>
+  </tbody>
+</table>
+
+<br><br>
+<template nsfw>emmm… </template>看起来好像的确从 \(A_i\) 和 \(A_{n-i}\) 数起来，\(i\) 递增的话前者会递减 \(d\)、后者递增 \(d\)，所以相同的优化
+思路（应该是）在所有 \( x \in{\mathbb{N}} \) 都有效，那么我们就尝试泛化出公式里的『\(1\)』，推广差为 \(1\) 的等差求和操作为差为 \(n\) 的：
+<br>
+先考虑一下公式 \( \frac{(first+last)*len}{2} \) 优化的部分：它合并了对称项目，合并了 (+) 为乘，要修改的部分应该是『求合并的项目个数』部分 \( size \equiv (last-first) \)
+<br>
+区别在于，步长会导致要求和的项目发生变化，怎么反映这个变化呢？<template nsfw><s>暴力列表法</s></template>
+<br>
+<pre><code class="python">
+for i in range(1, 11): print(str(i) + " " + str(len(list(range(1, 101, i)))))
+</code></pre>
+<br>
+<table id="sum-data-3">
+  <tr> <th>d</th> <th>card</th> <th>100 mod d</th> </tr>
+		<tr> <td>1</td> <td>100</td> <td>0</td> </tr>
+		<tr> <td>*2</td> <td>50</td> <td>0</td> </tr>
+		<tr> <td>3</td> <td>34</td> <td>1</td> </tr>
+		<tr> <td>*4</td> <td>25</td> <td>0</td> </tr>
+		<tr> <td>5</td> <td>20</td> <td>0</td> </tr>
+		<tr> <td>*6</td> <td>17</td> <td>4</td> </tr>
+		<tr> <td>7</td> <td>15</td> <td>2</td> </tr>
+		<tr> <td>*8</td> <td>13</td> <td>4</td> </tr>
+		<tr> <td>9</td> <td>12</td> <td>1</td> </tr>
+		<tr> <td>*10</td> <td>10</td> <td>0</td> </tr>
+</table>
+<br>
+以上在 \(i\) 是偶数的时候都打了星，总感觉可以有递归…
+<br>
+可是<template nsfw>出去转了几圈回来</template>之后，我才发现，其实我们是要一个函数 \( icount(n, d) = \cdots \)<template nsfw><s>（果然长期坐在电脑前打字会把人打傻的）</s></template>
+<br>
+然后这个函数呢？我忽然发现它不就是<a href="#int-div">整除</a>嘛…
+
+\[ \underbrace{ \overbrace{a + a + \cdots + a}^{\llcorner\frac{b}{a}\lrcorner} + \overbrace{c}^{b-a\times\llcorner\frac{b}{a}\lrcorner} }_{b} \]
+
+我们这里要拿到的不就是 \(a\) 的个数么…
+所以最终的定义为<template nsfw>，这次我用数学式的<ins>极其</ins>缩小化命名风格</template>：
+
+\[ \frac{(a+b)\times \llcorner\frac{(a+b)}{d}\lrcorner }{2} \]
+
+<br><br>
+
+最后再看看这个：
+
+\[ fun = \sum^{n}_{i} \sum^{m}_{j} i \cdot j \]
+
+知道 join 是有规律的，那就找规律
+
+\[  n = 10; m = 11 \Rightarrow fun = (1\times{1}, \cdots, 1\times{11})
++ (2\times{1}, \cdots, 2\times{11}) + \cdots
++ (10\times{1}, \cdots, 10\times{11}) \]
+
+那可以试着泛化一下，就是矩阵运算（没意思），不过，可以有这种变换：
+
+<template nsfw>啊实在写不下去了，烂尾算了</template>（
+</p>
+
+<p id="abort"><h3>完了 | Aborted</h3>
+目前我做事情是有时间限制的，超过了我就会想办法尽快结束。
+<br>
+目前写这篇文章已经花了我一天的时间了… 即时我还有递归的 C++ 二元操作链条解析器要写…
+<br>
+而且写作的过程中即使有 gnome-break-timer 在催我也很久没有休息的…
+总之这次先到这里了
+<br><br>
+<span style="color: red">Time limit exceeded</span>
+<br>
+<i><span style="color: blue">Process finished. Your writing aborted with exit code -1</span></i>
+</p>
+
+<div id="show-nsfw-widget">
+<button id="show-nsfw"><a id="verb-show-nsfw">显示</a> NSFW 内容<template nsfw>🙈</template></button><abbr title="文章内嵌有一些表述比较直接的内容，选择是否展示">？</abbr>
+</div>
+
+  </article></div>
+</body>
+
+</html>
