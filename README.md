@@ -82,5 +82,12 @@ __where__
 
 ![\[ n\geq{10} \land m\leq{10^9} \]](https://latex.codecogs.com/png.latex?n\geq{10}\land{}m\leq{10^9})
 
+## Contents/Favorite Lists
 
++ [2019-07-B](Recommends/推荐.txt)
+
+## Others (Source code...)
+
+[View here](https://github.com/duangsuse-valid-projects/Share/tree/master/Others)
+ [wiki](https://github.com/duangsuse-valid-projects/Share/wiki)
 
