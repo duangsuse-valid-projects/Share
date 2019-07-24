@@ -7,27 +7,31 @@ For more shared files, please visit:
 + [duangsuse Throws @ Telegram](https://t.me/dsuset)
 + [duangsuse's Gists](https://gist.github.com/duangsuse)
 
+> 以下内容推荐使用 Firefox 浏览器阅读，因为支持原生 PDF.js viewer（
+
 ## Contents/Documentation
 
-### XeLaTeX Example Document
+### XeLaTeX Example Document [View PDF](https://duangsuse-valid-projects.github.io/Share/LaTeX-FirstTry/foo.pdf)
 
 > Naive XeLaTeX 2 typesetting example
 
 + foo. [tex](https://github.com/duangsuse-valid-projects/Share/blob/master/LaTeX-FirstTry/foo.tex) [pdf](https://github.com/duangsuse-valid-projects/Share/blob/master/LaTeX-FirstTry/foo.pdf)
 
-### 高中学生如何使用基本数论证明哥巴赫猜想
+### 高中学生如何使用基本数论证明哥巴赫猜想 [View PDF](https://duangsuse-valid-projects.github.io/Share/%E9%AB%98%E4%B8%AD%E5%AD%A6%E7%94%9F%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8%E5%9F%BA%E6%9C%AC%E6%95%B0%E8%AE%BA%E8%AF%81%E6%98%8E%E5%93%A5%E5%B7%B4%E8%B5%AB%E7%8C%9C%E6%83%B3/%E9%AB%98%E4%B8%AD%E5%AD%A6%E7%94%9F%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8%E5%9F%BA%E6%9C%AC%E6%95%B0%E8%AE%BA%E8%AF%81%E6%98%8E%E5%93%A5%E5%B7%B4%E8%B5%AB%E7%8C%9C%E6%83%B3.pdf)
 
 > 中国的普通高中学生如何使用基本数论证明哥巴赫猜想呢？（知乎）
 
+（知乎用户『证明』发表“哥巴赫猜想证明”文本重排版，内容无变化，原版只是一张照片）
+
 + 高中学生如何使用基本数论证明哥巴赫猜想. [tex](https://github.com/duangsuse-valid-projects/Share/blob/master/%E9%AB%98%E4%B8%AD%E5%AD%A6%E7%94%9F%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8%E5%9F%BA%E6%9C%AC%E6%95%B0%E8%AE%BA%E8%AF%81%E6%98%8E%E5%93%A5%E5%B7%B4%E8%B5%AB%E7%8C%9C%E6%83%B3/%E9%AB%98%E4%B8%AD%E5%AD%A6%E7%94%9F%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8%E5%9F%BA%E6%9C%AC%E6%95%B0%E8%AE%BA%E8%AF%81%E6%98%8E%E5%93%A5%E5%B7%B4%E8%B5%AB%E7%8C%9C%E6%83%B3.tex) [pdf](https://github.com/duangsuse-valid-projects/Share/blob/master/%E9%AB%98%E4%B8%AD%E5%AD%A6%E7%94%9F%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8%E5%9F%BA%E6%9C%AC%E6%95%B0%E8%AE%BA%E8%AF%81%E6%98%8E%E5%93%A5%E5%B7%B4%E8%B5%AB%E7%8C%9C%E6%83%B3/%E9%AB%98%E4%B8%AD%E5%AD%A6%E7%94%9F%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8%E5%9F%BA%E6%9C%AC%E6%95%B0%E8%AE%BA%E8%AF%81%E6%98%8E%E5%93%A5%E5%B7%B4%E8%B5%AB%E7%8C%9C%E6%83%B3.pdf)
 
-### My Photo.jpg
+### My Photo.jpg [raw](https://github.com/duangsuse-valid-projects/Share/raw/master/Others/photo.jpg)
 
 > 刚才画了个[图片](https://t.me/dsuse/8695)吐槽曾经 GeekApk 的鸽子，可是好像有点不对劲？据说有彩蛋？ 🙈 （溜了 #campaign
 
-+ [photo.jpg](https://github.com/duangsuse-valid-projects/Share/blob/master/Others/photo.jpg) [raw](https://github.com/duangsuse-valid-projects/Share/raw/master/Others/photo.jpg)
++ [photo.jpg](https://github.com/duangsuse-valid-projects/Share/blob/master/Others/photo.jpg)
 
-### LaTeX Primer [pdf](https://github.com/duangsuse-valid-projects/Share/blob/master/LaTeXPrimer/LaTeXPrimer.pdf) [tex](https://github.com/duangsuse-valid-projects/Share/blob/master/LaTeXPrimer/LaTeXPrimer.tex)
+### LaTeX Primer [View PDF](https://duangsuse-valid-projects.github.io/Share/LaTeXPrimer/LaTeXPrimer.pdf) [pdf](https://github.com/duangsuse-valid-projects/Share/blob/master/LaTeXPrimer/LaTeXPrimer.pdf) [tex](https://github.com/duangsuse-valid-projects/Share/blob/master/LaTeXPrimer/LaTeXPrimer.tex)
 
 > NOTE: There are also a gist copy [here](https://gist.github.com/duangsuse/1610155f0a37bcdb8d622b83cd6f875d)
 
@@ -37,7 +41,9 @@ For more shared files, please visit:
 
 使用到了部分别人的 TeX 指令，基本都有 URL 链接注释，比如[这里](https://github.com/Sleepwalking/prometheus-spark/blob/master/writings/ib-ia-hnm/hua-ia-hnm.tex)的，在此对原作者表示衷心的感谢
 
-### 高斯-约当消元法（线性代数，解齐次线性方程组使用）
+### 高斯-约当消元法（线性代数，解齐次线性方程组使用） [View PDF](https://duangsuse-valid-projects.github.io/Share/Gauss-Jordan-elimination/Gauss-Jordan-elimination.pdf)
+
++ [tex](https://github.com/duangsuse-valid-projects/Share/blob/master/Gauss-Jordan-elimination/Gauss-Jordan-elimination.tex) [pdf](https://github.com/duangsuse-valid-projects/Share/blob/master/Gauss-Jordan-elimination/Gauss-Jordan-elimination.pdf)
 
 2019 年三月 17 号的时候我咸在家里不去上学（偷偷拖延了半天）然后又咸得没事排版了这个，顺手熟悉了一下这些比较数学的东西 ~~虽然熟悉了我也很菜啊~~
 
