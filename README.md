@@ -69,21 +69,18 @@ For more shared files, please visit:
 + 文中后半部分主要涉及部分作者对其信仰哲学的见解，
 + 文章本身只表明观点看法，没有其他用意。
 
-### 几个数学模板（19-07-22） [View HTML](Math-2019-07-22/Math-2019-7-22.html) [View PDF](Math-2019-07-22/Math-2019-7-22.pdf)
+### 几个数学模板（19-07-22） [View HTML](Math-2019-07-22/Math-19-7-22.html) [View PDF](Math-2019-07-22/Math-19-7-22.pdf)
 
 + Math-2019-07-22/Math-19-7-22. [html](https://github.com/duangsuse-valid-projects/Share/blob/master/Math-2019-07-22/Math-19-7-22.html) [md](https://github.com/duangsuse-valid-projects/Share/blob/master/Math-2019-07-22/Math-19-7-22.pdf)
 
 今天谈几个数学相关的问题。<template nsfw>🤔</template><br>
 首先我们看看某 <abbr title="Olympiad in Informatics">OI</abbr> 题目<template nsfw>，顺便可怜一下某位<s>帮助可怜的码队</s>弟弟每天要解决这种题目</template>：
 
-<p id="excited">
-<img alt=""
-     src="https://latex.codecogs.com/png.latex?resolve(n, m)=\sum^{n}_{i=1}\sum^{m}_{j=1}ij(n\mod{i})(m\mod{j})\mod{10^9+7}" />
-<br><b>where</b><br>
+![resolve(n,m)=n∑i=1m∑j=1ij(nmodi)(mmodj)mod109+7](https://latex.codecogs.com/png.latex?resolve(n,%20m)=\sum^{n}_{i=1}\sum^{m}_{j=1}ij(n\mod{i})(m\mod{j})\mod{10^9+7})
 
-<img alt="\[ n\geq{10} \land m\leq{10^9} \]"
-     src="https://latex.codecogs.com/png.latex?n\geq{10}\land{}m\leq{10^9}" />
-</p>
+__where__
+
+![\[ n\geq{10} \land m\leq{10^9} \]](https://latex.codecogs.com/png.latex?n\geq{10}\land{}m\leq{10^9})
 
 
 
