@@ -12,13 +12,18 @@ keywords: Android drakeet reverse-engineering technical
 <p id="article-info" align="center">
   <a rel="author">duangsuse</a>, <time>July 02, 2019</time>
 
-> **Abstract** : 这篇文章初始版本从 **_duangsuse Throws_** Telegram 频道上拷贝，
-> 主要基于作者与一软件工程师 drakeet 曾经争执的经过和结果的主观看法编写。
-> - 文中后半部分主要涉及部分作者对其信仰哲学的见解，
-> - 文章本身只表明观点看法，没有其他用意。
+  <blockquote>  
+    <b>Abstract</b> : 这篇文章初始版本从 <b><i>duangsuse Throws</i></b> Telegram 频道上拷贝，
+  主要基于作者与一软件工程师 drakeet 曾经争执的经过和结果的主观看法编写。<br>
+  <ul>
+    <li>文中后半部分主要涉及部分作者对其信仰哲学的见解</li>
+    <li>文章本身只表明观点看法，没有其他用意</li>
+  </ul>
+  </blockquote>
 </p>
 
-> 频道主在此建议在座的各位一起维护良好的交流氛围，不要让更多的人心寒。 [原文](https://t.me/dsuset/6215)
+<q>频道主在此建议在座的各位一起维护良好的交流氛围，不要让更多的人心寒。</q>
+[\[原文\]](https://t.me/dsuset/6215)
 
 当然我也看过 [LetITFly 频道](https://t.me/dsuset/5671) 的消息，
 但我还是决定，即便没有用，
@@ -27,20 +32,21 @@ keywords: Android drakeet reverse-engineering technical
 ## 关于逆向工程：“优秀”的纯纯写作
 
 没错，我不该尝试 [逆向分析纯纯写作](https://t.me/dsuse/3059)，
-即便它的作者之前 [三次在频道上说](https://t.me/dsuse/3045) 它的反破解（代码保护）
-技术有多么多么高大上，令人心动。
+即便它的作者之前 [三次在频道上说](https://t.me/dsuse/3045) 它的反破解（代码保护）技术有多么多么高大上，
+真的是非常让人想了解一下这些不得了的技术有怎么样的深度。
 
-然而现在我不仅完全可以自己手动从 [x86 汇编代码](https://asmtutor.com/)、
-[WowCoolApk](https://github.com/duangsuse-valid-projects/WowCoolApk)、
-[CoolTok](https://github.com/duangsuse/CoolTok/)) 和
-[Java 字节码](https://t.me/dsuse/10777) 里还原本来的程序逻辑，
+然而现在我不仅完全可以自己手动从 [x86 汇编代码](https://asmtutor.com/)
+（[WowCoolApk](https://github.com/duangsuse-valid-projects/WowCoolApk)、
+[CoolTok](https://github.com/duangsuse/CoolTok/)） 和
+[Java 字节码](https://t.me/dsuse/10777) 里 **纯手动** 还原本来的程序逻辑，
 也开始自己独立研究学习基于抽象执行、表达式收束和基本块、控制流分析、
-模式匹配的反编译器算法了。你照样可以拿着 [jadx](https://github.com/skylot/jadx) 之类的东西，
-号称自己非常 [擅长](https://t.me/dsuses/2008) 逆向工程，
+模式匹配的反编译器算法了。你照样可以拿着 [jadx](https://github.com/skylot/jadx) 之类的东西,
+号称自己非常 [擅长](https://t.me/dsuses/2008) 逆向工程。
+
 我们的追求不一样，一个是用用就行一个是追求彻头彻尾的理解。
 我得感谢你，要不然我真的不会对逆向工程有这一点微不足道的研究。
 
-## 关于<abbr title="拖延、未完成">“鸽子”</abbr> GeekAPK
+## 关于<abbr title="拖延、未完成">“鸽子”</abbr> GeekApk
 
 没错，我不该加入一个间接因为我自己幼稚的想法创立的 [GeekApk](https://github.com/GeekApk)，
 我应该让它这个孤儿自己成为笑话，不必打扰到你。而且它开始的确就是空壳，
@@ -48,12 +54,12 @@ keywords: Android drakeet reverse-engineering technical
 之外一无所有，即便我的确是有努力地在为它付出。
 
 我为 [GeekApkR](https://github.com/GeekApk-r) 写了
-[自己的 Swagger](https://github.com/duangsuse-valid-projects/GeekSpec-GeekApkv1.0b#geekapk-geekspec-%E7%A4%BA%E4%BE%8B%E5%AE%9A%E4%B9%89%E6%96%87%E4%BB%B6---)
-、我写了 [API 文档](https://github.com/duangsuse-valid-projects/GeekApk/blob/master/geekapk_v1b_api.geekspec)，
+[自己的 Swagger](https://github.com/duangsuse-valid-projects/GeekSpec-GeekApkv1.0b#geekapk-geekspec-%E7%A4%BA%E4%BE%8B%E5%AE%9A%E4%B9%89%E6%96%87%E4%BB%B6---)、
+我写了 [API 文档](https://github.com/duangsuse-valid-projects/GeekApk/blob/master/geekapk_v1b_api.geekspec)，
 可你只有那一点闲工夫看我真正空壳的东西，看完即使我恭敬地指给你到底哪些不是空壳、到底哪些我还付出了一点努力，
 你还是 **打年龄炮** 说我是小孩子。
 
-实际上我的确「不仅仅是小孩子还是个小人」，僅就因为我 **不小心** 转发了你的私聊消息、
+实际上我的确「不仅仅是小孩子还是个小人」，就因为我 **不小心** 转发了你的私聊消息、
 就因为我 **转发评论** 了你之前 **没有声明过不可转发的消息**。
 
 我的确就是微不足道的小菜鸡，即便 GeekApk 这个只有壳子的项目在 **名义上都不是我的**。
@@ -82,10 +88,10 @@ Sketch 设计矢量画、界面和动画的难度看起来真是比上面几个�
 
 是，[你说过](https://t.me/dsuses/1953)：
 
-> 5 没有被手动排序过，5 排在 1 前面，4 被手动排序过，4 也在 1 前面，但 5 和 4 却无法得出谁在谁前
+> 5 没有被手动排序过，5 排在 1 前面，4 被手动排序过，4 也在 1 前面， _但 5 和 4 却无法得出谁在谁前_
 
 的确是没问题，对支持你的人来说它永远是 [真理](https://t.me/dsuse/10848)；
-而且 **你知道是这样** 但是不知道有啥 _奇妙的黑箱算法_ 可以 **实现它**。
+而且 **你知道是这样** 但是不知道有啥 _奇妙的“黑箱”算法_ 可以 **实现它**。
 
 对于一个习惯于抄代码、看文档、找现成的、改代码的工程师来说，这很不错了，我不该提出别的可能，
 也不该胡乱猜测你只会 [Bubble sort](https://t.me/dsuse/10849)。
@@ -96,7 +102,7 @@ Sketch 设计矢量画、界面和动画的难度看起来真是比上面几个�
 即便我只是想帮你实现那个功能；我以为你很喜欢你的 [PureWriter](https://github.com/purewriter)，
 没想到如果条件是要看自己不喜欢的、口无遮拦的二愣子写的代码你就直接把我踢了。
 
-你的理论正确，你的发现 **在 _Android 开发圈里_ 很伟大**，我以后都可以叫它「 _不可共客观序_ <b>_公理_</b>」了。
+你的理论正确，你的发现 **在 _Android 开发圈里_ 很伟大**，我以后都可以叫它「 _不可共客观序_ **_公理_** 」了。
 即便你的语言自相矛盾，你开始只是说无法实现后来说却又说它逻辑相悖无解，
 即便你 **不愿意回我一句** 也不愿意告诉我们 **为啥因为这句模糊不清的话就不可** [**实现**](https://t.me/dsuse/10902)，
 你这句话里 **藏着什么理念所以可以说明它是正确的** 。
@@ -108,22 +114,28 @@ Sketch 设计矢量画、界面和动画的难度看起来真是比上面几个�
 
 ## 我不该『很随便地』对你有负面评价
 
-没错，我是不应该随便对别人的技术下评论。
+没错，我是不应该 *随便* 对别人的技术下评论，我太 <q>judge</q> 人了，但这就是我的风格。
 
 即便我没有说错话，我不知道你 **无法接受** 对自己代码 **任何的负面评价** ，
-我不知道你会因此 **直接退出 Telegram** ，即便你的粉丝远远比我这小人多。
+我不知道你会因此 **直接退出 Telegram** ，即便你的 _粉丝_ 远远比我这 _小人_ 多。
 
-我知道 **表现受到欺负的人在不明真相的吃瓜群众面前永远第一有理**，所以至始至终错的只是我一个，你自然是无过的。
+我知道 **表现受到欺负的人在不明真相的吃瓜群众面前永远第一有理**，所以至始至终错的只是我一个，你自然是无过错的。
 
 我的确有从头到尾都把自己的姿态放的 **很高** ，只是因为在你 **毫无理由** 地踢了我之后，
 我以我自己所认为的客观视角评论了一下你的代码而且没有为你 **自动过滤掉不中听的话** ，
 即便比这更难听的话 **你也对我说过很多次** 。
 
+作为前辈，有无数个理由可以被尊重。
+不管做的怎么样，都可能是有自己的理由的，这些谁都能够理解。
+
+问题是一面做的尚可改进，另一面却说自己已经完美无缺、超出了绝大部分人，
+远远高出自己本身应该得到的评价、超出了善良的本性而进入了自负的范围，就应当做好准备接受旁人可能的指责。
+
 **在你看起来** 我好像是自己为无所不晓无所不能， **恰恰相反，我只是一面镜子** 。
 如果你和人交流是别人看你是正常身高，但是自视却比蚂蚁还矮的话，
 **我的确是无法不和这样的你高姿态凌空喊话** 。
 
-不过我就真的是想让你 _谦虚_ 一点，为人和善一点，<b>**_满招损谦受益_**</b>，
+不过我就真的是想让你 _谦虚_ 一点，为人和善一点，**_满招损谦受益_** ，
 如果只有我一个人说，那是我不够宽容，可现在你 **对别人骄傲自满甚至自负的态度**
 已经[让](https://t.me/monogramW/457)很[多](https://t.me/tgsucks/833)人[看](https://t.me/dsuses/3001)不[下](https://t.me/bystartw_chatboard/2228)去了。
 
@@ -144,12 +156,17 @@ Sketch 设计矢量画、界面和动画的难度看起来真是比上面几个�
 但不管怎么样，我都没有为了自己的主观意愿 “小人之心” 去「取」你消息的 “君子之”「义」。
 
 你的确无意辩驳，也只是简单地像丢垃圾一样把我踢了出去，并且尽可能屏蔽了我，
-因为你根本不可能接受两个人唇枪舌剑的情况。是，**你就是自己的正义，无须辩论，只需出示一下胜利宣言就可以了** 。
+因为你根本不可能接受两个人“剑拔弩张”地 __讨论问题本身__ 的情况。
+不用追求真理，你只需要一个自己的认知就可以了。
+
+是，**你就是自己的正义，无须辩论，只需出示一下胜利宣言就可以了** 。
 
 实际上我也在很长时间里都不愿对这件事多说一句话，因为它 **就是** _观点不合_ ， **没有什么其他的东西** 。
 但现在我要告诉所有人，**是怎么样的观点不合**，和我平时写技术科普广播的时候一样。
-但我 **只掺杂部分个人感情** ， **没有** 什么所谓的小人居心；我从没安插过你所谓的「 _内奸_ 」， 
+不过，我 **只掺杂部分个人感情** ， **没有** 什么所谓的小人居心；我从没安插过你所谓的「 _内奸_ 」， 
 **生活不是宫斗剧。** 我不以 “ _手撕_ ” 什么大佬取乐或者盈利，也不是什么阴谋家。
+
+**我不是微信营销号，无缘由地写这种文字对我来说只是浪费我休息的时间而已，对我来说有什么好处呢？**
 
 ## 你已经很敏锐了，可是离进步还差一点“傻”劲
 
@@ -165,11 +182,13 @@ Sketch 设计矢量画、界面和动画的难度看起来真是比上面几个�
 看不到 ALU/Cache/SRAM/SDRAM/clock、看不到 PE/ELF/DWARF/Linker/Assembler/libc/Segments/maps/ASLR/Exec-shield/Ring、
 看不到机器堆栈、[解析器、抽象语法树](https://rednaxelafx.iteye.com/blog/492667)、面向对象模型、继承覆写树、虚表、
 程序控制流程图、Tree walker、lexical scoping、GC、Hastable 算法，
-看不到链表结构、看不透排序算法、不能更好更快地理解 NoSQL 图数据库、
+看不到链表结构、看不透排序算法、不能更好更快地理解 NoSQL 图数据库也不熟悉图论、
 看不到线程调度保护现场切换执行权再分时抢占的过程也不需要知道线程同步是什么、锁和乐观并发控制、并行算法是什么、
 怎么写数字图像处理算法、怎么做计算[向量化](https://www.llvm.org/docs/Vectorizers.html)，
-也无缘任何面向对象或者结构化编程之外的范式。这样，**你很明智，你的选择是绝大部分 “聪明” 人的选择** 。
-因为你少花了做 _无用功_ 的时间，你站在 **巨人** 的肩膀上，多得了 **写应用** 的投入。 
+也无缘任何面向对象或者结构化编程之外的范式。这样，
+**你很明智，你的选择是绝大部分 “聪明” 人的选择** 。
+因为你少花了做 _无用功_ 的时间，
+你站在 **巨人** 的肩膀上，多得了 **写应用** 的投入。 
 **当然你不需要知道那个巨人是什么，有怎么样的历史，它到底长什么样子，它为你做了些什么，_你甚至不需要看见脚下存在有这么一个巨人_。**
 **叫它黑箱就可以了。**
 
@@ -205,7 +224,7 @@ Sketch 设计矢量画、界面和动画的难度看起来真是比上面几个�
 礼之祖师入个太庙还“[每事问](https://zh.wikipedia.org/wiki/%E5%AD%94%E5%AD%90#%E3%80%8C%E7%A6%AE%E3%80%8D%E7%9A%84%E7%A4%BE%E6%9C%83%E7%A7%A9%E5%BA%8F)”，
 恰巧是镜子前伟光正们的对立面。
 
-## 优秀的知识付费维护者，不是知识碎片而无法深入的理由
+## 做优秀的知识付费维护者，不是令知识碎片化而无法深入的理由
 
 以下内容节选[自此](https://t.me/Trumeet/3221)；drakeet 清自己频道消息后的说明；
 后面几条节选[自此](https://t.me/dsuset/5671)，drakeet 表示转移自知识星球分享的声明。
@@ -229,17 +248,20 @@ Sketch 设计矢量画、界面和动画的难度看起来真是比上面几个�
 > 只是说人的东西永远都会成为黑历史，经典是非常难得的，因为一个好的人应该是不断飞速成长的，
 > 如果黑历史没有精力去一一重新审视扶正，就会变得不负责任，或自己也不能接受，所以删除是好事。
 
-你是很 ** _聪明_** ， **可是** 对要 **成大事** 的人、想做到 **最好** 的人来说，** _不笨不行_** _啊_ 。
+你是很 **_聪明_** ， **可是** 对要 **成大事** 的人、想做到 **最好** 的人来说， **_不笨不行_** _啊_ 。
 
 你说你视 **文章信息和语言表述正确性** 为要物，这自然是很好，
 可是如果你的文字 **永远** 就只 **停留** 在链接引用和截图一小段代码的层次而没有 _絮絮叨叨_
 但深刻且对 **理解和记忆** 过程 **意义非凡** 的 **重复** ，
 此时 **一味地** 去强调语言是否得当好看、有没有错别字，却 **忽视了作为文字本身价值所在的文章质量和深度** ，
-实在是 _舍本逐末_ 的举措。这就好像是你费了好大功夫开设了一个教成年人怎么 **洗衣叠被打鸡蛋** 的网站，
+实在是 _舍本逐末_ 的举措。
+
+这就好像是你费了好大功夫开设了一个教成年人怎么 **洗衣叠被打鸡蛋** 的网站，
 使用了各种最新潮的 Web 技术，比如 [HSTS](https://en.wikipedia.org/wiki/HTTP_Strict_Transport_Security)、
 [Webp](https://developers.google.com/speed/webp/)、[VP9](https://www.webmproject.org/vp9/)、
-HTML5、Canvas、[Webpack](https://webpack.js.org/)、Lazyload、preload、Sprite、WebWorkers 一大打，
-甚至还做了各种 SEO、访问速度优化，其整体服务就是一个大黑科技，而且 ** _没有一个错别字_** 。
+HTML5、Canvas、WebGL、[Webpack](https://webpack.js.org/)、Lazyload、preload、Sprite、WebWorkers、WebAudio、WebVideo 一大打，
+甚至还做了各种 SEO、访问速度优化，其整体服务就是一个大黑科技，而且 **_没有一个错别字_** 。
+
 它没有问题、它最好。但是来的人不仅 UV 量₄ 少，慢慢的都没人过问了，于是你开始 **抱怨** 万维网的万恶、
 用户们的眼瞎，为什么就没有让你如此用心的网站持续 “火” 下去甚至真正火过一下 。🤔
 
@@ -259,13 +281,17 @@ _顺带_ 帮 _你们_ 理解（为什么就和你对纯纯写作开发动机的�
 
 所谓的分享就是 **学习到知识的另外一半** 。如果我停止絮絮叨叨、停止 _看起来_ 机械愚蠢的重复，
 我对知识的 **理解层次** 就会下降很多，我缺失了**一半多** 的理解。
+
 所以哪怕还有另外一个人看、 **甚至一个人都没有了** ，我 **依然要** 记录、重复，
 因为我说我 **热爱** 这些东西，因为这是我的 **战术** ；
+
 **既然你热爱它，那就要让自己知道这意味着什么！**
 
 在我看来，你的分享，只是 **获得鼓励** 的方法， **因为你 _学会了 XXX_ ，所以你 _分享_ 上来**。
 **因为** 你已经是最优秀的 _天才_ 了， **所以** 你的分享只是为了 **获得点赞** ；
+
 你是 **_完全_ 弄懂** 了的，你眼中的你 **并不缺更深刻的理解** ，**只是缺乏一点他人的夸奖和赞美** 。
+
 虽然不中听，但看你到你写的文字后，我就是这个感受。
 
 所以你这么说，你需要有人来 **「致谢」「称赞」** 才能维护你眼中对别人 _极其有利_ 的分享：
@@ -284,10 +310,11 @@ _顺带_ 帮 _你们_ 理解（为什么就和你对纯纯写作开发动机的�
 
 **这也是你把自己怀疑成是小丑自娱自乐的原因** 。因为你这里说的 _分享_ **与其说** 是分享，
 不如说就是为了给自己 **博得喝彩** 而在 Telegram 这个舞台上给大家做 **才艺表演** 而已。
+
 你所 **看重** 的是 **推荐、扩散、围观群众总量、Follower** 什么的 **因为分享优质相伴而生的东西** ，
 **而不是分享这个行为 _本身_** 。
 
-你很 _聪明_，因为你懂得了使用自己的技术积累给自己整点其他的东西，比如人气。
+你很 _聪明_ ，因为你懂得了使用自己的技术积累给自己整点其他的东西，比如人气。
 显然绝大部分人都希望自己成为一个受到广泛尊重和赞美的人，当然我也一样。
 不过这也是我们的意见不合之处之一。
 
@@ -297,35 +324,39 @@ _顺带_ 帮 _你们_ 理解（为什么就和你对纯纯写作开发动机的�
 如果想得到更 **优质** 的 _认可_ ， **不笨不行啊** 。
 
 我分享只是为了分享，因为我就是 **喜欢** 学习这些东西，就是 **必须** 要分享；
-**哪怕有人嫌我 _啰嗦_ 、嫌我消息 _太长、_ 发布 _太频繁_ 有时又因为上学不更，不爱看。
+**哪怕有人嫌我 _啰嗦_ 、嫌我消息 _太长、_ 发布 _太频繁_ 有时又因为上学不更，不爱看。**
+
 至于其他什么的，比如提出我没说到的问题，则要看我个人的人品。
-不过我个人的人品我自己无法评价，只能让别人来说我来看。
-我自身当然不需要考虑自己人品怎么样，_人品是_ ** _别人对我的看法_** ，
-自己评论自己的人品是 ** _没有意义_** 的。
+不过我个人的人品我自己无法评价，只能让别人来说我来观察改进。
+
+我自身当然不需要考虑自己人品怎么样， _人品_ 是 **_别人对我的看法_** ，
+自己评论自己的人品是 **_没有意义_** 的。
 
 我是 **没有状态依赖** 的，我要怎么做， **完全只看我自己。**
 在我写文「分享」的时候，**我眼前的舞台下没有任何人，而我所见的只有自己想要完全弄明白的东西。**
 
-你分享则是为了某种指标最大化。你就像是在效仿一个最优化算法，目标是 **人气** 、 **赞美** 之类的决策条件₅最大化。 **你可以选择怀疑
-Telegram 约束了你** ，使你不能达到你 **自觉** 能达到的 **最优水平** ；于是你开始怨天尤人，于是你开始怀疑 Telegram
-上的人，是不是 _抛弃_ 了你、是不是 _不公正_ 地对待了做了 **分享**
-的你，所以你要去[知识星球](https://t.zsxq.com/Zjun2b2)。但是，不管怎么样， **你眼中的分享** ， **始终没有把分享的
-_内容质量本身_ 放在第一位**，这也就是为什么 Telegram 生态观察要对你有[那种评论](https://t.me/tgsucks/826)的原因
-— 你不是做学术的，但如果有学者称自己发文的某平台埋没了自己 _不得了_ 的才华，那他就是学术态度 **不端** ，因为 ** _是金子总会发光的_**
-，在问得到之前得 **先付出** ，先做 **有效** 有 **真心** 的付出， **人心换人星** 。
+你分享则是为了某种指标最大化。你就像是在效仿一个最优化算法，目标是 **人气** 、 **赞美** 之类的决策条件₅最大化。 
+
+**你可以选择怀疑 Telegram 约束了你** ，使你不能达到你 **自觉** 能达到的 **最优水平** ；于是你开始怨天尤人，于是你开始怀疑 Telegram
+上的人，是不是 _抛弃_ 了你、是不是 _不公正_ 地对待了做了 **分享** 的你，所以你要去[知识星球](https://t.zsxq.com/Zjun2b2)。
+
+但是，不管怎么样， **你眼中的分享** ， **始终没有把分享的 _内容质量本身_ 放在第一位**，
+这也就是为什么 Telegram 生态观察要对你有[那种评论](https://t.me/tgsucks/826)的原因
+— 你不是做学术的，但如果有学者称自己发文的某平台埋没了自己 _不得了_ 的才华，那他就是学术态度 **不端** ，
+
+因为 **_是金子总会发光的_** ，在问得到之前得 **先付出** ，先做 **有效** 有 **真心** 的付出， **人心换人星** 。
 
 会有些人怀疑这个理论并认为单靠口才和营销就可以「[死人说活了，破货变好卖](https://zhuanlan.zhihu.com/p/31846622)」，但这条道理有时候就不行，它或许能够仗依人的不解、侥幸和误会得以暂时苟存，却骗不过时间苛刻的挑拣。
 **踏踏实实** 地做 **并且做好** 自己该做的事情， **多问耕耘少问收获，生活不会亏待你的。**
 
->
-⋯只是说人的东西永远都会成为黑历史，经典是非常难得的，因为一个好的人应该是不断飞速成长的，如果黑历史没有精力去一一重新审视扶正，就会变得不负责任，或自己也不能接受，所以删除是好事。⋯
+> ⋯只是说人的东西永远都会成为黑历史，经典是非常难得的，因为一个好的人应该是不断飞速成长的，如果黑历史没有精力去一一重新审视扶正，就会变得不负责任，或自己也不能接受，所以删除是好事。⋯
 
 乍一看，删除自己没有精力去重审扶正的 _黑历史_ 无可厚非，其实这个行为本身也没有任何对错可言，但我依然要表达一下自己的观点。
 
 黑历史是什么东西呢？如果这里说的黑历史，是自己曾经失败的尝试、曾经写过的程序、曾经对技术幼稚的观点和评论，我的立场很明确： **不应该删** 。
 
-**是的，正确性很重要**
-，所以没有办法确保正确的东西好像只得删掉，但我看到的不是「责任」「经典难得」「求成长」，也不觉得会有人无意识地把我有误解、不准确的 “黑历史”
+**是的，正确性很重要**，
+所以没有办法确保正确的东西好像只得删掉，但我看到的不是「责任」「经典难得」「求成长」，也不觉得会有人无意识地把我有误解、不准确的 “黑历史”
 用于学习，但实际上，先学会跑才会飞， **有些你现在看到是误解的东西，开始没有它们的缓冲你反而无法抓住当下拥有的真知。**
 所以除了真的舍不得外、我也在选择为他人参考而保留。说出去怕是误解，留作参考还不行么。
 
@@ -335,19 +366,22 @@ _一个好的人应该是不断飞速成长的_ ，飞速成长意味着什么�
 的思想下手。
 
 <p id="try-everything" align="center">
-<blockquote>I keep falling down I keep on hitting the ground
-<br>But I always get up now to see what's next
-<br><br>
-Birds don't just fly
-<br>They fall down and get up
-<mark>Nobody learns without getting it wrong</mark></blockquote>
+<blockquote>
+  I keep falling down I keep on hitting the ground<br>
+  But I always get up now to see what's next<br>
+  <mark>
+    Birds don't just fly, they fall down and get up<br>
+    Nobody learns without getting it wrong<br>
+  </mark></blockquote>
 </p>
 
 — [Try Everything](https://soundcloud.com/nguyen-lam-41616107/shakira-try-everything-zootopia-nightcore) — Zootopia
 
 老生常谈的一句话：
 
-有尝试就有成功和失败，没有尝试就没有失败，也没有成功。
+<p align="center">
+  <quote>有尝试就有成功和失败，没有尝试就没有失败，也没有成功。</quote>
+</p>
 
 失败很丢脸吗？ **失败不丢脸，怕才丢脸** 。
 
@@ -357,14 +391,14 @@ Birds don't just fly
 **你遇到过的所有困难，只要不能彻底打倒你，都只会让你变得更强。**
 
 <p id="dream-it-possible" align="center"><blockquote>
-The past, is everything we were
-<br>Don't make us who we are
+  <b>The past</b>, is everything we were<br>
+  Don't make us <var>who we are</var>
 </blockquote>
 </p>
 
 — [Dream It Possible](https://soundcloud.com/abdallah-el-taib-458852947/dream-it-possible)
 
-Telegraph 和 Telegram 一样都说我写的文太长了不给发 ~~😟~~
+Telegraph 和 Telegram 一样都说我写的文太长了不给发 ~~划掉 😟 划掉~~
 
 我只好把这里余下的内容加在另外分建的一篇里。看[这里](https://telegra.ph/%E5%AF%B9-drakeet-%E7%9A%84%E4%B8%80%E4%BA%9B%E8%AF%9D%E5%86%85%E8%81%94-07-03)。  
 
@@ -394,7 +428,9 @@ Telegraph 和 Telegram 一样都说我写的文太长了不给发 ~~😟~~
 “黑历史” 是曾经不完美的见证， **但它对自己而言也不是没有用处的。** _一个优秀的人_
 时常要复习一下自己的黑历史、记住自己曾经的误解、不确定，来为自己的未来提供一个完整的排除名单。 **错误不再重复第二遍。**
 
-人不能在同一块石头上绊倒两次。
+<p id="inline-fortune-stone" align="center">
+  <quote>人不能在同一块石头上绊倒两次。</quote>
+</p>
 
 非常简单的
 [DFS](https://ice1000.org/2017/05/26/UseMonadInDfs/)，深度优先搜索走迷宫。
@@ -406,7 +442,7 @@ Telegraph 和 Telegram 一样都说我写的文太长了不给发 ~~😟~~
 import Control.Applicative
 
 data Move = U | D | L | R
-deriving (Eq, Show, Read, Enum)
+  deriving (Eq, Show, Read, Enum)
 
 type Map = [[Bool]]
 type Point = (Int, Int)
@@ -416,19 +452,19 @@ type TracedRoute = (History Move)
 
 dfs :: Map -> Point -> History Point -> Maybe TracedRoute
 dfs map target history step
-| step == target = Just []
-| step `outbounds` map = Nothing
-| blocked or walked = Nothing
-| otherwise
-= firstJust (fmap try [Up, Down, Left, Right])
-where
-(x, y) = step
-blocked = not (map !! x !! y)
-walked = step `elem` history
-outbounds p m = let (px, py) = p
-in px >= length m or py >= length m !! px
+  | step == target = Just []
+  | step `outbounds` map = Nothing
+  | blocked or walked = Nothing
+  | otherwise
+    = firstJust (fmap try [Up, Down, Left, Right])
+  where
+    (x, y) = step
+    blocked = not (map !! x !! y)
+    walked = step `elem` history
+    outbounds p m = let (px, py) = p
+    in px >= length m or py >= length m !! px
 
-tryDfs m t s = dfs m t [] s  
+tryDfs m t s = dfs m t [] s  -- Define `try' yourself...
 ```
 
 曾经独立战争的美国、现在依然被很多墙外的中国人自家看不起的中国， **都是最鲜活的例子** ；他们都有过很 **严重的历史问题**，
@@ -439,14 +475,14 @@ tryDfs m t s = dfs m t [] s
 **你或许可以否定历史，但历史总是真实存在；它是你的一部分** 。而当错误第二次到来的时候，你可以指着自己的历史
 — 看，应该这么办！ 看，这错误我 500 年前都犯过了！
 
-而不是蒙圈在那里，不过说也许是要效仿日本政府 **美化、修正** 侵略历史的话， **那我没话说。**
+而不是蒙圈在那里，不过说也许是要效仿日本政府 **美化、修正** 侵略历史『黑历史』的话， **那我没话说。**
 
 当然这里有些讨论到政治的内容，我不希望每次一提到中国政府并且不是批判的话就会遭来「小粉红」的谴责，是的大部分人什么也做不了，但出于盲目的批判似乎又没有什么目的，只能说自己是努力过吧。
 **但是即便看起来是再坏，总有好的一面有时候是不能强行抓去一道骂了的** ，所以请反色小粉红派噤声。
 
 你又是怎么看那些曾经消息的呢？你不会忘记吗？你可以表达一下自己的观点吗？
 
-## 『敏锐』的不是你的人、不是你的认知，是你的知识
+## 『敏锐』的不是你的人、不是你的认知，而是你真正的知识
 
 > ⋯即使我是一个很敏锐且阅读文章特别慢的人 ...
 
@@ -459,13 +495,14 @@ tryDfs m t s = dfs m t [] s
 
 自然， **厨师只是厨师；可是也可以分为好厨师和差厨师** 。厨师的好差，能够靠着他们自己的语言评定出来吗？
 
-一个人一生里决定他一生的事件，发生的时候他们往往不在场，自主招生、录用、加薪， **你觉得是自己想要得到的评论重要，还是别人真实的评论更重要？**
-你是做好自己，还是去和别人争论他们不公平？
+一个人一生里决定他一生的事件，发生的时候他们往往不在场，自主招生、录用、加薪、裁员，
+**你觉得是自己想要得到的评论重要，还是别人真实的评论更重要？你是做好自己，还是去和别人争论他们不公平？**
 
-故事里说的，是御厨。旧时皇帝是坐拥万里江山，厨师自然是最好的厨师。
+故事里说的，是 *御厨* 。旧时皇帝是坐拥万里江山，厨师自然是最好的厨师。
 
 故事里的厨师 **从屠宰第一只牛开始** ， **花了三年时间** 。他 **并非** 一直只在仅仅 _杀牛分割_ 上下工夫，这三年里他 **悟** 出了「
-**道** 」；即使是很多人可能不屑的宰牛之道。这也是他能从可能一个普通的市井小民、家常菜馆的小厨子晋升为御厨的缘由所在。
+**道** 」；即使是很多人可能不屑的宰牛之道。
+**这也是他能从可能一个普通的市井小民、家常菜馆的小厨子晋升为御厨的缘由所在。**
 
 这位古时的一介武夫，花了三年的时间，
 **他并非一直单单在机械化地宰牛，而是在宰牛的过程中亦在学习宰牛、分析宰牛、领悟宰牛，他在利用宰牛的实践经验向宰牛之道逼近** ，并最终可以做到
@@ -477,7 +514,7 @@ _“以神遇而不以目視，官知止而神欲行”_ 的境界。
 **只扣** 对编程的 **直觉** 和程序 **本身的灵魂** ，对他们来说已经没有入门者的条条框框、刻板的约束了，回归初心，他们看到的是
 **程序所做的事情本身**
 ，是程序的灵魂；换十种兼容的语言和底层抽象去描述也不是问题，因为他们已经站得足够高，无须顾虑脚下低处的迷雾笼罩而可以自由地放飞视线，
-_不识庐山真面目，只缘身在此山_ ** _中_** _。_
+_不识庐山真面目，只缘身在此山_ **_中_** 。
 
 **人类的本质是复读机，可是有些人就是能在不断复读的过程中领悟到所复读内容的真谛，有些人最终也只能是记忆容量大一点的复读机而已。**
 
@@ -495,7 +532,7 @@ _车到山前必有路，船到桥头自然直_ ”。 **可是技术本身呢**
 
 drakeet，你自从学习程序设计以来， **离你写下第一行代码开始编程又过去了多久** ？我想即使没有 8 年，也过去了 **两个三年**
 吧。程序设计本身的直觉就是这么特殊， **以你如此 _敏锐_** 的思路都没法试着融入了，以古时候厨子的速度你应该已经领悟大道 **两次**
-了，可其实你还在第二个理解阶段前徘徊。如果真的是这样，我只能说 ** _很可惜_** 。你慢的实在太特别了，把你所有的 _敏锐_ 都给抵消掉了。
+了，可其实你还在第二个理解阶段前徘徊。如果真的是这样，我只能说 **_很可惜_** 。你慢的实在太特别了，把你所有的 _敏锐_ 都给抵消掉了。
 
 目前为止我活了 17 年， **没错，我不是长者，我见识不如你多，我写过的字还没有你写过的代码一半多，我现在还不能到微软、阿里上班。**
 但是我依然见过几十个我所认为敏锐的人，他们有的是二线城市最优秀的初中里全科的年级第一，热情阳光口才好，体育成绩优秀，高分高能、有的成绩普通但热爱足球运动、身体灵活且耐力强，多次在校运动会上拿到长跑第一名，
@@ -518,23 +555,23 @@ _岂止_ 单单靠一个 “ _敏锐_ ” 一个 “ _本质_ ” 概论可以�
 ```haskell
 quickSort :: Ord a => [a] -> [a]
 quickSort xs
-|length xs <2 = xs
-|otherwise = quickSort lts ++ eqs ++ quickSort gts
-where
-x = let mid' = (length xs `div` 2) in (xs !! mid')
-lts = [ l | l <- xs, l < x ]
-eqs = [ x'| x'<- xs, x' ==x]
-gts = [ r | r <- xs, x < r ]
+  |length xs <2 = xs -- ordered
+  |otherwise = quickSort lts ++ eqs ++ quickSort gts
+    where
+      x = let mid' = (length xs `div` 2) in (xs !! mid')
+      lts = [ l | l <- xs, l < x ]
+      eqs = [ x'| x'<- xs, x' ==x]
+      gts = [ r | r <- xs, x < r ]
 
 -- forall i. list[i] <= list[i+1]
 -- forall x r in join2(list). x <= r
 ordered xs
-|length xs <2 = True
-|otherwise = forall (zipWith (<=) xs (tail xs))
-where forall = foldl (&&) True
+  |length xs <2 = True
+  |otherwise = forall (zipWith (<=) xs (tail xs))
+    where forall = foldl (&&) True
 
 prop_qsortOrdered inxs = ordered (quickSort inxs)
-where _ = inxs :: [Int]
+  where _ = inxs :: [Int]
 
 import Test.QuickCheck (quickCheck)
 quickCheck prop_qsortOrdered -- OK, passed 100 tests.
@@ -546,18 +583,18 @@ fibs' :: [Int]
 fibs' = 0 : 1 : zipWith (+) fibs' (drop 1 fibs')
 
 fibseq xs = and (zipWith3 facc xs (drop 1 xs) (drop 2 xs))
-where facc a b c = c == a + b
+  where facc a b c = c == a + b
 
 prop_fibseq n = fibseq (take n fibs')
-where types = n :: Int
+  where types = n :: Int
 
 splitH :: Char -> String-> [String]
-splitH d str
-= splitH' str []
-where
-splitH' (c : cs) ac
-| c == d = reverse ac : splitH' cs []
-| otherwise = splitH' cs (c : ac)
+  splitH d str
+  = splitH' str []
+    where
+      splitH' (c : cs) ac
+      | c == d = reverse ac : splitH' cs []
+      | otherwise = splitH' cs (c : ac)
 
 cyclicIndex :: [a] -> Int -> a
 cyclicIndex xs = \i -> let len = length xs in xs !! (i `mod` len)
@@ -565,31 +602,32 @@ cyclicIndex xs = \i -> let len = length xs in xs !! (i `mod` len)
 cyclicIndexF :: [a] -> Integer -> a
 cyclicIndexF [] = undefined
 cyclicIndexF xs = cyclicIndex' xs xs
-where
-cyclicIndexF' :: [a] -> [a] -> Integer -> a
-cyclicIndexF' sxs [] i' = cyclicIndexF' sxs sxs i'
-cyclicIndexF' sxs (x:_) 0 = x
-cyclicIndexF' sxs (x:xs) i = cyclicIndexF' sxs xs (i -1)
+  where
+    cyclicIndexF' :: [a] -> [a] -> Integer -> a
+    cyclicIndexF' sxs [] i' = cyclicIndexF' sxs sxs i'
+    cyclicIndexF' sxs (x:_) 0 = x
+    cyclicIndexF' sxs (x:xs) i = cyclicIndexF' sxs xs (i -1)
 ```
 
 ```agda
 infixr 5 _cat_
 data Vec {i} (A : Type i) : Nat -> Type i where
-[]    : Vec A O
-_cat_ : forall {n} -> A -> Vec A n -> Vec A (S n)
+  []    : Vec A O
+  _cat_ : forall {n} -> A -> Vec A n -> Vec A (S n)
 
 _ = [] :> Vec Nat 0
 _ = (666 cat 233 cat []) :> Vec Nat 2
 
+--
 module SimpleCoinductiveList where
 open import Agda.Builtin.Size
 
 record Colist {i} (s : Size) (A : Type i) : Type i where
-coinductive
-constructor _:>:_
-field
-cohead : A
-cotail : {ss : Size< s} -> Colist ss A
+  coinductive
+  constructor _:>:_
+  field
+    cohead : A
+    cotail : {ss : Size< s} -> Colist ss A
 open Colist
 variable s : Size
 
@@ -600,7 +638,7 @@ cotail (cotail cofib) = cozipWith _+_ cofib (cotail cofib)
 ```
 
 不过 **虽然他们都很敏锐** ，但除了这个之外都还有一个 **共性** ，就是他们对自己的敏锐 **都没有那么敏锐** 。他们 **不觉得**
-自己是在努力， **没有发现** 自己成天是在学习、没有发现自己的技术已经超过了多少人、没有发现自己做到了融会贯通且已开始晓明大道、 **懒得在意**
+自己是在努力， **没有发现** 自己成天是在学习、没有发现自己的技术已经超过了多少人、没有发现自己做到了融会贯通且已开始步入大道、 **懒得在意**
 自己写的东西有多少人看、没有发现自己有天分、没有发现自己绕过了多少误区，弯道超车、没有发现自己做过的事情总结出来有多么了不起多么热血、 **没有看到**
 自己的未来可能是个什么样子，还能再有什么发展。
 
@@ -609,7 +647,7 @@ cotail (cotail cofib) = cozipWith _+_ cofib (cotail cofib)
 ，以至于很多人都不承认自己的天分、自己的敏锐， **只是痴痴地年复一年做着自己喜欢的事情** ， **他们真 _傻_** ， **而你很 _聪明_** 。 ~~我
 TMD 也真心希望你一直这样敏锐下去，造福人类。 🌝~~
 
-**每个人都挑着两个篮子，身体前面的篮子里记录别人的优点，背后的篮子里装自己的优点，看起来你好像把这个担子挑反了。**
+**每个人都挑着两个篮子，身体前面的篮子里记录别人的优点、背后的篮子里装自己的优点，看起来你好像把这个担子挑反了。**
 
 > 另外我一开始喜欢上 Telegram
 的频道功能是因为它可以很敏捷且可控，更关键的是它不用接受评论，⋯我无意与人辩驳，所以没有任何正面回应，因为面对小人，我去一一解释就是在浪费自己的时间和继续令其从我自己这边收获更多。总之就是难免又陷入絮絮叨叨，我非常热爱工作和写代码，我要尽快恢复投入，因此不多说了⋯
@@ -624,15 +662,15 @@ TMD 也真心希望你一直这样敏锐下去，造福人类。 🌝~~
 
 从而其他人会把锅弄到我的身上，到时候我肯定有口难辩；但是请记住这两句话：
 
-<p id="fortunes" align="center">
+<p id="fortunes[0]" align="center">
 
 无论你有多聪明，无论你的理论有多完美，如果不符合实际，那么它就是错的。
-  — [Richard Phillips Feynman](https://zh.wikipedia.org/wiki/%E7%90%86%E6%9F%A5%E5%BE%B7%C2%B7%E8%B2%BB%E6%9B%BC)
+  — <a href="https://zh.wikipedia.org/wiki/%E7%90%86%E6%9F%A5%E5%BE%B7%C2%B7%E8%B2%BB%E6%9B%BC">Richard Phillips Feynman</a>
 </p>
-<p id="fortunes" align="center">
+<p id="fortunes[1]" align="center">
 
 我唯一能确定的就是自己的无知。
-  — [Socrates](https://zh.wikipedia.org/zh-hans/%E8%8B%8F%E6%A0%BC%E6%8B%89%E5%BA%95)
+  — <a href="https://zh.wikipedia.org/zh-hans/%E8%8B%8F%E6%A0%BC%E6%8B%89%E5%BA%95">Socrates</a>
 </p>
 
 但是现在我唯一能确定的就是，如果有朋友再来告诉我，不要这么 “激怒”
@@ -675,14 +713,8 @@ _无限只猴子随机地敲打键盘，总有一天能敲打出莎士比亚全�
 
 ### References
 
-_A dependently-typed life_ ::
-[抽刀断水水更流，状态转移是解构](https://ice1000.org/lagda/MuGenHackingToTheGate.html)
-
-[QuickCheck: An Automatic Testing Tool for
-Haskell](http://www.cse.chalmers.se/~rjmh/QuickCheck/manual.html)
-
-[Dunning-Kruger
-effect](https://en.wikipedia.org/wiki/Dunning%E2%80%93Kruger_effect)
-
-[酷壳：如何超过大多数人](https://coolshell.cn/articles/19464.html)
+1. [A dependently-typed life：抽刀断水水更流，状态转移是解构](https://ice1000.org/lagda/MuGenHackingToTheGate.html)
+2. [QuickCheck: An Automatic Testing Tool for Haskell](http://www.cse.chalmers.se/~rjmh/QuickCheck/manual.html)
+3. [Wikipedia：Dunning-Kruger effect](https://en.wikipedia.org/wiki/Dunning%E2%80%93Kruger_effect)
+4. [酷壳：如何超过大多数人](https://coolshell.cn/articles/19464.html)
 
