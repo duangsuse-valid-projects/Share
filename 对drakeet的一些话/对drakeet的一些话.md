@@ -390,13 +390,13 @@ _一个好的人应该是不断飞速成长的_ ，飞速成长意味着什么�
 的思想下手。
 
 <p id="try-everything" align="center">
-<blockquote>
+<quote>
   I keep falling down I keep on hitting the ground<br>
   But I always get up now to see what's next<br>
   <mark>
     Birds don't just fly, they fall down and get up<br>
     Nobody learns without getting it wrong<br>
-  </mark></blockquote>
+  </mark></quote>
 </p>
 
 — [Try Everything](https://soundcloud.com/nguyen-lam-41616107/shakira-try-everything-zootopia-nightcore) — Zootopia
@@ -414,10 +414,10 @@ _一个好的人应该是不断飞速成长的_ ，飞速成长意味着什么�
 走出安全区。尝试就有跌落的可能，甚至可能让你在很长的时间里不愿提起它、不愿继续下去。但是，
 **你遇到过的所有困难，只要不能彻底打倒你，都只会让你变得更强。**
 
-<p id="dream-it-possible" align="center"><blockquote>
+<p id="dream-it-possible" align="center"><quote>
   <b>The past</b>, is everything we were<br>
   Don't make us <var>who we are</var>
-</blockquote>
+</quote>
 </p>
 
 — [Dream It Possible](https://soundcloud.com/abdallah-el-taib-458852947/dream-it-possible)
@@ -666,6 +666,10 @@ record Colist {i} (s : Size) (A : Type i) : Type i where
     cotail : {ss : Size< s} -> Colist ss A
 open Colist
 variable s : Size
+
+cozipWith : {A B C : Type i} -> (A -> B -> C) -> Colist s A -> Colist s B -> Colist s C
+cohead (cozipWith f a b) = f (cohead a) (cohead b)
+cotail (cozipWith f a b) = cozipWith f (cotail a) (cotail b)
 
 cofib : Colist s Nat
 cohead cofib = 0
