@@ -59,7 +59,7 @@ keywords: Android drakeet reverse-engineering technical
 你还是 **打年龄炮** 说我是小孩子。
 
 实际上我的确「不仅仅是小孩子还是个 _小人_ 」，就因为我 **不小心** 转发了你的私聊消息、
-就因为我 **转发评论** 了你之前发在公开频道上 **从没声明过不可转发的消息**。
+就因为我 **转发评论** 了你之前发在 **公开频道** 上 **从没声明过不可转发的消息**。
 
 我的确就是微不足道的小菜鸡，即便是 GeekApk 这个只有壳子的项目在 **名义上都不是我的**。
 
@@ -80,7 +80,7 @@ keywords: Android drakeet reverse-engineering technical
 [text editor](https://en.wikipedia.org/wiki/Text_editor) 来做设计就是低层码农，
 前端设计师真高大上啊。
 
-不过还是感谢你至少开始的时候表示了支持态度，后来也在我道歉后容忍了我未授权的转发。
+不过还是感谢你至少开始的时候表示了支持态度，后来也在我道歉删除转发内容和评论后容忍了我未授权的转发。
 有些人不喜欢这类破事，我显然是打扰错人了。
 
 ## 理论大佬·不能解决的自动排序问题
@@ -233,7 +233,7 @@ keywords: Android drakeet reverse-engineering technical
 就好像一段不会运行的 buggy 程序，[type checker](https://en.wikipedia.org/wiki/Type_system)
 又不 [sound](https://t.me/dsuse/10692)，因为你封了它的嘴（`cc 2>/dev/null`）， **问题还暴露不出来** ，
 是的，它 _很完美_ 、它 _没有错误_ 、它 _无可挑剔_ 、它 _没法改进_ 、它 _正确_。
-你说我像鲁迅先生笔下的[孔乙己](https://zh.wikipedia.org/wiki/%E5%AD%94%E4%B9%99%E5%B7%B1)看人论断₂，
+你说我像鲁迅先生笔下的[孔乙己](https://zh.wikipedia.org/wiki/%E5%AD%94%E4%B9%99%E5%B7%B1)视人论断₂，
 我是否可以给你立个真正的“孔乙己”[孔子](https://zh.wikipedia.org/wiki/%E5%AD%94%E5%AD%90)作为偶像？
 孔子万世师表肯以七岁稚子[为师](https://zh.wikipedia.org/wiki/%E9%A0%85%E6%A9%90)，
 礼之祖师入个太庙还“[每事问](https://zh.wikipedia.org/wiki/%E5%AD%94%E5%AD%90#%E3%80%8C%E7%A6%AE%E3%80%8D%E7%9A%84%E7%A4%BE%E6%9C%83%E7%A7%A9%E5%BA%8F)”，
