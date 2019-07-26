@@ -758,8 +758,12 @@ _无限只猴子随机地敲打键盘，总有一天能敲打出莎士比亚全�
 
 ### References
 
-1. [A dependently-typed life：抽刀断水水更流，状态转移是解构](https://ice1000.org/lagda/MuGenHackingToTheGate.html)
+1. [A dependently-typed life: 抽刀断水水更流，状态转移是解构](https://ice1000.org/lagda/MuGenHackingToTheGate.html)
 2. [QuickCheck: An Automatic Testing Tool for Haskell](http://www.cse.chalmers.se/~rjmh/QuickCheck/manual.html)
-3. [Wikipedia：Dunning-Kruger effect](https://en.wikipedia.org/wiki/Dunning%E2%80%93Kruger_effect)
-4. [酷壳：如何超过大多数人](https://coolshell.cn/articles/19464.html)
+3. [Wikipedia: Dunning-Kruger effect](https://en.wikipedia.org/wiki/Dunning%E2%80%93Kruger_effect)
+4. [酷壳: 如何超过大多数人](https://coolshell.cn/articles/19464.html)
+5. [RednaxelaFX@ITEye: 虚拟机随谈（一）：解释器，树遍历解释器，基于栈与基于寄存器，大杂烩](https://rednaxelafx.iteye.com/blog/492667)
+6. [当然我在扯淡: 怎样写一个解释器](http://www.yinwang.org/blog-cn/2012/08/01/interpreter)
+7. [Horrible RAM: 数学符号下的编程谎言 (1) 数据编码](https://anqurvanillapy.github.io/?p=lies-about-programming-languages-in-mathematical-notations-1)
+8. [Kotlin 极简教程](https://www.jianshu.com/p/4fbe5e0a3639)
 
