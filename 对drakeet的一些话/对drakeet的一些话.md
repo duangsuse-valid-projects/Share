@@ -10,9 +10,8 @@ keywords: Android drakeet reverse-engineering technical
 # 对 drakeet 的一些话 <sub><a href="对drakeet的一些话.html">[Telegraph Version]</a></sub>
 
 <p id="article-info" align="center">
-  <address><a rel="author">duangsuse</a></address>, <time>July 02, 2019</time>
-
-  <blockquote>  
+  <address><a rel="author">duangsuse</a></address>  <time>July 02, 2019</time>
+  <blockquote>
     <b>Abstract</b> : 这篇文章初始版本从 <b><i>duangsuse Throws</i></b> Telegram 频道上拷贝，
   主要基于作者与一软件工程师 drakeet 曾经争执的经过和结果的主观看法编写。<br>
   <ul>
