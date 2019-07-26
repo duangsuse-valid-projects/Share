@@ -32,25 +32,25 @@ keywords: Android drakeet reverse-engineering technical
 
 没错，我不该尝试 [逆向分析纯纯写作](https://t.me/dsuse/3059)，
 即便它的作者之前 [三次在频道上说](https://t.me/dsuse/3045) 它的反破解（代码保护）技术有多么多么高大上，
-真的是非常让人想了解一下这些不得了的技术有怎么样的深度。
+真的是非常让人想了解一下这些听上去十分不得了的技术有着怎么样的深度。
 
-然而现在我不仅完全可以自己手动从 [x86 汇编代码](https://asmtutor.com/)
+不过，现在我不仅完全可以自己 **纯手动** 从 [x86 汇编代码](https://asmtutor.com/)
 （[WowCoolApk](https://github.com/duangsuse-valid-projects/WowCoolApk)、
 [CoolTok](https://github.com/duangsuse/CoolTok/)） 和
-[Java 字节码](https://t.me/dsuse/10777) 里 **纯手动** 还原本来的程序逻辑，
+[Java 字节码](https://t.me/dsuse/10777) 里还原本来的程序逻辑，
 也开始自己独立研究学习基于抽象执行、表达式收束和基本块、控制流分析、
-模式匹配的反编译器算法了。你照样可以拿着 [jadx](https://github.com/skylot/jadx) 之类的东西，
-号称自己非常 [擅长](https://t.me/dsuses/2008) 逆向工程。
+模式匹配的反编译算法了。你照样可以拿着 [jadx](https://github.com/skylot/jadx) 之类的东西，
+继续自己非常[擅长](https://t.me/dsuses/2008)的，你和其他 _绝大部分人_ 所熟知的逆向工程。
 
 我们的追求不一样，一个是用用就行一个是追求彻头彻尾的理解。
-我得感谢你，要不然我真的不会对逆向工程有这一点微不足道的研究。
+我还得感谢你，要不然我真的不会对逆向工程有这一点微不足道的研究。
 
 ## 关于<abbr title="拖延、未完成">“鸽子”</abbr> GeekApk
 
 没错，我不该加入一个间接因为我自己幼稚的想法创立的 [GeekApk](https://github.com/GeekApk)，
 我应该让它这个孤儿自己成为笑话，不必打扰到你。而且它开始的确就是空壳，
 除了 [前端的 HTML](https://github.com/geekapk-r/geekapk.org/blob/master/templates/index.rhtml)
-之外一无所有，即便我的确是有努力地在为它付出。
+之外一无所有，即便我的确是有尽我所能地努力在为它付出，这点也不可否认。
 
 我为 [GeekApkR](https://github.com/GeekApk-r) 写了
 [自己的 Swagger](https://github.com/duangsuse-valid-projects/GeekSpec-GeekApkv1.0b#geekapk-geekspec-%E7%A4%BA%E4%BE%8B%E5%AE%9A%E4%B9%89%E6%96%87%E4%BB%B6---)、
@@ -59,22 +59,22 @@ keywords: Android drakeet reverse-engineering technical
 你还是 **打年龄炮** 说我是小孩子。
 
 实际上我的确「不仅仅是小孩子还是个 _小人_ 」，就因为我 **不小心** 转发了你的私聊消息、
-就因为我 **转发评论** 了你之前 **没有声明过不可转发的消息**。
+就因为我 **转发评论** 了你之前发在公开频道上 **从没声明过不可转发的消息**。
 
-我的确就是微不足道的小菜鸡，即便 GeekApk 这个只有壳子的项目在 **名义上都不是我的**。
+我的确就是微不足道的小菜鸡，即便是 GeekApk 这个只有壳子的项目在 **名义上都不是我的**。
 
-你这种行为和以前的我很像，不过很可惜你已经比我大个七八岁了，**成年人** 。
+你这种行为和以前的我很像，不过很可惜，你已经比我大个七八岁了，**成年人** 。
 
 我不应该指望 GeekApk 怎么样，但你也可以因为自己会用 Sketch、我可能没见过
 [Sketch](https://en.wikipedia.org/wiki/Sketch_\(software\))
 就把它当成 GeekApk 现在完全也永远就是废物的 [补充论据](https://t.me/dsuses/1961)，
-也可以因为我不接受这个理由而感到愤懑不平，可换到我自己，我是不会因为自己会用
+也可以因为我不接受这个理由而感到愤懑不平，可换到我自己，我是不会把自己会用
 [Krita](https://krita.org/zh/) 和 [After Effects](https://en.wikipedia.org/wiki/Adobe_After_Effects)、
 [Blender](https://www.blender.org/)、[Kdenlive](https://kdenlive.org/en/)、
 [Synthesizer V](https://synthesizerv.com/zh-cn/)、[Vocaloid](https://en.wikipedia.org/wiki/Vocaloid)、
-[UTAU](https://en.wikipedia.org/wiki/Utau)、[LMMS](https://lmms.io/) 做点微不足道当不了饭吃的小事情视为自己所有的。
+[UTAU](https://en.wikipedia.org/wiki/Utau)、[LMMS](https://lmms.io/) 做点微不足道当不了饭吃的小事情之技能视为自己所拥有能力的。
 
-Sketch 设计矢量画、界面和动画的难度看起来真是比上面几个高的多的多，以至于它都能被当成一门独特的技术看待。
+是用 Sketch 设计矢量画、界面和动画的难度真的比上面几个高的多的多，以至于它都能被当成一门独特的技术看待，还是我们对技术的评判标准不同呢？
 
 听起来偶尔尝试用 [Firefox](https://developer.mozilla.org/en-US/docs/Mozilla/Gecko) 和
 [text editor](https://en.wikipedia.org/wiki/Text_editor) 来做设计就是低层码农，
@@ -134,13 +134,13 @@ Sketch 设计矢量画、界面和动画的难度看起来真是比上面几个�
 如果你和人交流是别人看你是正常身高，但是自视却比蚂蚁还矮的话，
 **我的确是无法不和这样的你高姿态凌空喊话** 。
 
-不过我就真的是想让你 _谦虚_ 一点，为人和善一点，**_满招损谦受益_** ，
+不过我还就真的是想让你 _谦虚_ 一点，为人和善一点，**_满招损谦受益_** ，
 如果只有我一个人说，那是我不够宽容，可现在你 **对别人骄傲自满甚至自负的态度**
 已经[让](https://t.me/monogramW/457)很[多](https://t.me/tgsucks/833)人[看](https://t.me/dsuses/3001)不[下](https://t.me/bystartw_chatboard/2228)去了。
 
 ##### “断章”
 
-不过有一点我摸不着头脑，就是我 **完全没有** 意识到自己 <b>_断章取义_</b> 了你的话，
+有一点我一直摸不着头脑，就是我 **完全没有** 意识到自己 <b>_断章取义_</b> 了你的话，
 我 **不知道** 「断章取义」这四个大红字 **是怎么和我扯上关系的**。
 
 你是指私聊那次？我的确转发漏了一个时间定语，_你得有时间想做了才能完成 XXXX_ ，
@@ -163,7 +163,7 @@ Sketch 设计矢量画、界面和动画的难度看起来真是比上面几个�
 你的确无意辩驳，也只是简单地像丢垃圾一样把我踢了出去，并且尽可能屏蔽了我，
 因为你根本不可能接受两个人“剑拔弩张”地 __讨论问题本身__ 的情况。
 
-不用追求真理，你只需要确认一个自己的认知就可以了。不需要求什么甚解，有问题<abbr title="消灭"><q><i>解决</i></q></abbr>掉就可以了。
+不用追求真理，你只需要确认一个自己的认知就可以了。不需要求什么甚解，有问题只需<abbr title="消灭"><q><i>解决</i></q></abbr>掉就可以了。
 
 是，**你就是自己的正义，无须辩论，只需出示一下胜利宣言就可以了** 。
 
@@ -277,7 +277,7 @@ Sketch 设计矢量画、界面和动画的难度看起来真是比上面几个�
 HTML5、Canvas、WebGL、[Webpack](https://webpack.js.org/)、Lazyload、preload、Sprite、WebWorkers、WebAudio、WebVideo 一大打，
 甚至还做了各种 SEO、访问速度优化，其整体服务就是一个大黑科技，而且 **_没有一个错别字_** 。
 
-它没有问题、它最好。但是来的人不仅 UV 量₄ 少，慢慢的都没人过问了，于是你开始 **抱怨** 万维网的万恶、
+它没有问题、它最好。但是网站不仅 UV 量₄ 少，慢慢的都没人过问了，于是你开始 **抱怨** 万维网的万恶、
 用户们的眼瞎，为什么就没有让你 _如此用心_ 的网站持续 “火” 下去甚至真正火过一下 。🤔
 
 ##### 分享
@@ -442,7 +442,7 @@ Telegraph 和 Telegram 一样都说我写的文太长了不给发 ~~划掉 😟 
 
 **小到个人，大到国家亦是如此。**
 
-对于「千万家、亿万人」国家来说，很多国家不能容忍的 **不是** 黑历史，而是 **找不到** “黑历史” 的 **解决方案** 。
+对于「千万家、亿万人」的国家来说，很多国家不能容忍的 **不是** 黑历史，而是 **找不到** “黑历史” 的 **解决方案** 。
 
 **对于国家来说，重要的不是想办法“处理”掉自己的黑历史，不让它被别人看到，而是站在历史和未来的交织点、曾经那个不完美的自己面前作出改变命运的决断。**
 
