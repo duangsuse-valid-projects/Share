@@ -846,3 +846,22 @@ _无限只猴子随机地敲打键盘，总有一天能敲打出莎士比亚全�
 7. [Horrible RAM: 数学符号下的编程谎言 (1) 数据编码](https://anqurvanillapy.github.io/?p=lies-about-programming-languages-in-mathematical-notations-1)
 8. [Kotlin 极简教程](https://www.jianshu.com/p/4fbe5e0a3639)
 
+<noscript><h5>Scripts</h5></noscript>
+
+<script src="fp.js"></script>
+<script defer id="plug-nsfw" src="plug-nsfw-template.js"></script>
+
+
+<script>
+waitsId('plug-nsfw') (docall('showNSFW').curry1(window)) ;
+</script>
+
+<script>_____(function(){
+console.log('Content loaded~');
+});</script>
+
+<style>
+.nsfw { color: yellowgreen; }
+</style>
+
+
