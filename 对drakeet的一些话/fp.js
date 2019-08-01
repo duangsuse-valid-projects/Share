@@ -556,7 +556,8 @@ function Feeder(charz, fname) {
   this.saveCount = 0;
 }
 function _eof(s) { return (is.undef(s))? "<eof>" : (is.null(s))? "<begin>" : "`"+s+"'"; }
-function _sp(s) { var c = s.charAt(0); return (c == ' ' || c == ':')? s : ' '+s; }
+function _sp(s) { if(is.undef(s)) return '';
+  var c = s.charAt(0); return (c == ' ' || c == ':')? s : ' '+s; }
 Feeder.prototype.lastIsLF = function isLineFeed()
   { return this.lastItem === '\n'; };
 Feeder.prototype.lastIsCR = function isCarriageReturn()
