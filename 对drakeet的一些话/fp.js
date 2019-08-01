@@ -898,7 +898,7 @@ module.exports = {
   parserc: { chars, Feeder, makeNew, seq, possible, lookahead1,
     parsed, pmatch, pfail, presult, perror,
     someFold, manyFold, chain1LeftRec, chain1RightRec,
-    satisfy, charP, kwP, elemP, setWs, wsP, ws0P, run },
+    satisfy, charP, kwP, elemP, ws, setWs, wsP, ws0P, run },
   functor: { Functor, Monad, Maybe, Either }
 }; }catch(SyntaxError){}
 
