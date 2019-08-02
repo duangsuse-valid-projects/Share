@@ -669,7 +669,7 @@ return function prefetch1(feeder) {
 }; }
 
 function someFold(p, folder, msgr) { // use it in seq
-if (!is.some(folder)) folder = ['', add];
+if (is.undef(folder) || !is.some(folder)) folder = ['', add];
 if (!is.fun(msgr)) msgr = function failedFold(f, m) {
   return "Failed fold: "+m; };
 return function foldChain(feeder) { var match, v = folder[0], f = folder[1];
@@ -685,7 +685,7 @@ return function foldChain(feeder) { var match, v = folder[0], f = folder[1];
   return pmatch(v);
 }; }
 function manyFold(p, folder) { // use it in seq
-if (!is.some(folder)) folder = ['', add];
+if (is.undef(folder) || !is.some(folder)) folder = ['', add];
 return function foldChain0(feeder) { var match, v = folder[0], f = folder[1];
   match = p(feeder);
   if (!parsed(match)) { return pmatch(v); }
@@ -730,10 +730,12 @@ function kwP(str, m, fmt) {
 if (!is.string(m)) m = '';
 if (!is.fun(fmt)) fmt = function format(s, i)
   { return (s.eof()? 'Unexpected EOF. ':'') + 'Expecting keyword <'+str+'>@'+i+ _sp(m); };
-return function stringP(feeder) { for (var i = 0, x = feeder.lastItem;
-  i !=str.length && is.string(x) && _sindex(x,0) === _sindex(str, i++); x = feeder.next()) {}
-  feeder.duplast(); // revert sequential skip
-  return (i === str.length)? pmatch(str) : pfail(fmt(feeder, i));
+return function stringP(feeder) {
+  if (_sindex(str, 0) === _sindex(feeder.lastItem,0))
+  { for (var i = 1, x = feeder.nextItem;
+    i !==str.length && is.string(x) && _sindex(x,0) === _sindex(str, i);
+    x = feeder.nextNext(), ++i) {} }
+  return (i === str.length)? pmatch(str) : feeder.reset1Tho(pfail(fmt(feeder, i||0)));
 }; }
 function elemP(iset, m, fmt) {
 if (!is.string(m)) m = '';
