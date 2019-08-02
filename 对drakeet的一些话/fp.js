@@ -592,9 +592,21 @@ Feeder.prototype.logs = function pushStack(x)
 Feeder.prototype.leave = function popStack()
   { if (!is.null(this.stack)) this.stack.pop(); return this; };
 
+function primCtor(ct) {
+switch (ct) {
+  case Array: return true;
+  case String: return true;
+  case Number: return true;
+  case Boolean: return true;
+  case Object: return true;
+  case Function: return true;
+} return false;
+}
+
 function makeNew(ctor) {
   return function constructNew(matches) {
-    var ths = new ctor; return ctor.bind(ths).apply(ctor, matches); }; }
+    var ths = new ctor; var o = ctor.bind(ths).apply(ctor, matches);
+    return primCtor(ctor)? o : ths; }; }
 ///
 function parsed(xs) { return xs[0]; }
 function presult(xs) { return xs[1]; }
@@ -671,7 +683,7 @@ return function prefetch1(feeder) {
 function someFold(p, folder, msgr) { // use it in seq
 if (is.undef(folder) || !is.some(folder)) folder = ['', add];
 if (!is.fun(msgr)) msgr = function failedFold(f, m) {
-  return "Failed fold: "+m; };
+  return "Failed fold1+: "+m; };
 return function foldChain(feeder) { var match, v = folder[0], f = folder[1];
   match = p(feeder);
   if (!parsed(match)) { var msg = msgr(feeder, perror(match));
@@ -731,11 +743,12 @@ if (!is.string(m)) m = '';
 if (!is.fun(fmt)) fmt = function format(s, i)
   { return (s.eof()? 'Unexpected EOF. ':'') + 'Expecting keyword <'+str+'>@'+i+ _sp(m); };
 return function stringP(feeder) {
-  if (_sindex(str, 0) === _sindex(feeder.lastItem,0))
-  { for (var i = 1, x = feeder.nextItem;
-    i !==str.length && is.string(x) && _sindex(x,0) === _sindex(str, i);
-    x = feeder.nextNext(), ++i) {} }
-  return (i === str.length)? pmatch(str) : feeder.reset1Tho(pfail(fmt(feeder, i||0)));
+  if (!feeder.eof() && _sindex(str, 0) === _sindex(feeder.lastItem,0))
+  { var i = 1; for (var x = feeder.nextItem;
+      i !==str.length && is.string(x) && _sindex(x,0) === _sindex(str, i);
+      x = feeder.nextNext(), ++i) {}
+    return (i === str.length)? pmatch(str) : feeder.reset1Tho(pfail(fmt(feeder, i))); }
+  return feeder.reset1Tho(pfail(fmt(feeder, 0)));
 }; }
 function elemP(iset, m, fmt) {
 if (!is.string(m)) m = '';
@@ -755,15 +768,18 @@ if (!is.fun(fmt)) fmt = function(f){ return msg; };
 return function skipWhite(feeder) {
   if (!ws.includes(feeder.lastItem)) return feeder.reset1Tho(pfail(fmt(feeder, msg)));
   var count = 0+1;
-  while (ws.includes(feeder.nextItem)) { feeder.next(); ++count; }
+  while (ws.includes(feeder.nextItem)) { feeder.next(); ++count; };
   return pmatch(count);
 }; }
 function ws0P() {
 return function skipWhiteMaybe(feeder) {
-  if (!ws.includes(feeder.lastItem)) { feeder.duplast(); return pmatch(0); }
-  var count = 0+1;
-  while (ws.includes(feeder.nextItem)) { feeder.next(); ++count; }
-  return pmatch(count);
+  if (!ws.includes(feeder.lastItem)) { return feeder.reset1Tho(pmatch(0)); }
+  var count = 1;
+  if (ws.includes(feeder.nextItem)) ++count;
+  do { feeder.next(); ++count; } while (ws.includes(feeder.nextItem));
+  var thws = ws.includes(feeder.lastItem), nxws = ws.includes(feeder.nextItem);
+  if (!thws && !nxws) { feeder.reset1Tho(); count = 2; }
+  return pmatch(count-1);
 }; }
 
 function run(parser) {
@@ -872,7 +888,7 @@ try{ if (is.nund(typeof module))
 module.exports = {
   version: '1.0',
   kindof, is,
-  fn: { bound, boundVargs, boundStaticVargs, args2ary, mix, toplevelThis,
+  fn: { bound, boundVargs, boundStaticVargs, args2ary, mix, toplevelThis, primCtor,
     ensure, ensureBehavior, noimp, extendWith, extendAlso, inherits },
   func: { id, konst, add, sub, mul, div,
     not, and, or, elem, lessThan, greaterThan,
