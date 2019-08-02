@@ -759,6 +759,15 @@ return function containsP(feeder) {
   var it = feeder.lastItem;
   return (iset.includes(it))? pmatch(it) : feeder.reset1Tho(pfail(fmt(feeder)));
 }; }
+function notElemP(iset, m, fmt) {
+if (!is.string(m)) m = '';
+if (!is.fun(fmt)) fmt = function format(s)
+  { return (s.eof()? 'Unexpected EOF. ':'') + 'NOT expecting one of ['
+    +iset.join(', ')+']' +_sp(m); };
+return function containsP(feeder) {
+  var it = feeder.lastItem;
+  return (!iset.includes(it))? pmatch(it) : feeder.reset1Tho(pfail(fmt(feeder)));
+}; }
 
 var ws = " \t\n\r".split('');
 function setWs(wscharz) { ws = wscharz; }
@@ -916,7 +925,7 @@ module.exports = {
   parserc: { chars, Feeder, makeNew, seq, possible, lookahead1,
     parsed, pmatch, pfail, presult, perror,
     someFold, manyFold, chain1LeftRec, chain1RightRec,
-    satisfy, charP, kwP, elemP, ws, setWs, wsP, ws0P, run },
+    satisfy, charP, kwP, elemP, notElemP, ws, setWs, wsP, ws0P, run },
   functor: { Functor, Monad, Maybe, Either }
 }; }catch(SyntaxError){}
 
