@@ -579,6 +579,10 @@ Feeder.prototype.next = function nextItem() {
   this.count += 1; this.col += 1;
   return this.lastItem; };
 Feeder.prototype.nextNext = function next2() { this.next(); return this.nextItem; };
+Feeder.prototype.consume = function consumeItem(fx) {
+  if (!is.fun(fx)) { this.next(); return fx; }
+  else { var y = fx(this.lastItem); this.next(); return y; }
+};
 Feeder.prototype.eof = function lastEOF() { return is.undef(this.lastItem); };
 Feeder.prototype.hasNext = function nextEOF()
   { return !is.undef(this.nextItem) || this.count === 0; };
@@ -627,8 +631,7 @@ return function sequential(feeder) {
     if (parsed(result)) { rs.push(presult(result)); }
     else { var msg = msgr(feeder, rs, i, perror(result));
       fail = msg; throw breakIter; }
-    i += 1; feeder.next(); // seq next
-  });
+    i += 1; });
   if (!is.null(fail)) {
     if (fail instanceof Error) { throw fail; }
     else return pfail(fail); }
@@ -677,7 +680,7 @@ return function prefetch1(feeder) {
     if (is.null(match)) { var msg = msgr(feeder, ahead1, i);
       if (msg instanceof Error) throw msg;
       else return pfail(msg); }
-    return pmatch(match(ahead1)); } 
+    return pmatch(match(ahead1)); }
 }; }
 
 function someFold(p, folder, msgr) { // use it in seq
@@ -689,11 +692,9 @@ return function foldChain(feeder) { var match, v = folder[0], f = folder[1];
   if (!parsed(match)) { var msg = msgr(feeder, perror(match));
     if (msg instanceof Error) throw msg;
     else return pfail(msg); }
-  v = f(v, presult(match)); feeder.next();
+  v = f(v, presult(match));
   while (parsed( (match = p(feeder)) )) {
-    v = f(v, presult(match));
-    feeder.next(); }
-  feeder.duplast(); // cancel next next
+    v = f(v, presult(match)); }
   return pmatch(v);
 }; }
 function manyFold(p, folder) { // use it in seq
@@ -701,10 +702,9 @@ if (is.undef(folder) || !is.some(folder)) folder = ['', add];
 return function foldChain0(feeder) { var match, v = folder[0], f = folder[1];
   match = p(feeder);
   if (!parsed(match)) { return pmatch(v); }
+  v = f(v, presult(match));
   while (parsed( (match = p(feeder)) )) {
-    v = f(v, presult(match));
-    feeder.next(); }
-  feeder.duplast(); // cancel next next
+    v = f(v, presult(match));  }
   return pmatch(v);
 }; }
 
@@ -725,14 +725,22 @@ function satisfy(predicate, m, fmt) {
 if (!is.fun(fmt)) fmt = function(s, mm) { return mm; };
 return function expectful(feeder) {
   var it = feeder.lastItem;
-  return (predicate(it))? pmatch(it) : feeder.reset1Tho(pfail(fmt(feeder, m)));
+  return (predicate(it))? feeder.consume(pmatch(it)) : pfail(fmt(feeder, m));
 }; }
 
 function charP(c, m, fmt) {
 if (!is.fun(fmt)) fmt = function (s, mm) { return 'expecting ' + c +_sp(mm); };
 return function expectChar(feeder) {
   var x = feeder.lastItem;
-  return (x === c)? pmatch(x) : feeder.reset1Tho(pfail(fmt(feeder, m)));
+  return (x === c)? feeder.consume(pmatch(x)) : pfail(fmt(feeder, m));
+}; }
+
+function skip(c, m, fmt) {
+if (!is.fun(fmt)) fmt = function (s, mm) { return 'skiping ' + c +_sp(mm); };
+return function skipChar(feeder) {
+  var x = feeder.lastItem;
+  if (is.undef(c) || x === c) { return feeder.consume(pmatch(x)); }
+  else { return pfail(fmt(feeder, m)); }
 }; }
 
 var _sindex = String.prototype.codePointAt?
@@ -747,8 +755,8 @@ return function stringP(feeder) {
   { var i = 1; for (var x = feeder.nextItem;
       i !==str.length && is.string(x) && _sindex(x,0) === _sindex(str, i);
       x = feeder.nextNext(), ++i) {}
-    return (i === str.length)? pmatch(str) : feeder.reset1Tho(pfail(fmt(feeder, i))); }
-  return feeder.reset1Tho(pfail(fmt(feeder, 0)));
+    return (i === str.length)? feeder.consume(pmatch(str)) : pfail(fmt(feeder, i)); }
+  return pfail(fmt(feeder, 0));
 }; }
 function elemP(iset, m, fmt) {
 if (!is.string(m)) m = '';
@@ -757,7 +765,7 @@ if (!is.fun(fmt)) fmt = function format(s)
     +iset.join(', ')+']' +_sp(m); };
 return function containsP(feeder) {
   var it = feeder.lastItem;
-  return (iset.includes(it))? pmatch(it) : feeder.reset1Tho(pfail(fmt(feeder)));
+  return (iset.includes(it))? feeder.consume(pmatch(it)) : pfail(fmt(feeder));
 }; }
 function notElemP(iset, m, fmt) {
 if (!is.string(m)) m = '';
@@ -766,7 +774,7 @@ if (!is.fun(fmt)) fmt = function format(s)
     +iset.join(', ')+']' +_sp(m); };
 return function containsP(feeder) {
   var it = feeder.lastItem;
-  return (!iset.includes(it))? pmatch(it) : feeder.reset1Tho(pfail(fmt(feeder)));
+  return (!iset.includes(it))? feeder.consume(pmatch(it)) : pfail(fmt(feeder));
 }; }
 
 var ws = " \t\n\r".split('');
@@ -775,20 +783,17 @@ function wsP(msg, fmt) {
 if (!is.string(msg)) msg = 'at least one whitespace';
 if (!is.fun(fmt)) fmt = function(f){ return msg; };
 return function skipWhite(feeder) {
-  if (!ws.includes(feeder.lastItem)) return feeder.reset1Tho(pfail(fmt(feeder, msg)));
+  if (!ws.includes(feeder.lastItem)) return pfail(fmt(feeder, msg));
   var count = 0+1;
   while (ws.includes(feeder.nextItem)) { feeder.next(); ++count; };
-  return pmatch(count);
+  return feeder.consume(pmatch(count));
 }; }
 function ws0P() {
 return function skipWhiteMaybe(feeder) {
-  if (!ws.includes(feeder.lastItem)) { return feeder.reset1Tho(pmatch(0)); }
-  var count = 1;
-  if (ws.includes(feeder.nextItem)) ++count;
-  do { feeder.next(); ++count; } while (ws.includes(feeder.nextItem));
-  var thws = ws.includes(feeder.lastItem), nxws = ws.includes(feeder.nextItem);
-  if (!thws && !nxws) { feeder.reset1Tho(); count = 2; }
-  return pmatch(count-1);
+  if (!ws.includes(feeder.lastItem)) { return pmatch(0); }
+  var count = 0+1;
+  while (ws.includes(feeder.nextItem)) { feeder.next(); ++count; };
+  return feeder.consume(pmatch(count));
 }; }
 
 function run(parser) {
@@ -922,7 +927,7 @@ module.exports = {
     logs, helem, merges, cssSelect, waitsId, waitsCss,
     _____, delay, secs,
     append, prepend, xhr },
-  parserc: { chars, Feeder, makeNew, seq, possible, lookahead1,
+  parserc: { chars, Feeder, makeNew, seq, possible, lookahead1, skip,
     parsed, pmatch, pfail, presult, perror,
     someFold, manyFold, chain1LeftRec, chain1RightRec,
     satisfy, charP, kwP, elemP, notElemP, ws, setWs, wsP, ws0P, run },
