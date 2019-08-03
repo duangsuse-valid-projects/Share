@@ -630,7 +630,7 @@ if (!is.fun(folder)) folder = makeNew(Array);
 return function sequential(feeder) {
   var rs = [], i = 0, fail = null;
   foreach(ps)(function(parser) {
-    var result = parser(feeder);
+    try { var result = parser(feeder); } catch (e) { fail = e; throw breakIter; }
     if (parsed(result)) { rs.push(presult(result)); }
     else { var msg = msgr(feeder, rs, i, perror(result));
       fail = msg; throw breakIter; }
@@ -645,22 +645,25 @@ return function sequential(feeder) {
 // 重置，可是如果是在 possible 里，如果让 possible 处理这个不一致则会显得莫名其妙
 // （而且很难看，因为目标是 next，如果一个成功什么都不做、如果一个失败你还得 next 一下，莫名其妙）
 // 我还是决定.... 不要 possible 算了，possible 的用户都自己写。
-function possible(ps, msgr) {
+function possible(ps, folders, msgr, verb) { // bad practice!! internal API!!
 if (!is.fun(msgr)) msgr = function failedBr(f, r, i)
   { return "All parser branches have failed @"+f.desc()
     +", while matching item #"+i+": " + r[i][1]; };
+if (is.undef(folders) || is.empty(folders)) folders = function branchFold(i, ac) { return ac; };
 return function branches(feeder) {
-  var i = -1, fails = [], accepted = null;
+  var i = 0, fails = [], accepted = null, err = null;
   foreach(ps)(function(branch) {
-    var result = branch(feeder);
+    try { var result = branch(feeder); } catch (e) { err = e; throw breakIter; }
     if (parsed(result)) { accepted = presult(result); throw breakIter; }
-    else { i += 1; fails.push([i, perror(result)]); throw nextIter; }
+    else { fails.push([i, perror(result)]); i += 1; throw nextIter; }
   });
+  if (verb && err instanceof Error) throw err;
   if (is.null(accepted)) {
-    var msg = msgr(feeder, fails, i);
+    if (err instanceof Error) throw err;
+    var msg = msgr(feeder, fails, i-1);
     if (msg instanceof Error) throw msg;
     else return pfail(msg); }
-  return pmatch(accepted);
+  return pmatch(folders(i, accepted));
 }; }
 
 function lookahead1(pmap, flmap, msgr) {
@@ -775,7 +778,7 @@ if (!is.fun(fmt)) fmt = function format(s)
     +iset.join(', ')+']' +_sp(m); };
 return function containsP(feeder) {
   var it = feeder.lastItem;
-  return (iset.includes(it))? feeder.consume(pmatch(it)) : pfail(fmt(feeder));
+  return (iset.includes(it) && !feeder.eof())? feeder.consume(pmatch(it)) : pfail(fmt(feeder));
 }; }
 function notElemP(iset, m, fmt) {
 if (!is.string(m)) m = '';
@@ -784,7 +787,7 @@ if (!is.fun(fmt)) fmt = function format(s)
     +iset.join(', ')+']' +_sp(m); };
 return function containsP(feeder) {
   var it = feeder.lastItem;
-  return (!iset.includes(it))? feeder.consume(pmatch(it)) : pfail(fmt(feeder));
+  return (!iset.includes(it) && !feeder.eof())? feeder.consume(pmatch(it)) : pfail(fmt(feeder));
 }; }
 
 var ws = " \t\n\r".split('');
