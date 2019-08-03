@@ -739,12 +739,18 @@ return function expectChar(feeder) {
   return (x === c)? feeder.consume(pmatch(x)) : pfail(fmt(feeder, m));
 }; }
 
-function skip(c, m, fmt) {
+function skipP(c, m, fmt) {
 if (!is.fun(fmt)) fmt = function (s, mm) { return 'skiping ' + c +_sp(mm); };
 return function skipChar(feeder) {
   var x = feeder.lastItem;
-  if (is.undef(c) || x === c) { return feeder.consume(pmatch(x)); }
-  else { return pfail(fmt(feeder, m)); }
+  return (is.undef(c) || x === c)? feeder.consume(pmatch(x)) : pfail(fmt(feeder, m));
+}; }
+
+function ensureP(cs, m, fmt) {
+if (!is.fun(fmt)) fmt = function (s, mm) { return 'expecting char ' + cs +_sp(mm); };
+return function ensureLastChar(feeder) {
+  var x = feeder.lastItem;
+  return cs.includes(x)? pmatch(undefined) : pfail(fmt(feeder, m));
 }; }
 
 var _sindex = String.prototype.codePointAt?
@@ -931,7 +937,7 @@ module.exports = {
     logs, helem, merges, cssSelect, waitsId, waitsCss,
     _____, delay, secs,
     append, prepend, xhr },
-  parserc: { chars, Feeder, makeNew, seq, possible, lookahead1, skip,
+  parserc: { chars, Feeder, makeNew, seq, possible, lookahead1, skipP, ensureP,
     parsed, pmatch, pfail, presult, perror,
     someFold, manyFold, chain1LeftRec, chain1RightRec,
     satisfy, charP, kwP, elemP, notElemP, ws, setWs, wsP, ws0P, run },
