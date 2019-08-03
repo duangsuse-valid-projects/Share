@@ -67,13 +67,13 @@ const Listy = p.run(ListP);
 
 /// 那个，这个逻辑本来可以抽提的，大家看文法规则；和用 KvP 作为项目解析器的 ListP 没区别的
 function KvList(l, ws0, rxs) {
-  this.wss = []; this.ary = [];
+  this.wss = []; this.kvs = [];
   this.wss.push(ws0); // {ws0} x...
   if (rxs === '}') { return; }
-  let [k0, wa0, wb0, v0] = rxs[0]; this.ary.push([k0, v0]);
+  let [k0, wa0, wb0, v0] = rxs[0]; this.kvs.push([k0, v0]);
   this.wss.push(wa0, wb0); this.wss.push(rxs[1]); // x {a}, y, ..
   for (let [wsn0, [k,wan,wbn,v], wsn1] of rxs[2].slice(0, rxs.length-1)) {
-  		 this.wss.push(wsn0,wan,wbn,wsn1); this.ary.push(k,v); }
+  		 this.wss.push(wsn0,wan,wbn,wsn1); this.kvs.push([k,v]); }
 }
 
 const KvList_Item_ChainP = p.seq([p.elemP([';', ',']), _, KvP, _], xs => [xs[1], xs[2], xs[3]]);
@@ -94,8 +94,8 @@ function usyntax(c,ps, psn) {
 
 const LetsP = p.seq([ p.kwP('lets'), __, NameP, __, NameP ]);
 const JustP = p.seq([ p.kwP('just'), __, NameP ]);
-const TermP = p.possible([DefP, usyntax('l', LetsP, 'def'), usyntax('j', JustP, 'lets')]);
+const TermP = p.possible([DefP, usyntax('lj', LetsP, 'def'), usyntax('j', JustP, 'lets')]);
 let Term = p.run(TermP);
 
 module.exports = { digits, letters, letterDigit, NumP, NameP,
-  ValueList, Def, DefItem, Listy, BoolP, StrP, ValueP, Value, Term, KvListP };
+  ValueList, Def, DefItem, Listy, BoolP, StrP, ValueP, Value, Term, TermP, KvListP };

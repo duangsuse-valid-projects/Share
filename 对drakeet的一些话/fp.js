@@ -613,7 +613,8 @@ switch (ct) {
 function makeNew(ctor) {
   return function constructNew(matches) {
     if (primCtor(ctor)) { return ctor.apply(null, matches); }
-    var ths = new Object; var o = ctor.apply(ths, matches); return ths; } }
+    try { var ths = new ctor; } catch (Error) { var ths = new Object; }
+    var o = ctor.apply(ths, matches); return ths; } }
 ///
 function parsed(xs) { return xs[0]; }
 function presult(xs) { return xs[1]; }
