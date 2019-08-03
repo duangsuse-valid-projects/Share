@@ -645,7 +645,7 @@ return function sequential(feeder) {
 // 重置，可是如果是在 possible 里，如果让 possible 处理这个不一致则会显得莫名其妙
 // （而且很难看，因为目标是 next，如果一个成功什么都不做、如果一个失败你还得 next 一下，莫名其妙）
 // 我还是决定.... 不要 possible 算了，possible 的用户都自己写。
-function possible(ps, folders, msgr, verb) { // bad practice!! internal API!!
+function possible(ps, folders, msgr) {
 if (!is.fun(msgr)) msgr = function failedBr(f, r, i)
   { return "All parser branches have failed @"+f.desc()
     +", while matching item #"+i+": " + r[i][1]; };
@@ -657,9 +657,8 @@ return function branches(feeder) {
     if (parsed(result)) { accepted = presult(result); throw breakIter; }
     else { fails.push([i, perror(result)]); i += 1; throw nextIter; }
   });
-  if (verb && err instanceof Error) throw err;
+  if (err instanceof Error) throw err;
   if (is.null(accepted)) {
-    if (err instanceof Error) throw err;
     var msg = msgr(feeder, fails, i-1);
     if (msg instanceof Error) throw msg;
     else return pfail(msg); }

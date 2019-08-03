@@ -89,9 +89,12 @@ ValueP = p.possible([
 ], (i,x) => (i===0)? '$'+x : x  );
 const Value = p.run(ValueP);
 
+function usyntax(c,ps, psn) {
+  return p.seq([p.ensureP(c, `Unterminated ${psn} syntax`, (s,m) => {throw Error(m)}), ps], xs=>xs[1]); }
+
 const LetsP = p.seq([ p.kwP('lets'), __, NameP, __, NameP ]);
 const JustP = p.seq([ p.kwP('just'), __, NameP ]);
-const TermP = p.possible([DefP, LetsP, p.seq([p.ensureP('j', 'Unterminated Lets/Def syntax', (f,m) => {throw m}), JustP], xs=>xs[1])]);
+const TermP = p.possible([DefP, usyntax('l', LetsP, 'def'), usyntax('j', JustP, 'lets')]);
 let Term = p.run(TermP);
 
 module.exports = { digits, letters, letterDigit, NumP, NameP,
