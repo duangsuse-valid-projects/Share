@@ -598,19 +598,22 @@ Feeder.prototype.leave = function popStack()
 
 function primCtor(ct) {
 switch (ct) {
+  case Object: return true;
   case Array: return true;
   case String: return true;
   case Number: return true;
   case Boolean: return true;
-  case Object: return true;
   case Function: return true;
+  case Error: return true;
+  case Date: return true;
+  case RegExp: return true;
 } return false;
 }
 
 function makeNew(ctor) {
   return function constructNew(matches) {
-    var ths = new ctor; var o = ctor.bind(ths).apply(ctor, matches);
-    return primCtor(ctor)? o : ths; }; }
+    if (primCtor(ctor)) { return ctor.apply(null, matches); }
+    var ths = new Object; var o = ctor.apply(ths, matches); return ths; } }
 ///
 function parsed(xs) { return xs[0]; }
 function presult(xs) { return xs[1]; }
@@ -683,11 +686,12 @@ return function prefetch1(feeder) {
     return pmatch(match(ahead1)); }
 }; }
 
+function _foldMakeIf(fx) { return (is.fun(fx))? fx() : fx; }
 function someFold(p, folder, msgr) { // use it in seq
 if (is.undef(folder) || !is.some(folder)) folder = ['', add];
 if (!is.fun(msgr)) msgr = function failedFold(f, m) {
   return "Failed fold1+: "+m; };
-return function foldChain(feeder) { var match, v = folder[0], f = folder[1];
+return function foldChain(feeder) { var match, v = _foldMakeIf(folder[0]), f = folder[1];
   match = p(feeder);
   if (!parsed(match)) { var msg = msgr(feeder, perror(match));
     if (msg instanceof Error) throw msg;
@@ -699,7 +703,7 @@ return function foldChain(feeder) { var match, v = folder[0], f = folder[1];
 }; }
 function manyFold(p, folder) { // use it in seq
 if (is.undef(folder) || !is.some(folder)) folder = ['', add];
-return function foldChain0(feeder) { var match, v = folder[0], f = folder[1];
+return function foldChain0(feeder) { var match, v = _foldMakeIf(folder[0]), f = folder[1];
   match = p(feeder);
   if (!parsed(match)) { return pmatch(v); }
   v = f(v, presult(match));
