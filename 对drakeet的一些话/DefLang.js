@@ -92,7 +92,7 @@ const Value = p.run(ValueP);
 function usyntax(c,ps, psn) {
   return p.seq([p.ensureP(c, `Unterminated ${psn} syntax`, (s,m) => {throw Error(m)}), ps], xs=>xs[1]); }
 
-const LetsP = p.seq([ p.kwP('lets'), __, NameP, __, NameP ]);
+const LetsP = p.seq([ p.kwP('lets'), __, NameP, __, p.possible([NameP, StrP], (i,x) => i===1? '!'+x: x) ]);
 const JustP = p.seq([ p.kwP('just'), __, NameP ]);
 const TermP = p.possible([DefP, usyntax('lj', LetsP, 'def'), usyntax('j', JustP, 'lets')]);
 let Term = p.run(TermP);

@@ -5,7 +5,7 @@ const fs = require('fs');
 
 const collectAry = [p.makeNew(Array), (v, x) => { v.push(x); return v; }];
 
-const NlP = p.elemP(['\n', '\r']);
+const NlP = p.manyFold(p.elemP(['\n', '\r']), [0, (n,x) => n+1]);
 const TermItem = feeder => { try { return p.seq([NlP, pp.TermP], xs => xs[1])(feeder); } catch (Error) { return p.pfail(); } };
 const FileP = p.seq([pp.TermP, p.manyFold(TermItem, collectAry)], xs => [xs[0] , ...xs[1]]);
 let DefFile = p.run(FileP);
@@ -33,7 +33,7 @@ function excited(nam, exp, wss) {
 
 function prim(v) {
   if (v.substring && v.length>1 && v.charAt(0) === '$')
-    { return DefGlobal.get(v.slice(1, v.length)); } // switch
+    { return DefGlobal.get(v.slice(1, v.length)) || '~'+v; } // switch
   else if (v.ary) { excited('ary', v.ary.join(', '), v.wss); return v.ary.map(prim); }
   else if (v.kvs) { excited('map', v.kvs.map(kv => 
       kv.join(': ')).join('; '), v.wss); return new Map(v.kvs.map(kv => [prim(kv[0]), prim(kv[1])])); }
@@ -49,7 +49,8 @@ function evaluate(x) {
     if (x[0] === 'lets') {
       let [_, w0, name, w1, fname] = x;
       excited('Lets', 'let '+name+' = '+fname+'('+name+')', [w0,w1]);
-      DefGlobal.set(name, global[fname](DefGlobal.get(name)));
+      if (fname.length>1 && fname[0] === '!') { DefGlobal.set(name, eval('it=>'+ fname.substr(1, fname.length)) (DefGlobal.get(name))); }
+      else { DefGlobal.set(name, global[fname](DefGlobal.get(name))); }
     }
     if (x[0] === 'just') {
       let [_, ws0, name] = x;
@@ -65,7 +66,7 @@ function execute(filename) {
   let code = fs.readFileSync(filename).latin1Slice();
   let ast = DefFile(code);
   ast.either(console.warn, x => x.map(evaluate).lets(console.log));
-  console.log(Outputs.join('; '));
+  for (let o of Outputs) ((o&&o.length)? console.log:console.table)(o);
 }
 
 argp(process.argv)
