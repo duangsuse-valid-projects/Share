@@ -86,7 +86,7 @@ p.seq([KvP, _, KvList_ItemsP, p.charP('}')]) ]) ], p.makeNew(KvList));
 ///
 ValueP = p.possible([
   NameP, NumP, StrP, ListP, KvListP
-], (i,x) => (i===0)? '$'+x : x  );
+], (i,x) => (i===0&&!typeof x =='boolean')? '$'+x : x  );
 const Value = p.run(ValueP);
 
 function usyntax(c,ps, psn) {

@@ -32,6 +32,7 @@ function excited(nam, exp, wss) {
 }
 
 function prim(v) {
+  if (fp.is.boolean(v)) return v;
   if (v.substring && v.length>1 && v.charAt(0) === '$')
     { return DefGlobal.get(v.slice(1, v.length)) || '~'+v; } // switch
   else if (v.ary) { excited('ary', v.ary.join(', '), v.wss); return v.ary.map(prim); }
