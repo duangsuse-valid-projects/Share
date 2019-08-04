@@ -65,7 +65,7 @@ function evaluate(x) {
 function execute(filename) {
   console.log(':: Executing ' + filename + (inspect?'(inspect)':'[direct]'));
   let code = fs.readFileSync(filename).latin1Slice();
-  let ast = DefFile(code);
+  let ast = DefFile(code, filename);
   ast.either(console.warn, x => x.map(evaluate).lets(console.log));
   for (let o of Outputs) ((o&&o.length)? console.log:console.table)(o);
 }
