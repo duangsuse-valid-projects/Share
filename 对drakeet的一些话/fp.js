@@ -38,7 +38,7 @@ is.zero = _isActual(0);
 is.m1 = _isActual(-1);
 is.funamed = function funamed(name) {
   return function fjudge(f) { return is.fun(f) && f.name === name; }; };
-is.empty = function isempty(x) { return x.length === 0; };
+is.empty = function isempty(x) { return !is.none(x) && x.length === 0; };
 is.exist = function exists(name) { return is.defined(toplevelThis()[name]); };
 is.none = function isNone(x) { return is.null(x) || is.undef(x); };
 
@@ -71,7 +71,7 @@ function boundStaticVargs(f) {
 
 function args2ary(argsv) { var ary=[];
   forIter(tryIter(argsv), bound(ary, 'push')); return ary; }
-  
+
 function id(x) { return x; }
 function konst(x) { return function constant() { return x; }; }
 
@@ -112,6 +112,8 @@ Function.prototype.alsoVargs = function alsoVargs(g) { var f=this;
   return function veffectAlso() { var y=f.apply(f, arguments); g(y); return y; }; };
 Function.prototype.times = function times(t) { for(;t!==0;--t) this(); }
 Object.prototype.lets = Object.prototype.lets || function lets(f) { return f(this); };
+Object.prototype.with = function withSetup(f) { f(this); return this; };
+
 
 function _curriedN(f, ff, n) {
   if (n == 0) return ff;
@@ -241,7 +243,7 @@ function _waits(nd, f) {
 
 var logs = console.log.curried1();
 var helem = bound(document, 'getElementById');
-var merges = bound(document, 'importNode').flip().curry1(true);
+var hmerges = bound(document, 'importNode').flip().curry1(true);
 var cssSelect = bound(document, 'querySelectorAll');
 
 var waitsId = helem.andThen(_waits.curriedN(1));
@@ -250,9 +252,14 @@ var _____ = _waits.curry1(document.body);
 
 function delay(t, f) { window.setTimeout(f, t); }
 var secs = mul.curry1(1000);
+var mins = mul.curry1(1000*60);
 
-function append(nd, x) { nd.parentNode.insertAfter(x, nd); };
-function prepend(nd, x) { nd.parentNode.insertBefore(x, nd); };
+function happend(nd, x) { var nx=nd.nextSibling; nd.parentNode.insertBefore(x, nx); };
+function hprepend(nd, x) { nd.parentNode.insertBefore(x, nd); };
+
+function hflag(nd, name) { return nd.getAttribute(name); }
+function hsetflag(nd, name, val) { nd.setAttribute(name, is.undef(val)? '' : val); }
+function hclrflag(nd, name) { nd.removeAttribute(name); }
 
 function xhrSend() {}
 function xhrGET() {}
@@ -873,7 +880,7 @@ Maybe.prototype.toString = function show() { return (this.isJust())?
   'Just('+this.inner+')' : 'Nothing'; };
 
 function Either(cat, side_l) {
-  if (is.undef(side_l)) side_l = true; 
+  if (is.undef(side_l)) side_l = true;
   Monad.bind(this)(cat);
   this.left = side_l;
   return this;
@@ -936,10 +943,10 @@ module.exports = {
     iterBy, repeat, infseq, range, orderedLT,
     combination: makeCats, lazyCombination: lazyCats },
   dim: { allocSize:dimAllocSize, calcPtr:dimGetElemPtr },
-  html: { _isLoaded, _waits, 
-    logs, helem, merges, cssSelect, waitsId, waitsCss,
-    _____, delay, secs,
-    append, prepend, xhr },
+  html: { _isLoaded, _waits,
+    logs, helem, hmerges, cssSelect, waitsId, waitsCss,
+    _____, delay, secs, mins,
+    happend, hprepend, xhr },
   parserc: { chars, Feeder, makeNew, seq, possible, lookahead1, skipP, ensureP,
     parsed, pmatch, pfail, presult, perror,
     someFold, manyFold, chain1LeftRec, chain1RightRec,

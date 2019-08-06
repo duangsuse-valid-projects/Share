@@ -1,11 +1,11 @@
 'use strict';
 
 function showTemplate(attr, init) {
-  var templates = cssSelect('template[' + attr + '=""]');  
+  var templates = cssSelect('template[' + attr + '=""]');
   templates.forEach(function(x) {
-    var mixed = merges(x.content);
+    var mixed = hmerges(x.content);
     if (typeof init =='function') { mixed = init(mixed); }
-    prepend(x, mixed);
+    hprepend(x, mixed);
   });
 }
 

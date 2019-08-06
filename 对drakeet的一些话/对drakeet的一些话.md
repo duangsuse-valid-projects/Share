@@ -704,7 +704,7 @@ cotail (cotail cofib) = cozipWith _+_ cofib (cotail cofib)
 
 #### 没有断章取义呦
 
-这次可不准任何人说我断章取义，本文加入了很多 JavaScript 小脚本和样式表来提升阅读体验（Abbr view、Contents Tree、Night、Reflink Preview、Footnote Xref、Music Player、NSFW Template、OpenGraph）
+这次可不准任何人说我断章取义，本文加入了很多 JavaScript 小脚本和样式表来提升阅读体验（Abbr view、Contents Tree、Night、Reflink Preview、Footnote Xref、Music Player、NSFW Template、OpenGraph）<template nsfw>（很抱歉，其中绝大部分都因为我要补课所以没有实现）</template>
 
 引用的链接只要我给了预览，应该可以轻松阅读到的，如果没成功请确认一下自己是不是在 GitHub Pages 上读启用了脚本的版本。
 
@@ -850,10 +850,11 @@ _无限只猴子随机地敲打键盘，总有一天能敲打出莎士比亚全�
 
 <script src="fp.js"></script>
 <script defer id="plug-nsfw" src="plug-nsfw-template.js"></script>
-
+<script defer id="plug-abbr" src="plug-abbrev-view.js"></script>
 
 <script>
-waitsId('plug-nsfw') (docall('showNSFW').curry1(window)) ;
+waitsId('plug-nsfw') (delay.curry2(mins(5), docall('showNSFW').curry1(window)) ) ;
+waitsId('plug-abbr') (docall('initAbbrevClick').curry1(window));
 </script>
 
 <script>_____(function(){
@@ -861,7 +862,7 @@ console.log('Content loaded~');
 });</script>
 
 <style>
-.nsfw { color: yellowgreen; }
+.nsfw { color: yellowgreen !important; }
 </style>
 
 
