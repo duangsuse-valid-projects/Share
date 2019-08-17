@@ -851,10 +851,12 @@ _无限只猴子随机地敲打键盘，总有一天能敲打出莎士比亚全�
 <script src="fp.js"></script>
 <script defer id="plug-nsfw" src="plug-nsfw-template.js"></script>
 <script defer id="plug-abbr" src="plug-abbrev-view.js"></script>
+<script defer id="plug-night" src="plug-night.js"></script>
 
 <script>
 waitsId('plug-nsfw') (delay.curry2(mins(5), docall('showNSFW').curry1(window)) ) ;
 waitsId('plug-abbr') (docall('initAbbrevClick').curry1(window));
+waitsId('plug-night') (docall('daynight').curry1(window));
 </script>
 
 <script>_____(function(){
@@ -864,7 +866,7 @@ console.log('Content loaded~');
 <style>
 .nsfw { color: yellowgreen !important; }
 a { color: #1eaa1e; !important; }
-mark { background-color: #cbb02a; }
+mark { background-color: #f0ce29; }
 .markdown-body .highlight pre, .markdown-body pre { border-radius: unset; }
 </style>
 
@@ -873,7 +875,7 @@ body[night=""] {
   color: #dbdbdb;
   background-color: #0d0d0d;
 }
-body[night=""] .markdown-body .highlight pre, .markdown-body pre {
+body[night=""] .markdown-body .highlight pre, body[night=""] .markdown-body pre {
   background-color: #3d0f14;
 }
 </style>
