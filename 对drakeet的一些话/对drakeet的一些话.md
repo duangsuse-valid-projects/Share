@@ -10,80 +10,83 @@ keywords: Android drakeet reverse-engineering technical
 # 对 drakeet 的一些话 <sub><a href="对drakeet的一些话.html">[Telegraph Version]</a></sub>
 
 <p id="article-info" align="center">
-  <var><a rel="author">duangsuse</a></var> <time>July 02, 2019</time><br>
+  <var><a rel="author">duangsuse</a></var> <abbr title="我真是咸得没事，写了两个月"><time>July 02, 2019</time></abbr><br>
   <blockquote>
     <b>Abstract</b> : 这篇文章初始版本从 <b><i>duangsuse Throws</i></b> Telegram 频道上拷贝，
-  主要基于作者与一软件工程师 drakeet 曾经争执的经过和结果的主观看法编写。<br>
+  主要基于作者与一<template nsfw><sub><s>七八年如一日不见长进的</s></sub></template>软件工程师 drakeet 曾经争执的经过和结果的<abbr title="即使我已经尽可能使文章客观且符合事实">主观</abbr>看法编写。<br>
   <ul>
-    <li>文中后半部分主要涉及部分作者对其信仰哲学的见解</li>
-    <li>文章本身只表明观点看法，没有其他用意</li>
+    <li>文中后半部分主要涉及部分作者对其信仰哲学的见解<template nsfw>迫真嘴遁</template></li>
+    <li>文章本身只表明观点看法，没有其他用意<template nsfw>还有发泄个人不满的用意</template></li>
   </ul>
   </blockquote>
 </p>
 
-<q>频道主在此建议在座的各位一起维护良好的交流氛围，不要让更多的人心寒。</q>
+<q><abbr title="@LetITFly, 一名 Geek 发烧友，喜欢 Android，作者的朋友之一">频道主</abbr>
+在此建议在座的各位一起维护良好的交流氛围<template nsfw><s>没有争执的交流环境</s></template>，不要让更多的人心寒。</q>
 [\[原文\]](https://t.me/dsuset/6215)
 
 当然我也看过 [LetITFly 频道](https://t.me/dsuset/5671) 的消息。
 但我还是决定，即便没有用，
-我也不会像以前一样，把所有错都归在自己身上。
+我也不会像以前一样，把所有错都<abbr title="之前我的处理方式是对 drakeet 的自负表示完全理解，或者大错的是我，反正已经过去了">归在自己身上</abbr>。
 
-## 关于逆向工程：“优秀”的纯纯写作
+## 关于逆向工程：“优秀”<template nsfw>还真是有点，不骗你们</template>的纯纯写作
 
 没错，我不该尝试 [逆向分析纯纯写作](https://t.me/dsuse/3059)，
 即便它的作者之前 [三次在频道上说](https://t.me/dsuse/3045) 它的反破解（代码保护）技术有多么多么的高大上，
-真的是非常让人想了解一下这些听上去十分不得了的技术有着怎么样的深度。
+真的是非常让人想了解一下这些听上去十分<abbr title="记住了，核心技术不是你的，再不得了将来也要吃苦头的">不得了</abbr>
+的技术有着<abbr title="也不怎么样，个混淆器带来的雕虫小技和几行 C/C++ 代码，糊弄不过真·逆向大佬">怎么样的深度。</abbr>
 
 不过，现在我不仅完全可以自己独立 **纯手动** 从 [x86 汇编代码](https://asmtutor.com/)
 （[WowCoolApk](https://github.com/duangsuse-valid-projects/WowCoolApk)、
 [CoolTok](https://github.com/duangsuse/CoolTok/)） 和
 [Java 字节码](https://t.me/dsuse/10777) 里还原本来的程序逻辑，
-也开始自己独立研究学习基于抽象执行、表达式收束和基本块、控制流分析、
-模式匹配的反编译算法了。你照样可以拿着 [jadx](https://github.com/skylot/jadx) 之类的东西，
-继续自己非常[擅长](https://t.me/dsuses/2008)的，你和其他 _绝大部分人_ 所熟知的逆向工程。
+也开始自己独立研究学习基于抽象执行、<abbr title="这些理论我在我的 Telegram 频道上讲过，不过目前还没有具体化实践">表达式收束</abbr>和基本块、控制流分析、
+模式匹配的<abbr title="逆向程序翻译器的代码生成过程，从目标代码还原出等价的源代码">反编译</abbr>算法了。你照样可以拿着 [jadx](https://github.com/skylot/jadx) 之类的东西，
+继续自己非常[擅长](https://t.me/dsuses/2008)的，你和其他 _绝大部分人_ 所熟知的逆向工程。<template nsfw>世界上不缺一个和普通人技能无二的『逆向大佬』</template>
 
-我们的追求不一样，一个是用用就行一个是追求彻头彻尾的理解。
+我们的追求不一样，一个是用用就行一个是追求彻头彻尾的理解。<template nsfw><s>（很欠打）</s></template>
 我还得感谢你，要不然我真的不会对逆向工程有这一点微不足道的研究。
 
 ## 关于<abbr title="拖延、未完成">“鸽子”</abbr> GeekApk
 
-没错，我不该加入一个间接因为我自己幼稚的想法创立的 [GeekApk](https://github.com/GeekApk)，
-我应该让它这个孤儿自己成为笑话，不必打扰到你。而且它开始的确就是空壳，
+没错，我不该加入一个<abbr title="不是我创立的。我把自己想建立酷安替代品的事情告诉了一个朋友，实际上由他（有可能是各自独立）创立">间接</abbr>因为我自己幼稚的想法创立的 [GeekApk](https://github.com/GeekApk)，
+我应该让它这个<abbr title="没人要，都在讨论什么『商业化』『公司』『领导者』，技术呢？现实世界呢？呵呵">孤儿</abbr>自己成为笑话，不必打扰到你。
+而且它开始的确就是<abbr title="开始的 GeekApk 绝大部分项目都是空的，没有一行实际代码，只有个名字">空壳</abbr>，
 除了 [前端的 HTML](https://github.com/geekapk-r/geekapk.org/blob/master/templates/index.rhtml)
-之外一无所有，即便我的确是有尽我所能地努力在为它付出，这点也不可否认。
+之外一无所有，即便我的确是有尽我所能地努力在为它<abbr title="我花了很多时间，尽可能写了当时我能写出来的东西">付出</abbr>，这点也不可否认。
 
 我为 [GeekApkR](https://github.com/GeekApk-r) 写了
 [自己的 Swagger](https://github.com/duangsuse-valid-projects/GeekSpec-GeekApkv1.0b#geekapk-geekspec-%E7%A4%BA%E4%BE%8B%E5%AE%9A%E4%B9%89%E6%96%87%E4%BB%B6---)、
 我写了 [API 文档](https://github.com/duangsuse-valid-projects/GeekApk/blob/master/geekapk_v1b_api.geekspec)，
-可你只有那一点闲工夫看我真正空壳的东西，看完即使我毕恭毕敬地指给你到底哪些不是空壳、到底哪些我还付出了一点努力，
+可你只有那一点闲工夫看我真正空壳的东西，看完即使我毕恭毕敬<template nsfw>🌚</template>地指给你到底哪些不是空壳、到底哪些我还付出了一点努力，
 你还是 **打年龄炮** 说我是小孩子。
 
 实际上我的确「不仅仅是小孩子还是个 _小人_ 」，就因为我 **不小心** 转发了你的私聊消息、
 就因为我 **转发评论** 了你之前发在 **公开频道** 上 **从没声明过不可转发的消息**。
 
-我的确就是微不足道的小菜鸡，即便是 GeekApk 这个只有壳子的项目在 **名义上都不是我的**。
+我的确就是微不足道的<abbr title="是什么随便吧。我也觉得 既然决定了 就不要再乎太多 title，追求自己想追求的东西吧">小菜鸡</abbr>，即便是 GeekApk 这个只有壳子的项目在 **名义上都不是我的**。
 
-你这种行为和以前的我很像，不过很可惜，你已经比我大个七八岁了，**成年人** 。
+你这种行为和以前的我很像，不过很可惜<template nsfw><sub>唉，世界上无法理解的心理 就有这么多</sub></template>，你已经比我大个七八岁了，**成年人** 。
 
-我不应该指望 GeekApk 怎么样，但你也可以因为自己会用 Sketch、我可能没见过
+我不应该指望 GeekApk <abbr title="我真的只是愿意业余的支持它，它应该是一个欢乐、志同道合的地方，不是为了其他目的而生">怎么样</abbr>，但你也可以因为自己会用 Sketch、我可能没见过
 [Sketch](https://en.wikipedia.org/wiki/Sketch_\(software\))
 就把它当成 GeekApk 现在完全也永远就是废物的 [补充论据](https://t.me/dsuses/1961)，
 也可以因为我不接受这个理由而感到愤懑不平，可换到我自己，我是不会把自己会用
 [Krita](https://krita.org/zh/) 和 [After Effects](https://en.wikipedia.org/wiki/Adobe_After_Effects)、
 [Blender](https://www.blender.org/)、[Kdenlive](https://kdenlive.org/en/)、
 [Synthesizer V](https://synthesizerv.com/zh-cn/)、[Vocaloid](https://en.wikipedia.org/wiki/Vocaloid)、
-[UTAU](https://en.wikipedia.org/wiki/Utau)、[LMMS](https://lmms.io/) 做点微不足道当不了饭吃的小事情之技能视为自己所拥有能力的。
+[UTAU](https://en.wikipedia.org/wiki/Utau)、[LMMS](https://lmms.io/)、[Synfig studio](https://synfig.org/) 做点微不足道当不了饭吃的小事情之技能视为自己所拥有能力的。
 
 是用 Sketch 设计矢量画、界面和动画的难度真的比上面几个高的多的多，以至于它都能被当成一门独特的技术看待，还是我们对技术的评判标准不同呢？
 
 听起来偶尔尝试用 [Firefox](https://developer.mozilla.org/en-US/docs/Mozilla/Gecko) 和
 [text editor](https://en.wikipedia.org/wiki/Text_editor) 来做设计就是低层码农，
-前端设计师真高大上啊。
+<abbr title="有时候我不喜欢这个词，因为我把它当成了浅尝辄止、不愿深入探索的代名词">前端</abbr>设计师真高大上啊。
 
-不过还是感谢你至少开始的时候表示了支持态度，后来也在我道歉删除转发内容和评论后容忍了我未授权的转发。
-有些人不喜欢这类破事，我显然是打扰错人了。
+不过还是感谢你至少开始的时候表示了支持态度，后来也在我道歉删除转发内容和评论后容忍了我未授权的转发。<template nsfw>这句是真心的。</template>
+有些人不喜欢这类<abbr title="和我的风格就有很大差别，当然我因为不常拒绝破事，也会更频繁地焦头烂额">破事</abbr>，我显然是打扰错人了。
 
-## 理论大佬·不能解决的自动排序问题
+## <template nsfw>迫真</template> 理论大佬·不能解决的自动排序问题
 
 是，[你说过](https://t.me/dsuses/1953)：
 
@@ -92,7 +95,8 @@ keywords: Android drakeet reverse-engineering technical
 的确是没问题，对支持你的人来说它永远是 [真理](https://t.me/dsuse/10848)；
 而且 **你知道是这样** 但是不知道有啥 _奇妙的“黑箱”算法_ 可以 **实现它**。
 
-对于一个习惯于抄代码、看文档、找现成的、改代码的工程师来说，这很不错了，我不该提出别的可能，
+对于一个习惯于抄代码、看文档、<abbr title="我最讨厌某些中国人的这种癖好了。一个我自己也不愿意说的口头禅：『这很中国』">
+<template nsfw>我说的是<a href="https://coolshell.cn/articles/3820.html">实话</a>。</template>找现成的</abbr>、改代码的工程师来说，这很不错了，我不该提出别的可能，
 也不该胡乱猜测你只会 [Bubble sort](https://t.me/dsuse/10849)。
 
 你懒得学算法因为害怕忘记，这很正常，显然这 _不会_ 阻止你成为你口中[完美的工程师](https://t.me/dsuse/10855)。
@@ -877,6 +881,18 @@ body[night=""] {
 }
 body[night=""] .markdown-body .highlight pre, body[night=""] .markdown-body pre {
   background-color: #3d0f14;
+}
+</style>
+
+<style>
+quote {
+  font-family: CustomSerif,Georgia,Cambria,'Times New Roman',serif;
+  font-size: 21px;
+  font-style: italic;
+  color: #c5c5c5;
+  margin: 18px 21px 16px;
+  padding: 0 18px;
+  text-align: center;
 }
 </style>
 
