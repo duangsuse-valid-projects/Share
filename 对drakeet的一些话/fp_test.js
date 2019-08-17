@@ -189,6 +189,12 @@ its (fpt.andThen);
 mok(add.curry1(1).andThen(sub.flip().curry1(1))(10) == 10);
 its (fpt.andThenVargs);
 mok(argsv.andThenVargs(id)(1,2,3)[2] == 3);
+its (fpt.by);
+allok(add.curry1(1).by(sub.flip().curry1(2)).by(mul.curry1(10)) (3) == 29)
+its (fpt.byVargs);
+o = 0;
+stmbase.foreach.byVargs(argsv)(-1,1,2,3) (function(x) { o += x; });
+allok(o == 5);
 its (fpt.also);
 let v = 0;
 meq(add.curry2(1,1).also(() => ++v)(), 2);

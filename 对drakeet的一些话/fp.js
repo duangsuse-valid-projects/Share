@@ -66,7 +66,7 @@ var HTMLCollection = HTMLCollection || null;
 function bound(self, meth) { return ensureBehavior(self, meth).bind(self); }
 function boundVargs(self, meth) { var f=bound(self, meth);
   return function boundCallVargs(argv) { return f.apply(f, argv); }; }
-function boundStaticVargs(f) { 
+function boundStaticVargs(f) {
   return function staticCallVargs(argv) { return f.apply(f, argv); }; }
 
 function args2ary(argsv) { var ary=[];
@@ -102,14 +102,22 @@ Function.prototype.curried1 = function curried1() { var f=this;
 Function.prototype.curried2 = function curried2() { var f=this;
   return function give2(x0) {
   return function give1(x1) { return function() { return f(x0, x1); }; }; }; };
+////
 Function.prototype.andThen = function andThen(g) { var f=this;
   return function composition(x) { return g(f(x)); }; };
 Function.prototype.andThenVargs = function andThenVargs(g) { var f=this;
   return function vcomposition() { return g(f.apply(f, arguments)); }; };
+//
+Function.prototype.by = function compose(f) { var g=this;
+  return function pipe(x) { return g(f(x)); }; };
+Function.prototype.byVargs = function composeVargs(f) { var g=this;
+  return function vpipe() { return g(f.apply(f, arguments)); }; };
+////
 Function.prototype.also = function also(g) { var f=this;
   return function effectAlso(x) { var y=f(x); g(y); return y; }; };
 Function.prototype.alsoVargs = function alsoVargs(g) { var f=this;
   return function veffectAlso() { var y=f.apply(f, arguments); g(y); return y; }; };
+//
 Function.prototype.times = function times(t) { for(;t!==0;--t) this(); }
 Object.prototype.lets = Object.prototype.lets || function lets(f) { return f(this); };
 Object.prototype.with = function withSetup(f) { f(this); return this; };
