@@ -29,7 +29,7 @@ keywords: Android drakeet reverse-engineering technical
 但我还是决定，即便没有用，
 我也不会像以前一样，把所有错都<abbr title="之前我的处理方式是对 drakeet 的自负表示完全理解，或者大错的是我，反正已经过去了">归在自己身上</abbr>。
 
-## 关于逆向工程：“优秀”<template nsfw>还真是有点，不骗你们</template>的纯纯写作
+## 关于逆向工程：“优秀”<template nsfw>（还真是有点，不骗你们）</template>的纯纯写作
 
 没错，我不该尝试 [逆向分析纯纯写作](https://t.me/dsuse/3059)，
 即便它的作者之前 [三次在频道上说](https://t.me/dsuse/3045) 它的反破解（代码保护）技术有多么多么的高大上，
@@ -68,7 +68,7 @@ keywords: Android drakeet reverse-engineering technical
 
 你这种行为和以前的我很像，不过很可惜<template nsfw><sub>唉，世界上无法理解的心理 就有这么多</sub></template>，你已经比我大个七八岁了，**成年人** 。
 
-我不应该指望 GeekApk <abbr title="我真的只是愿意业余的支持它，它应该是一个欢乐、志同道合的地方，不是为了其他目的而生">怎么样</abbr>，但你也可以因为自己会用 Sketch、我可能没见过
+我不应该指望 GeekApk <abbr title="我真的只是愿意『业余地』支持它，它应该是一个欢乐、志同道合的地方，不是为了其他目的而生">怎么样</abbr>，但你也可以因为自己会用 Sketch、我可能没见过
 [Sketch](https://en.wikipedia.org/wiki/Sketch_\(software\))
 就把它当成 GeekApk 现在完全也永远就是废物的 [补充论据](https://t.me/dsuses/1961)，
 也可以因为我不接受这个理由而感到愤懑不平，可换到我自己，我是不会把自己会用
@@ -86,7 +86,7 @@ keywords: Android drakeet reverse-engineering technical
 不过还是感谢你至少开始的时候表示了支持态度，后来也在我道歉删除转发内容和评论后容忍了我未授权的转发。<template nsfw>这句是真心的。</template>
 有些人不喜欢这类<abbr title="和我的风格就有很大差别，当然我因为不常拒绝破事，也会更频繁地焦头烂额">破事</abbr>，我显然是打扰错人了。
 
-## <template nsfw>迫真</template> 理论大佬·不能解决的自动排序问题
+## <template nsfw><sup>迫真</sup></template> 理论大佬·不能解决的自动排序问题
 
 是，[你说过](https://t.me/dsuses/1953)：
 
@@ -95,11 +95,11 @@ keywords: Android drakeet reverse-engineering technical
 的确是没问题，对支持你的人来说它永远是 [真理](https://t.me/dsuse/10848)；
 而且 **你知道是这样** 但是不知道有啥 _奇妙的“黑箱”算法_ 可以 **实现它**。
 
-对于一个习惯于抄代码、看文档、<abbr title="我最讨厌某些中国人的这种癖好了。一个我自己也不愿意说的口头禅：『这很中国』">
-<template nsfw>我说的是<a href="https://coolshell.cn/articles/3820.html">实话</a>。</template>找现成的</abbr>、改代码的工程师来说，这很不错了，我不该提出别的可能，
+对于一个习惯于抄代码、看文档、<abbr title="我最讨厌某些中国人的这种癖好了。一个我自己也不愿意说的口头禅：『这很中国』">找现成的</abbr>
+<template nsfw>我说的是<a href="https://coolshell.cn/articles/3820.html">实话</a>。</template>、改代码的工程师来说，这很不错了，我不该提出别的可能，
 也不该胡乱猜测你只会 [Bubble sort](https://t.me/dsuse/10849)。
 
-你懒得学算法因为害怕忘记，这很正常，显然这 _不会_ 阻止你成为你口中[完美的工程师](https://t.me/dsuse/10855)。
+你懒得学<abbr title="计算机科学火爆内容，诸如排序算法、图算法、动态规划、数据结构什么的都是算法优化范围内的工作，重要性好比几何/解析几何于数学">算法</abbr>因为害怕忘记<template nsfw>（谁不会忘记？）</template>，这很正常，显然这 _不会_ 阻止你成为你口中[完美的工程师](https://t.me/dsuse/10855)。
 
 你的确比国内那一堆强的多的多， **但我就是刁钻**，就是喜欢在用户群里公开地贴代码贴截图，你提个小发现都得被怼回去。
 即便我只是想帮你实现那个功能；我以为你很喜欢你的 [PureWriter](https://github.com/purewriter)，
