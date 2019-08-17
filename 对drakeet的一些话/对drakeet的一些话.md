@@ -863,6 +863,19 @@ console.log('Content loaded~');
 
 <style>
 .nsfw { color: yellowgreen !important; }
+a { color: #1eaa1e; !important; }
+mark { background-color: #cbb02a; }
+.markdown-body .highlight pre, .markdown-body pre { border-radius: unset; }
+</style>
+
+<style>
+body[night=""] {
+  color: #dbdbdb;
+  background-color: #0d0d0d;
+}
+body[night=""] .markdown-body .highlight pre, .markdown-body pre {
+  background-color: #3d0f14;
+}
 </style>
 
 
