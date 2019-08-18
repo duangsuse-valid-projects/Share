@@ -876,11 +876,15 @@ _无限只猴子随机地敲打键盘，总有一天能敲打出莎士比亚全�
 
 <noscript><h5>Scripts</h5></noscript>
 
+<link rel="stylesheet" href="对drakeet的一些话.css">
+
 <script src="fp.js"></script>
-<script defer id="plug-nsfw" src="plug-nsfw-template.js"></script>
-<script defer id="plug-abbr" src="plug-abbrev-view.js"></script>
-<script defer id="plug-night" src="plug-night.js"></script>
-<script defer id="plug-fnref" src="plug-footnote.js"></script>
+<script defer id="plug-nsfw" src="plug/nsfw-template.js"></script>
+<script defer id="plug-abbr" src="plug/abbrev-view.js"></script>
+<script defer id="plug-night" src="plug/night.js"></script>
+<link rel="stylesheet" href="plug/night.css">
+<script defer id="plug-fnref" src="plug/footnote.js"></script>
+<link rel="stylesheet" href="plug/footnote.css">
 
 <script>
 waitsId('plug-nsfw') (delay.curry2(mins(5), docall('showNSFW').curry1(window)) ) ;
@@ -892,7 +896,3 @@ waitsId('plug-fnref') (docall('linkFootnotes').curry1(window));
 <script>_____(function(){
 console.log('Content loaded~');
 });</script>
-
-<link rel="stylesheet" href="对drakeet的一些话.css">
-<link rel="stylesheet" href="plug-night.css">
-<link rel="stylesheet" href="plug-footnote.css">
