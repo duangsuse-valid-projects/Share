@@ -20,8 +20,7 @@ function bannerDiv() {
   return (is.empty(fst.id) && fst.tagName === 'H1')? fst : null; 
 }
 
-function btnMoon() {
-  var banner = bannerDiv();
+function btnMoon(banner) {
   if (is.null(banner) || is.empty(banner.children)) return;
   var moon = document.createElement('small');
   moon.innerText = '◑'; moon.style.cssFloat = 'right'; moon.style.fontSize = '22px';

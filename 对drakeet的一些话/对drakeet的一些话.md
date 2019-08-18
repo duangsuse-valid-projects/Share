@@ -745,7 +745,30 @@ cotail (cotail cofib) = cozipWith _+_ cofib (cotail cofib)
 我刻意恶意诽谤造谣断章取义中伤他们、挂出来，想把他们打下去，宁可两败俱伤也要赶大佬出门，而不是自己爬上来成为大佬。
 我宁可计算机们少了两个大佬，也不肯别人说的那个大佬，不是我。
 
-哪怕我的对手是 <abbr title="James Arthur Gosling, 意大利计算机科学家, Java 的设计领袖和创造者">James Gosling</abbr>、<abbr title="Douglas S. Lea, SUNY 纽约州立大学教授，擅长并发编程">Doug Lea</abbr>、<abbr title="Alan Curtis Kay, 美国计算机科学家, 为图形用户界面和面向对象编程做出过先锋的工作">Alan Kay</abbr>、<abbr title="Alexander Alexandrovich Stepanov, 俄罗斯计算机科学家, C++ STL 的主要设计和实现者">Alexander Stephanov</abbr>、<abbr title="Donald Ervin Knuth（高德纳）, 美国计算机科学/数学家, 斯坦福大学名誉教授, TeX 排版系统的创造者">Donald Knuth</abbr>、<abbr title="[约翰·麦卡锡]27-11, 创造了『人工智能』名词，影响了 ALGOL 语言的设计，于 58 年发明 Lisp 程序设计语言">John McCarthy</abbr>、<abbr title="Kenneth Lane 'Ken' Thompson, 美国计算机科学家, 设计实现了 UNIX 操作系统, 协助实现 Plan9 操作系统, B/C 编程语言. 2006 加入 Google, 协助设计了 Go 编程语言">Ken Thompson</abbr>、<abbr title="意大利 CScist, AWK, AMPL 程序设计语言的发明者, K&R 教科书的 'K'">Brian Kernighan</abbr>、<abbr title="和大学同学 Ken Thompson 协同设计了 B/C/UNIX">Dennis Ritchie</abbr>、<abbr title="MIT 密码学家、学院教授, (协同) 发明了 RSA/MD*/RC*">Ron Rivest</abbr>、<abbr title="Timothy John Berners-Lee(TimBL), 英国工程师, 89 年在 CERN 创始了 World Wide Web">Tim Berners-Lee</abbr>、<abbr title="印第安纳大学教授, 程序设计语言方向, 定义了 R6RS Scheme 规范, 设计了 Chez Scheme 编译系统">R. Kent Dybvig</abbr>、<abbr title="美国数学家/逻辑学家，贡献于组合子逻辑">Haskell Brooks Curry</abbr>、<abbr title="Moses Ilyich Schönfinkel, 俄罗斯数学家/逻辑学家, 发明了组合子逻辑">Moses Schönfinkel</abbr>、<abbr title="[Figueiredo et al., 1996] Figueiredo, L. H., Ierusalimshcy, R., and Celes, W. (1996). Lua: an extensible embedded language. Dr Dobb's Journal, 21(12).">Figueiredo</abbr>、<abbr title="《算法导论》四位作者名字的缩写 Thomas H. Cormen, Charles E. Leiserson, Ronald L. Rivest, Clifford Stein">CLRS</abbr>、<abbr title="Gang of Four = Erich Gamma, Richard Helm, Ralph Johnson and John Vlissides, Java OOP 设计模式一书的四位作者">GoF</abbr>、<abbr title="Shannon-Hartley theorem 的提出者，信号处理领域奠基者之一">Shannon</abbr>、<abbr title="Harry Nyquist, 电子工程师, 信号处理领域奠基者, 发现了奈奎斯特采样频率">Nyquist</abbr>，我都一定要去执行我邪恶的计划。无论是什么样的大佬，哪怕是奠基者， **哪怕是多么伟大的科学家、怎样厉害的工程师我都一定要去诽谤、抹黑，因为我 _永远_ 就这破水平。** 我要想自己爬高， _必须_ 把别人拉下来才能做到，我就是靠抹黑别人站到 _风口_ 的 _小人_ ，通过手撕大佬来收获眼球。
+哪怕我的对手是
+<abbr title="James Arthur Gosling, 意大利计算机科学家, Java 的设计领袖和创造者">James Gosling</abbr>、
+<abbr title="Douglas S. Lea, SUNY 纽约州立大学教授，擅长并发编程">Doug Lea</abbr>、
+<abbr title="Alan Curtis Kay, 美国计算机科学家, 为图形用户界面和面向对象编程做出过先锋的工作">Alan Kay</abbr>、
+<abbr title="Alexander Alexandrovich Stepanov, 俄罗斯计算机科学家, C++ STL 的主要设计和实现者">Alexander Stephanov</abbr>、
+<abbr title="Donald Ervin Knuth（高德纳）, 美国计算机科学/数学家, 斯坦福大学名誉教授, TeX 排版系统的创造者">Donald Knuth</abbr>、
+<abbr title="[约翰·麦卡锡]27-11, 创造了『人工智能』名词，影响了 ALGOL 语言的设计，于 58 年发明 Lisp 程序设计语言">John McCarthy</abbr>、
+<abbr title="Gerald Jay Sussman, 美国 MIT 计算机科学家, SICP 书 / Scheme 的作者">Gerald J. Sussman</abbr>、
+<abbr title="Guy Lewis Steele Jr. 美国计算机科学家, Scheme 的作者">Guy L. Steele</abbr>、
+<abbr title="Daniel Paul Friedman, The Little Schemer 的作者, PLT 研究者">Daniel P. Friedman</abbr>、
+<abbr title="Kenneth Lane 'Ken' Thompson, 美国计算机科学家, 设计实现了 UNIX 操作系统, 协助实现 Plan9 操作系统, B/C 编程语言. 2006 加入 Google, 协助设计了 Go 编程语言">Ken Thompson</abbr>、
+<abbr title="意大利 CScist, AWK, AMPL 程序设计语言的发明者, K&R 教科书的 'K'">Brian Kernighan</abbr>、
+<abbr title="和大学同学 Ken Thompson 协同设计了 B/C/UNIX">Dennis Ritchie</abbr>、
+<abbr title="MIT 密码学家、学院教授, (协同) 发明了 RSA/MD*/RC* 密码系统">Ron Rivest</abbr>、
+<abbr title="Timothy John Berners-Lee(TimBL), 英国工程师, 89 年在 CERN 创始了 World Wide Web">Tim Berners-Lee</abbr>、
+<abbr title="印第安纳大学教授, 程序设计语言方向, 定义了 R6RS Scheme 规范, 设计了 Chez Scheme 编译系统">R. Kent Dybvig</abbr>
+、<abbr title="美国数学家/逻辑学家，贡献于组合子逻辑">Haskell Brooks Curry</abbr>、
+<abbr title="Moses Ilyich Schönfinkel, 俄罗斯数学家/逻辑学家, 发明了组合子逻辑">Moses Schönfinkel</abbr>、
+<abbr title="[Figueiredo et al., 1996] Figueiredo, L. H., Ierusalimshcy, R., and Celes, W. (1996). Lua: an extensible embedded language. Dr Dobb's Journal, 21(12).">Figueiredo</abbr>、
+<abbr title="《算法导论》四位作者名字的缩写 Thomas H. Cormen, Charles E. Leiserson, Ronald L. Rivest, Clifford Stein">CLRS</abbr>、
+<abbr title="Gang of Four = Erich Gamma, Richard Helm, Ralph Johnson and John Vlissides, Java OOP 设计模式一书的四位作者">GoF</abbr>、
+<abbr title="Shannon-Hartley theorem 的提出者，信号处理领域奠基者之一">Shannon</abbr>、
+<abbr title="Harry Nyquist, 电子工程师, 信号处理领域奠基者, 发现了奈奎斯特采样频率">Nyquist</abbr>，
+我都一定要去执行我邪恶的计划。无论是什么样的大佬，哪怕是奠基者， **哪怕是多么伟大的科学家、怎样厉害的工程师我都一定要去诽谤、抹黑，因为我 _永远_ 就这破水平。** 我要想自己爬高， _必须_ 把别人拉下来才能做到，我就是靠抹黑别人站到 _风口_ 的 _小人_ ，通过手撕大佬来收获眼球。
 
 我本身技不如人、洋文不好、打字还慢。就是这样一个垃圾人，还有脸成天谈什么直觉、写什么 [essay](https://github.com/duangsuse-valid-projects/Essay-DIP-BMP-SIMD-Operation)、
 谈论什么 Haskell、函数式编程、优雅性、代码重用，我就是这么一个连 Android 应用都没写过的工程菜鸡，实际上我不如所有这些做出过好看应用的人，我多么羡慕你们啊。
@@ -862,7 +885,7 @@ _无限只猴子随机地敲打键盘，总有一天能敲打出莎士比亚全�
 <script>
 waitsId('plug-nsfw') (delay.curry2(mins(5), docall('showNSFW').curry1(window)) ) ;
 waitsId('plug-abbr') (docall('initAbbrevClick').curry1(window));
-waitsId('plug-night') (function() { btnMoon(); daynight(); });
+waitsId('plug-night') (function() { btnMoon(bannerDiv()); daynight(); });
 </script>
 
 <script>_____(function(){
