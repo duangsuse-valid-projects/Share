@@ -885,6 +885,7 @@ _无限只猴子随机地敲打键盘，总有一天能敲打出莎士比亚全�
 <link rel="stylesheet" href="plug/night.css">
 <script defer id="plug-fnref" src="plug/footnote.js"></script>
 <link rel="stylesheet" href="plug/footnote.css">
+<script defer id="plug-tree" src="plug/tree.js"></script>
 
 <script>
 waitsId('plug-nsfw') (delay.curry2(mins(5), docall('showNSFW').curry1(window)) ) ;
