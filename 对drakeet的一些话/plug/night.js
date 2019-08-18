@@ -4,7 +4,7 @@ function getOrInitItem(name, repval) {
   return repval;
 }
 
-var night = { name: 'night', begin: getOrInitItem('nightBegin', 12+9), end: getOrInitItem('nightEnd', 7) };
+var night = { name: 'night', begin: getOrInitItem('nightBegin', 12+9), end: getOrInitItem('nightEnd', 7), serifName: 'serifd' };
 night.blackFrom = 0x0d;
 night.whiteFrom = 0xdb;
 
@@ -24,8 +24,14 @@ function btnMoon(banner) {
   if (is.null(banner) || is.empty(banner.children)) return;
   var moon = document.createElement('small');
   moon.innerText = '◑'; moon.style.cssFloat = 'right'; moon.style.fontSize = '22px';
-  happend(banner.children[0], moon);
-  moon.onclick = function() { if (is.empty(hflag(document.body, night.name))) deepDay(); else deepNight(3); };
+  happend(banner.children[0], moon); var count = 0;
+  moon.onclick = function() {
+    var body = document.body;
+    if (is.empty(hflag(body, night.name))) deepDay(); else deepNight(3);
+    if (count %3 ==0) {
+      if (is.empty(hflag(body, night.serifName))) { body.classList.remove('serif'); hclrflag(body, night.serifName); }
+      else { body.classList.add('serif'); hsetflag(body, night.serifName); } }
+    count += 1; };
 }
 
 function hours() { return new Date().getHours(); }

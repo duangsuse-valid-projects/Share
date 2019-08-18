@@ -15,3 +15,5 @@ body[night=""] {
 body[night=""] .markdown-body .highlight pre, body[night=""] .markdown-body pre {
   background-color: #3d0f14;
 }
+
+body .serif { font-family: Georgia, "Times New Roman", serif; }
