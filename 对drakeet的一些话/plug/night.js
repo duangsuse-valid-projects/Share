@@ -57,5 +57,5 @@ function daynight() {
   if (hourz < beg && hourz > end) return; // day
   var depth = (hourz > beg)? (hourz-beg) : (end-hourz); // or (23-beg)+hourz?
   deepNight(depth);
-  console.log("Night mode: depth="+depth);
+  console.log("Night mode: depth="+depth+" :: h"+hourz+" ("+beg+", "+end+")");
 }

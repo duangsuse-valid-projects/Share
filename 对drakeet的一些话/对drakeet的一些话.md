@@ -21,6 +21,8 @@ keywords: Android drakeet reverse-engineering technical
   </blockquote>
 </p>
 
+<div id="toc"></div>
+
 <q><abbr title="@LetITFly, 一名 Geek 发烧友，喜欢 Android，作者的朋友之一">频道主</abbr>
 在此建议在座的各位一起维护良好的交流氛围<template nsfw><s>没有争执的交流环境</s></template>，不要让更多的人心寒。</q>
 [\[原文\]](https://t.me/dsuset/6215)
@@ -886,12 +888,17 @@ _无限只猴子随机地敲打键盘，总有一天能敲打出莎士比亚全�
 <script defer id="plug-fnref" src="plug/footnote.js"></script>
 <link rel="stylesheet" href="plug/footnote.css">
 <script defer id="plug-tree" src="plug/tree.js"></script>
+<link rel="stylesheet" href="plug/tree.css">
 
 <script>
 waitsId('plug-nsfw') (delay.curry2(mins(5), docall('showNSFW').curry1(window)) ) ;
 waitsId('plug-abbr') (docall('initAbbrevClick').curry1(window));
 waitsId('plug-night') (function() { btnMoon(bannerDiv()); daynight(); });
 waitsId('plug-fnref') (docall('linkFootnotes').curry1(window));
+waitsId('plug-tree') (function() {
+  var doct = treeParse(cssSingle('.markdown-body') || cssSingle('body'));
+  var tree = new TreeView(helem('toc'));
+  tree.update(doct); });
 </script>
 
 <script>_____(function(){
