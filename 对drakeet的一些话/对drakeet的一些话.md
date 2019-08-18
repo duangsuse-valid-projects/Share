@@ -73,17 +73,17 @@ keywords: Android drakeet reverse-engineering technical
 我不应该指望 GeekApk <abbr title="我真的只是愿意『业余地』支持它，它应该是一个欢乐、志同道合的地方，不是为了其他目的而生">怎么样</abbr>，但你也可以因为自己会用 Sketch、我可能没见过
 [Sketch](https://en.wikipedia.org/wiki/Sketch_\(software\))
 就把它当成 GeekApk 现在完全也永远就是废物的 [补充论据](https://t.me/dsuses/1961)，
-也可以因为我不接受这个理由而感到愤懑不平，可换到我自己，我是不会把自己会用
+也可以因为我不接受这个理由而感到 _愤懑不平_ ，可换到我自己，我是不会把自己会用
 [Krita](https://krita.org/zh/) 和 [After Effects](https://en.wikipedia.org/wiki/Adobe_After_Effects)、
 [Blender](https://www.blender.org/)、[Kdenlive](https://kdenlive.org/en/)、
 [Synthesizer V](https://synthesizerv.com/zh-cn/)、[Vocaloid](https://en.wikipedia.org/wiki/Vocaloid)、
 [UTAU](https://en.wikipedia.org/wiki/Utau)、[LMMS](https://lmms.io/)、[Synfig studio](https://synfig.org/) 做点微不足道当不了饭吃的小事情之技能视为自己所拥有能力的。
 
-是用 Sketch 设计矢量画、界面和动画的难度真的比上面几个高的多的多，以至于它都能被当成一门独特的技术看待，还是我们对技术的评判标准不同呢？
+是用 Sketch 设计矢量画、界面和动画的难度真的比上面几个高的多的多，以至于它都能被当成一门 _独特_ 的技术看待，还是我们对技术的 **评判标准** 不同呢？
 
 听起来偶尔尝试用 [Firefox](https://developer.mozilla.org/en-US/docs/Mozilla/Gecko) 和
 [text editor](https://en.wikipedia.org/wiki/Text_editor) 来做设计就是低层码农，
-<abbr title="有时候我不喜欢这个词，因为我把它当成了浅尝辄止、不愿深入探索的代名词">前端</abbr>设计师真高大上啊。
+<abbr title="有时候我不喜欢这个词，因为我把它当成了浅尝辄止、不愿深入探索的代名词">前端</abbr>设计师真 _高大上_ 啊。
 
 不过还是感谢你至少开始的时候表示了支持态度，后来也在我道歉删除转发内容和评论后容忍了我未授权的转发。<template nsfw>这句是真心的。</template>
 有些人不喜欢这类<abbr title="和我的风格就有很大差别，当然我因为不常拒绝破事，也会更频繁地焦头烂额">破事</abbr>，我显然是打扰错人了。
@@ -98,7 +98,7 @@ keywords: Android drakeet reverse-engineering technical
 而且 **你知道是这样** 但是不知道有啥 _奇妙的“黑箱”算法_ 可以 **实现它**。
 
 对于一个习惯于抄代码、看文档、<abbr title="我最讨厌某些中国人的这种癖好了。一个我自己也不愿意说的口头禅：『这很中国』">找现成的</abbr><template nsfw>我说的是<a href="https://coolshell.cn/articles/3820.html">实话</a>。</template>、
-改代码的工程师来说，这很不错了，我不该提出别的可能，也不该胡乱猜测你只会 [Bubble sort](https://t.me/dsuse/10849)。
+改代码的工程师来说， _这很不错了_ ，我不该提出别的可能，也不该胡乱猜测你只会 [Bubble sort](https://t.me/dsuse/10849)。
 
 你懒得学<abbr title="计算机科学火爆内容，诸如排序算法、图算法、动态规划、数据结构什么的都是算法优化范围内的工作，重要性好比几何/解析几何于数学">算法</abbr>因为害怕忘记<template nsfw>（谁不会忘记？）</template>，这很正常，显然这 _不会_ 阻止你成为你口中[完美的工程师](https://t.me/dsuse/10855)。
 
@@ -107,18 +107,19 @@ keywords: Android drakeet reverse-engineering technical
 没想到如果条件是要看自己不喜欢的、口无遮拦的二愣子<template nsfw><sub>嗯，就是啊</sub></template>写的代码，你就<abbr title="无理由、无余地、果断地">直接把我踢了</abbr>。
 
 你的理论正确，你的发现 **在 _Android 开发圈里_ 很伟大**，我以后都可以叫它「 _不可共客观序_ **_公理_** 」了。
-即便你的语言自相矛盾，你开始只是说无法实现后来说却又说它逻辑相悖无解，
+即便你的语言自相矛盾，你开始只是说 _无法实现_ 后来说却又说它逻辑相悖 _无解_ ，
 即便你 **不愿意回我一句** 也不愿意 _絮絮叨叨_ 地告诉我们 **为啥因为这句模糊不清的话就不可** [**实现**](https://t.me/dsuse/10902)，
 你这句话里 **藏着什么理念所以可以说明它是正确的** 。
 
 我的确就是 [幼稚](https://t.me/dsuse/10848)，因为我妄图打倒你确认 [**100% 成立**](https://t.me/dsuse/10848) 的理论，
-你永远是正确，因为这个理论就是 _莫名其妙_ 就成立了。
+你永远是 _正确_ ，因为这个理论就是 _莫名其妙_ 就成立了。
 [postulate](https://zh.wikipedia.org/wiki/%E5%81%87%E8%AF%B4) 出来还不行么。
 自己随便说点发现就会被自己看不起的人提出反面的意见，要是我，看到后脑子不乱乱的也难。
 
->真理是不害怕质疑的，质疑只会让完美的真理在谗妄者的诽谤和学者的证明中愈发显出其正确性，真理像是一种生物，它的天敌就是所有想要打倒它、扭曲它、证伪它的人，自然选择是真理诞生和生存中必须要有的经历，因为存在，因为扛住了时间的冲刷打击，所以是真理。
-<br>一个人敢于宣称自己说的永远是正确的，最终只会成为暴君，所有人对他任何作品的评论都会被当成是学术欺压，他保留对自己任何作品的解释权、只允许任何人对它们的赞美而任何显得自己没面子的评价都是不可能与之共生的，他运用各种方法屏蔽一切任何对他略有微词的、不利的东西，他保护自己的理论，没有人能说他是错的、他做的是不对的、他弄错了某些东西，可是也惯坏了自己的理论，惯坏了自己的技术，进入这种状态的人终此一生将没有任何实质上的长进，因为他已经屏蔽了进化的源泉。
-<br><br>人们应该追求真理，因为真理让我们变得更好。你觉得真理应该是什么样子，真理应该以什么标准被选择出来？
+> **真理是不害怕质疑的**。 质疑 **只会** 让完美的真理在谗妄者的诽谤和学者的证明中 **愈发显出其正确性** ，真理像是一种生物，它的天敌就是所有想要 *打倒它、扭曲它、证伪它* 的人，
+**自然选择是真理诞生和生存中必须要有的经历，因为存在，因为扛住了时间的冲刷打击，所以是真理。**
+<br>一个人敢于宣称自己说的 _永远_ 是正确的，最终只会成为 _暴君_ ，所有人对他任何作品的评论都会被当成是 _学术欺压_ ，他保留对自己任何作品的解释权、只允许任何人对它们的赞美而任何显得自己 _没面子_ 的评价都是不可能与之共生的，他运用各种方法屏蔽一切任何对他略有微词的、不利的东西，他保护自己的理论， **没有人能说他是错的、他做的是不对的、他误会了某些事情、还有可以改进的地方** ，可是也惯坏了自己的理论，惯坏了自己的技术，进入这种状态的人 _终此一生_ 将 **没有任何实质上的长进** ，因为他已经屏蔽了 _进化的源泉_ 。
+<br><br>人们应该追求真理，因为真理让我们变得更好。 **你觉得真理应该是什么样子，真理应该以什么标准被选择出来？**
 <br>应该是『某个人说的话全都是真理，我记住它们』还是『一个命题太浅，给我证明它、让我理解它！』？
 
 ## 我不该『很随便地』对你有负面评价
@@ -137,8 +138,8 @@ keywords: Android drakeet reverse-engineering technical
 作为前辈，有无数个理由可以被尊重。
 不管做的怎么样，都可能是有自己的理由的，这些谁都能够理解。
 
-问题是一面做的尚可改进，另一面却说自己已经完美无缺、超出了绝大部分人，
-远远高出自己本身应该得到的评价、逾越了善良的本性而进入了自负的范围，就应当做好接受旁人可能存在指责/异见的准备。
+问题是 **一面做的尚可改进，另一面却说自己已经完美无缺** 、超出了绝大部分人，
+_远远高出_ 自己本身应该得到的评价、逾越了善良的本性而进入了 _自负_ 的范围，就 **应当** 做好接受旁人可能存在指责/异见的准备。
 
 **在你看起来** 我好像是自己为无所不晓无所不能， **恰恰相反，我只是一面镜子** 。
 如果你和人交流是别人看你是正常身高，但是自视却比蚂蚁还矮的话，
@@ -163,7 +164,7 @@ keywords: Android drakeet reverse-engineering technical
 当然这里的「 _别人_ 」其实也有可能是 **自己** — 人总是会忘记，第二天你又是一个崭新的人了。
 
 不好意思啊，如果你是指 Telegram [网际协议](https://en.wikipedia.org/wiki/Internet_Protocol)
-下层通讯的路由设施自动完成了数据包的报文切分以备传输使用，
+下层通讯的路由设施自动完成了数据包的报文切分以备<abbr title="OSI 7 层模型：物理层、数据链路层、网络层、传输层、会话层、表示层、应用层">传输</abbr>使用，
 所以我发消息的时候实际上被自动「断章」了无数次，_这种绝路都走_ ，那我真的是无言以对。
 
 但不管怎么样，我都没有为了自己的主观意愿 “*小人* 之心” 去「取」你消息的 “*君子* 之”「义」。
@@ -188,29 +189,29 @@ keywords: Android drakeet reverse-engineering technical
 ## 你已经很敏锐了，可是离进步还差一点“傻”劲
 
 当然，你从不絮絮叨叨， **也正是因为你太简洁，所以你也永远不会尝试碰壁** ，
-也永远就是躲在一层抽象墙壁里的 _热爱工作_ 的工程师。
+也永远就是躲在一层<abbr title="现代高级程序设计语言可以轻松做到『代码复用』，想想什么是核心技术、什么是应用能力吧">抽象墙壁</abbr>里的 _热爱工作_ 的工程师。
 
 理解的过程是 **从简单到复杂再变回简单** ，从 _入门_ 到 _实践_ 再到 _因看透本质、记熟模型、用透操作而不惑_ ，
 你就是得 **永远卡在第一个简单到复杂之间的阶段**；因为你无法阅读复杂一点的代码也只能死记，
-最终你也只能写复杂性和一个带消息循环以支持可扩展的伪非串行操作的简单文字游戏没有本质区别的代码，
+最终你也只能写复杂性和一个带消息循环以支持可扩展的<abbr title="分时复用执行资源，和 CPU 调度差不多原理，这里只是比喻因为消息循环很多时候不是『串行模型』">伪</abbr>非串行操作的简单文字游戏没有本质区别的代码，
 **永远停留在量变没有质变** 、永远待在那特定的一层死记而看不到其他地方。
 
-你打不破那一层 **屏障** ，看不到裸 VonNewmann 计算机的 I/O、存储器、计算器和控制器，
-看不到 ALU/Cache/SRAM/SDRAM/clock、看不到 PE/ELF/DWARF/Linker/Assembler/libc/Segments/maps/ASLR/Exec-shield/Ring、
-看不到机器堆栈、[解析器、抽象语法树](https://rednaxelafx.iteye.com/blog/492667)、面向对象模型、继承覆写树、虚表、
-程序控制流程图、Tree walker、lexical scoping、GC、Hastable 算法，
-看不到链表结构、看不透排序算法、不能更好更快地理解 NoSQL 图数据库也不熟悉图论、
-看不到线程调度保护现场切换执行权再分时抢占的过程也不需要知道线程同步是什么、锁和乐观并发控制、并行算法是什么、
-怎么写数字图像处理算法、怎么做计算[向量化](https://www.llvm.org/docs/Vectorizers.html)，
-也无缘任何面向对象或者结构化编程之外的范式。
+你打不破那一层 **屏障** ，看不到裸 <abbr title="老冯的图灵机-based 现代电子计算机模型">VonNewmann</abbr> 计算机的 I/O、存储器、计算器和控制器，
+看不到 <abbr title="Arithmatic Logic Unit 数理逻辑单元，执行(binary)算术操作什么的">ALU</abbr>/<abbr title="Floating Point Unit, 浮点运算单元">FPU</abbr>/<abbr title="高速缓存，比如内存区域什么的；一般分指令和数据两种">Cache</abbr>/<abbr title="静态随机访问存储器">SRAM</abbr>/<abbr title="Static Dynamic Random Access Memory">SDRAM</abbr>/<abbr title="处理器晶振，各电子器件按照脉冲的节拍同步完成取指译解码取数寻址执行的操作">clock</abbr>、看不到 <abbr title="Portable Executable">PE</abbr>/<abbr title="Extensible Library Format">ELF</abbr>/<abbr title="一种调试符号格式">DWARF</abbr>/<abbr title="链接器，将分段的程序按照符号表(Procedure Linkage Table)拼接在一起">Linker</abbr>/<abbr title="汇编->机器码翻译器">Assembler</abbr>/<abbr title="C 语言基础库，完成 C 和操作系统 API 的交互定义（一般需内联汇编）">libc</abbr>/<abbr title="编译器和运行时操作系统完成的程序镜像(image)分段">Segments</abbr>/<abbr title="内存映射">maps</abbr>/<abbr title="地址空间虚化，操作系统完成的反溢出攻击的安全措施">ASLR</abbr>/<abbr title="地址空间执行权限限制，操作系统完成的反溢出攻击措施">Exec-shield</abbr>/<abbr title="分级保护域[OS]">Ring</abbr>、
+看不到<abbr title="stack & heap">机器堆栈</abbr>、[解析器、抽象语法树](https://rednaxelafx.iteye.com/blog/492667)、<abbr title="OOP(object orented programming) 包含封装、抽象、继承、多态特性，其中特色当属继承和虚函数">面向对象模型</abbr>、<abbr title="面向对象支持兼容某类型的多种子类，覆盖该类型的方法成员等">继承覆写树</abbr>、<abbr title="缓存/记录指针式的面向对象方法重写(override)[多态]优化">虚表</abbr>、
+<abbr title="Control Flow Graph">程序控制流程图</abbr>、<abbr title="数(Tree) 状图遍历器">Tree walker</abbr>、<abbr title="Lambda[23] 演算引入的函数闭包理论">lexical scoping</abbr>、<abbr title="Garbage Collector，高级程序设计语言的自动化内存管理方案，无须考虑分配/释放对应问题">GC</abbr>、<abbr title="哈希表是 Mapping[映射] 的实现，典型的空间换时间优化数据结构">Hastable</abbr> 算法，
+看不到<abbr title="内存[head@对象->tail@(地址|nil)]链接构成的线性表">链表</abbr>结构、看不透排序算法、不能更好更快地理解 <abbr title="提供“非规范视图”的非结构化查询数据库管理系统">NoSQL 图数据库</abbr>也不熟悉图论、
+看不到线程调度保护现场切换执行权再分时抢占的过程也不需要知道<abbr title="并发编程时长遇到的『先后顺序』问题">线程同步</abbr>是什么、锁和乐观并发控制、并行算法是什么、
+怎么写 <abbr title="Digital Image Processing">数字图像处理</abbr> 算法、什么是<abbr title="Dynamic Programming 是利用子问题解决情况优化最终得解的算法思路">动态规划</abbr>、怎么做计算[向量化](https://www.llvm.org/docs/Vectorizers.html)，
+也无缘任何面向对象或者 <abbr title="aka. Structured Programming">结构化编程</abbr> 之外的范式。
 
 这样，
 **你很明智，你的选择是绝大部分 “聪明” 人的选择** 。
-因为你少花了做 _无用功_ 的时间，你站在 **巨人** 的肩膀上，多得了 **写应用** 的投入。 
+因为你少花了做 _无用功_<template nsfw><s>反正你学了也不会</s></template> 的时间，你站在 **巨人** 的肩膀上，多得了 **写应用** 的投入。
 **当然你不需要知道那个巨人是什么，有怎么样的历史，它到底长什么样子，它为你做了些什么，_你甚至不需要看见脚下存在有这么一个巨人_。**
 **叫它黑箱就可以了。**
 
-你崇敬 [王垠](http://www.yinwang.org/)，可惜以你敏锐的速度现在连第一个基于
+你<abbr title="虽然，王垠拒绝任何一个人崇拜他">崇敬</abbr> [王垠](http://www.yinwang.org/)，可惜以你敏锐的速度现在连第一个基于
 [S - 表达式的 tree-walking 解释器](http://www.yinwang.org/blog-cn/2012/08/01/interpreter) 都没有写出来，
 就是我这个小人也[实现了一个](https://t.me/dsuse/6929)、设计了[两](https://gist.github.com/duangsuse/fc33ea2690d77a0cc1fe0f0a4ce8b4f2)[个](https://gist.github.com/duangsuse/7dba2f4b41e45c3533158226091438e3)。
 虽然当初我连 [Lexical scoping](https://anqurvanillapy.github.io/?p=lies-about-programming-languages-in-mathematical-notations-1)
@@ -226,9 +227,9 @@ keywords: Android drakeet reverse-engineering technical
 说开了， **你那点知识对我来说，也没有多大价值**。
 我从那一堆 [Unicode 字符](https://zh.wikipedia.org/wiki/%E7%A0%81%E4%BD%8D)
 （哦，你肯定要纠正是 [Grapheme Cluster](https://www.unicode.org/reports/tr29/)，
-不过没暖用，你的频道里就没有发过自己写而且附过解释的那些印度阿拉伯文写的字，当然也没有一个字是数学操作符区段里的，
-你 **从不贴** 那些 **容易忘记** 的玩意）里没有收获多大意义上所谓有价值的信息，
-和你对我的态度一样，我对你的知识也没啥兴趣，我们可以互相唾弃啊。
+不过没暖用，你的频道里就没有发过是自己写而且附过解释那些印度阿拉伯文写的字，当然也<abbr title="目前有点不准确了，截至我被 drakeet 屏蔽为止。不过还是一行公式也没有">没有一个字是数学操作符区段里的</abbr>，
+你 **从不贴** 那些 **容易忘记** 的玩意）里没有收获多大意义上所谓 _有价值_ 的信息，
+和你对我的态度一样，我对你的知识也没啥兴趣，我们可以 <abbr title="我笑你的缺点，你也拿我的不足讽刺我，就因为你比我强。诶，有必要吗？">互相唾弃</abbr> 啊。
 
 ##### 原地不动地进步
 
@@ -237,7 +238,7 @@ keywords: Android drakeet reverse-engineering technical
 你希望自己是 _完美_ 的，当然任何人都是这个样子。不过想要完美就要先明白，
 **完美是不可能的，只能作为一个目标不断为之奋斗，这才达到了自己真正的完美。心中的完美，达到了你就不再美了。**
 
-**你已经很不错了** ，所以你余下的工作时间在 **禁止评论** 之后，都可以继续你 _完美_ 的编程生涯，
+**你已经 _很不错_ 了** ，所以你余下的工作时间在 **禁止评论** 之后，都可以继续你 _完美_ 的编程生涯，
 因为 **没有人** 能够指出你还有哪些 **不足之处** ， **也没有人能帮你进步** 。
 
 就好像一段不会运行的 buggy 程序，[type checker](https://en.wikipedia.org/wiki/Type_system)
@@ -257,7 +258,7 @@ keywords: Android drakeet reverse-engineering technical
 > 有朋友说他会反复看我写的东西，令我很感动，因为我也是这样，
 > **我也会无数遍不停看自己写的东西或分享，所以当有人细心一点会发现我的内容即使有错别字或不妥的内容，但最终都会相对改正和变得相对得当⋯**
 
-首先你是遵从了自己的内心、太迟钝抑或是在搪塞自己、甚至说直白点，是不是为了显得自己对文字非常用心但懒得多下点功夫所以这么说，我就不吐槽了。
+首先你是遵从了自己的内心 <template nsfw>为什么突然觉得自己好文艺</template>、太迟钝抑或是在搪塞自己、甚至说直白点，是不是为了显得自己对文字非常用心但懒得多下点功夫所以这么说，我就不吐槽了。
 
 我写这篇文章之前的文风和你这里使用的差不多，都是 **逗号句号不分** 。对于写作 **只看 “光标” 下一个字** 的人来说是 **注意不到**
 自己在该断句的时候没有断句的，断句往往是编辑审阅 **修订** 的时候做的事情；虽然我不是语言学家，但对文字最基本的风格判断还是做得到的。
@@ -284,7 +285,7 @@ keywords: Android drakeet reverse-engineering technical
 这就好像是你费了好大功夫开设了一个教成年人怎么 **洗衣叠被打鸡蛋** 的网站，
 使用了各种最新潮的 Web 技术，比如 [HSTS](https://en.wikipedia.org/wiki/HTTP_Strict_Transport_Security)、
 [Webp](https://developers.google.com/speed/webp/)、[VP9](https://www.webmproject.org/vp9/)、
-HTML5、Canvas、WebGL、[Webpack](https://webpack.js.org/)、Lazyload、preload、Sprite、WebWorkers、WebAudio、WebVideo 一大打，
+HTML5、<abbr title="Web 画布">Canvas</abbr>、<abbr title="3D Web 场景, GL=Graphics Library">WebGL</abbr>、[Webpack](https://webpack.js.org/)、<abbr title="惰性加载，比如一个复杂的计算 [f(x) = (x+a)(x-1), f mod 2 = 0: a=?] 不要在不用时计算">Lazyload</abbr>、<abbr title="和惰性加载恰巧反过来，它利用计算能力预先计算缓存结果，用时便可快速得出">preload</abbr>、<abbr title="雪碧图，将大文件裁切为小块方便传输">Sprite</abbr>、WebWorkers、WebAudio、WebVideo 一大打，
 甚至还做了各种 SEO、访问速度优化，其整体服务就是一个大黑科技，而且 **_没有一个错别字_** 。
 
 它没有问题、它最好。但是网站不仅 UV 量<sub fnref>4</sub> 少，慢慢的都没人过问了，于是你开始 **抱怨** 万维网的万恶、
