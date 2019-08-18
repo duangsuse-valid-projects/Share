@@ -231,7 +231,7 @@ keywords: Android drakeet reverse-engineering technical
 ##### 原地不动地进步
 
 你的代码风格 _的确_ 是在进步，技术也一样，虽然你 _依然_ 没有摆脱 **容易但成品复杂不清晰** 的 **堆砌** ，
-依然没有开始尝试 **困难而简洁** 的 **设计** ₁。你就是 **无法接受** 一点点不足的地方，
+依然没有开始尝试 **困难而简洁** 的 **设计** <sub fnref>1</sub>。你就是 **无法接受** 一点点不足的地方，
 你希望自己是 _完美_ 的，当然任何人都是这个样子。不过想要完美就要先明白，
 **完美是不可能的，只能作为一个目标不断为之奋斗，这才达到了自己真正的完美。心中的完美，达到了你就不再美了。**
 
@@ -241,7 +241,7 @@ keywords: Android drakeet reverse-engineering technical
 就好像一段不会运行的 buggy 程序，[type checker](https://en.wikipedia.org/wiki/Type_system)
 又不 [sound](https://t.me/dsuse/10692)，因为你封了它的嘴（`cc 2>/dev/null`）， **问题还暴露不出来** ，
 是的，它 _很完美_ 、它 _没有错误_ 、它 _无可挑剔_ 、它 _没法改进_ 、它 _正确_。
-你说我像鲁迅先生笔下的[孔乙己](https://zh.wikipedia.org/wiki/%E5%AD%94%E4%B9%99%E5%B7%B1)视人论断₂，
+你说我像鲁迅先生笔下的[孔乙己](https://zh.wikipedia.org/wiki/%E5%AD%94%E4%B9%99%E5%B7%B1)视人论断<sub fnref>2</sub>，
 我是否可以给你立个真正的“孔乙己”[孔子](https://zh.wikipedia.org/wiki/%E5%AD%94%E5%AD%90)作为偶像？
 孔子万世师表肯以七岁稚子[为师](https://zh.wikipedia.org/wiki/%E9%A0%85%E6%A9%90)，
 礼之祖师入个太庙还“[每事问](https://zh.wikipedia.org/wiki/%E5%AD%94%E5%AD%90#%E3%80%8C%E7%A6%AE%E3%80%8D%E7%9A%84%E7%A4%BE%E6%9C%83%E7%A7%A9%E5%BA%8F)”，
@@ -260,7 +260,7 @@ keywords: Android drakeet reverse-engineering technical
 我写这篇文章之前的文风和你这里使用的差不多，都是 **逗号句号不分** 。对于写作 **只看 “光标” 下一个字** 的人来说是 **注意不到**
 自己在该断句的时候没有断句的，断句往往是编辑审阅 **修订** 的时候做的事情；虽然我不是语言学家，但对文字最基本的风格判断还是做得到的。
 
-相信使用拥有 edit history 功能₃ 的纯纯写作你绝对比我有更多修订的机会，可是你没有做到 **不断斟酌推敲** 自己的文字是否 **停当**。
+相信使用拥有 edit history 功能<sub fnref>3</sub> 的纯纯写作你绝对比我有更多修订的机会，可是你没有做到 **不断斟酌推敲** 自己的文字是否 **停当**。
 我是在 PC 机上打字所以很难去用纯纯写作，我承认它很不错而且设计上有独到之处并填补了市场的空白，
 很多人有时候就是缺了这一点创意和思路；你在 [Hackathon](https://en.wikipedia.org/wiki/Hackathon) 上的设计也很有创意，
 只是缺了一点[其他的东西](https://en.wikipedia.org/wiki/Computer_graphics)。但是，你作为软件的作者和一直以来最坚定的粉丝，
@@ -285,7 +285,7 @@ keywords: Android drakeet reverse-engineering technical
 HTML5、Canvas、WebGL、[Webpack](https://webpack.js.org/)、Lazyload、preload、Sprite、WebWorkers、WebAudio、WebVideo 一大打，
 甚至还做了各种 SEO、访问速度优化，其整体服务就是一个大黑科技，而且 **_没有一个错别字_** 。
 
-它没有问题、它最好。但是网站不仅 UV 量₄ 少，慢慢的都没人过问了，于是你开始 **抱怨** 万维网的万恶、
+它没有问题、它最好。但是网站不仅 UV 量<sub fnref>4</sub> 少，慢慢的都没人过问了，于是你开始 **抱怨** 万维网的万恶、
 用户们的眼瞎，为什么就没有让你 _如此用心_ 的网站持续 “火” 下去甚至真正火过一下 。🤔
 
 ##### 分享
@@ -327,7 +327,7 @@ _顺带_ 帮 _你们_ 理解（为什么就和你对纯纯写作开发动机的�
 > **订阅数** 一年下来，几乎没什么变化。相比我 GitHub 和微博靠自然增长各自有 **6.6K** 和 **8.6K** **followers** ，
 > Telegram 有时让人感觉到灰心（我不想说大部分人是冷漠的，但事实确实如此。或许这样的冷漠大多数都是无意识的）。
 
-> Telegram 频道无法评论₆，虽然大多数时候我不喜欢评论，或者说公开的评论，公开的评论意味着需要尽快花费精力回复，
+> Telegram 频道无法评论<sub fnref>6</sub>，虽然大多数时候我不喜欢评论，或者说公开的评论，公开的评论意味着需要尽快花费精力回复，
 > 而且偶尔有些傻问题，所以当初也是因为这个特点喜欢上 Telegram Channel。
 > 但与此同时，永远没人来（私下） **告诉我因为我的分享在这里收益了很多** ，
 > 或者 **说一声感谢也会令人十分开心**，没有，一年到头几乎没人告诉我任何关于我的分享的反馈或感受。
@@ -362,7 +362,7 @@ _顺带_ 帮 _你们_ 理解（为什么就和你对纯纯写作开发动机的�
 我是 **没有状态依赖** 的，我要怎么做， **完全只看我自己。**
 在我写文「分享」的时候，**我眼前的舞台下没有任何人，而我所见的只有自己想要完全弄明白的东西。**
 
-你分享则是为了某种指标最大化。你就像是在效仿一个最优化算法，目标是 **人气** 、 **赞美** 之类的决策条件₅最大化。 
+你分享则是为了某种指标最大化。你就像是在效仿一个最优化算法，目标是 **人气** 、 **赞美** 之类的决策条件<sub fnref>5</sub>最大化。
 
 **你可以选择怀疑 Telegram 约束了你** ，使你不能达到你 **自觉** 能达到的 **最优水平** ；于是你开始怨天尤人，于是你开始怀疑 Telegram
 上的人，是不是 _抛弃_ 了你、是不是 _不公正_ 地对待了做了 **分享** 的你，所以你要去[知识星球](https://t.zsxq.com/Zjun2b2)。
@@ -457,7 +457,6 @@ Telegraph 和 Telegram 一样都说我写的文太长了不给发⋯ <template n
 **对于国家来说，重要的不是想办法“处理”掉自己的黑历史，不让它被别人看到，而是站在历史和未来的交织点、曾经那个不完美的自己面前作出改变命运的决断。**
 
 **真正的凤凰会终会站在历史的余烬上浴火重生，但不是焚书坑儒的那把火。**
-
 
 “黑历史” 是曾经不完美的见证， **但它对自己而言也不是没有用处的。** _一个优秀的人_
 时常要复习一下自己的黑历史、记住自己曾经的误解、不确定，来为自己的未来提供一个完整的排除名单。 **错误不再重复第二遍。**
@@ -595,7 +594,7 @@ HTTP 服务程序，写过基于 WebAssembly 的子系统运行时支持、写�
 州立大学计算机科学和数学系肆业后又设计了一款基于人工神经网络和语音音高时长修改的歌声合成软件。
 
 要知道信号处理领域可没有一个算法是可以靠抄解决的，机器学习领域又 _岂止_ 单单靠一个 “ _敏锐_ ” 一个 “ _本质_ ” 概论可以弄明白，
-若是靠 _抄代码_ 能从头弄出个 Haskell 优化编译器或者质量能听的音素音节歌声合成器，一大群猴子敲键盘都能敲出本《莎士比亚全集》₇来了。
+若是靠 _抄代码_ 能从头弄出个 Haskell 优化编译器或者质量能听的音素音节歌声合成器，一大群猴子敲键盘都能敲出本《莎士比亚全集》<sub fnref>7</sub>来了。
 
 **照你的说法，他们都是小孩子了** 。很可惜， **孩子可是很危险的，没人知道他们会变成什么** 。长江后浪推前浪，不单单看中国的就更可怕了。
 **_前浪_ 没有危机意识，小心死在沙滩上啊。**
@@ -833,30 +832,30 @@ cotail (cotail cofib) = cozipWith _+_ cofib (cotail cofib)
 
 ### Footnotes
 
-₁ _越复杂越容易堆砌，越简单越难于设计。_ 大道至简。就像人们对事物、方法的理解进程一样，简单反而可能是最后彻底看透、完全理解的标志。
+<a id="fn-1">₁</a> _越复杂越容易堆砌，越简单越难于设计。_ 大道至简。就像人们对事物、方法的理解进程一样，简单反而可能是最后彻底看透、完全理解的标志。
 
-₂ 虽然我非常奇怪，以《孔乙己》里的同名人物作比，我真的不知道你到底想表达什么，你是不是本来要说[阿
+<a id="fn-2">₂</a> 虽然我非常奇怪，以《孔乙己》里的同名人物作比，我真的不知道你到底想表达什么，你是不是本来要说[阿
 Q](https://zh.wikipedia.org/zh-tw/%E9%98%BFQ%E6%AD%A3%E4%BC%A0) 呢？
 
-₃ 就是 [Undo/redo](https://en.wikipedia.org/wiki/Undo)。注意和 [edit
+<a id="fn-3">₃</a> 就是 [Undo/redo](https://en.wikipedia.org/wiki/Undo)。注意和 [edit
 distance](https://en.wikipedia.org/wiki/Edit_distance)
 区分开。这个功能我不知道纯纯写作是怎么实现的，一般直接抽象成 Text 数据实例上的 pushState
 操作，只要可以监听并重置编辑操作，这类功能（包括纯纯写作扩展的历史记录查看功能）不难完成。
 
-₄ （站长）网络流量统计分析的术语，UV（独立访客） 为某日访问总人数、PV（访问量） 为用户点击量、IP（客户主机数） 为访问过网站的总人数
+<a id="fn-4">₄</a> （站长）网络流量统计分析的术语，UV（独立访客） 为某日访问总人数、PV（访问量） 为用户点击量、IP（客户主机数） 为访问过网站的总人数
 
-₅对于很多最[优化算法](https://zhuanlan.zhihu.com/p/42689565)而言（比如知名的[梯度下降](https://www.cnblogs.com/conmajia/p/annt-feed-forward-fully-connected-neural-networks.html#%E9%9A%8F%E6%9C%BA%E6%A2%AF%E5%BA%A6%E4%B8%8B%E9%99%8D%E7%AE%97%E6%B3%95)法，这个方法要求
+<a id="fn-5">₅</a> 对于很多最[优化算法](https://zhuanlan.zhihu.com/p/42689565)而言（比如知名的[梯度下降](https://www.cnblogs.com/conmajia/p/annt-feed-forward-fully-connected-neural-networks.html#%E9%9A%8F%E6%9C%BA%E6%A2%AF%E5%BA%A6%E4%B8%8B%E9%99%8D%E7%AE%97%E6%B3%95)法，这个方法要求
 _目标函数_ 在它的 _值域_ 上是 _可导_
 的）决策条件并不是一个相关名词，[决策树](https://zh.wikipedia.org/wiki/%E5%86%B3%E7%AD%96%E6%A0%91)方法则涉及这个名词，最优化领域类似的名词是
 **目标函数** ，实际上最优化往往涉及线性代数的内容，这也就和数学函数论、统计、微积分分不开了。
 
 这里，此文的作者对相关领域暂时不熟悉，如果有不准确或者可以增添的<abbr title="即得易见平凡（划掉）">直白简要</abbr>解释欢迎提出
 
-₆ Telegram 虽然没有直接支持评论，但它支持 Inline bot 啊，你可以为机器人设置消息内联按钮，然后 handle callbacks，存
+<a id="fn-6">₆</a> Telegram 虽然没有直接支持评论，但它支持 Inline bot 啊，你可以为机器人设置消息内联按钮，然后 handle callbacks，存
 K/V
 数据库。实际上现在已经有人[这么做](https://t.me/jogle_channel_bot)了。你知道有机器人这一回事，可是却没有想到它可以做这样的功能。
 
-₇ 为了避免 drakeet
+<a id="fn-7">₇</a> 为了避免 drakeet
 看到后再次发生误解，这里特作脚注：此句引用[无限猴子定理](https://zh.wikipedia.org/wiki/%E7%84%A1%E9%99%90%E7%8C%B4%E5%AD%90%E5%AE%9A%E7%90%86)。
 _无限只猴子随机地敲打键盘，总有一天能敲打出莎士比亚全集_ 。有人还在这里加入了自然选择，从而比喻机器学习领域的遗传算法思路。
 
@@ -881,11 +880,13 @@ _无限只猴子随机地敲打键盘，总有一天能敲打出莎士比亚全�
 <script defer id="plug-nsfw" src="plug-nsfw-template.js"></script>
 <script defer id="plug-abbr" src="plug-abbrev-view.js"></script>
 <script defer id="plug-night" src="plug-night.js"></script>
+<script defer id="plug-fnref" src="plug-footnote.js"></script>
 
 <script>
 waitsId('plug-nsfw') (delay.curry2(mins(5), docall('showNSFW').curry1(window)) ) ;
 waitsId('plug-abbr') (docall('initAbbrevClick').curry1(window));
 waitsId('plug-night') (function() { btnMoon(bannerDiv()); daynight(); });
+waitsId('plug-fnref') (docall('linkFootnotes').curry1(window));
 </script>
 
 <script>_____(function(){
@@ -897,6 +898,33 @@ console.log('Content loaded~');
 a { color: #1eaa1e; !important; }
 mark { background-color: #f0ce29; }
 .markdown-body .highlight pre, .markdown-body pre { border-radius: unset; }
+.footnote {
+  padding-left: 4px; padding-right: 4px;
+  text-decoration: maroon double underline; }
+@keyframes footnoteCas {
+  0% { background-color: currentColor; color: whitesmoke; }
+  100%  { background-color: #4c3c91; color: whitesmoke; }
+}
+.footnote:hover {
+  background-color: #4c3c91;
+  color: whitesmoke;
+  animation: footnoteCas 0.3s ease;
+}
+.footref { text-decoration: maroon wavy underline; }
+
+@keyframes footrefFoc {
+  0% { padding-right: 1px; background-color: #4c3c91; }
+  20% { padding-right: 3px; }
+  40% { padding-right: 5px; }
+  60% { padding-right: 2px; }
+  80% { padding-right: 3px; }
+  100% { padding-right: 0px; background-color: white; }
+}
+.footrefFoc {
+  animation: footrefFoc 0.4s linear;
+  padding-left: 2px; padding-right: 2px;
+  color: whitesmoke;
+}
 </style>
 
 <style>
