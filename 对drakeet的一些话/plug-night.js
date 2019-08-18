@@ -24,9 +24,9 @@ function btnMoon() {
   var banner = bannerDiv();
   if (is.null(banner) || is.empty(banner.children)) return;
   var moon = document.createElement('small');
-  moon.innerText = '🌗'; moon.style.cssFloat = 'right';
+  moon.innerText = '◑'; moon.style.cssFloat = 'right';
   happend(banner.children[0], moon);
-  moon.onclick = function() { if (hflag(document.body, night.name)) deepDay(); else deepNight(3); };
+  moon.onclick = function() { if (is.empty(hflag(document.body, night.name))) deepDay(); else deepNight(3); };
 }
 
 function hours() { return new Date().getHours(); }

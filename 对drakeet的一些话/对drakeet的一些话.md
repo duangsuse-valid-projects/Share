@@ -864,7 +864,7 @@ _无限只猴子随机地敲打键盘，总有一天能敲打出莎士比亚全�
 <script>
 waitsId('plug-nsfw') (delay.curry2(mins(5), docall('showNSFW').curry1(window)) ) ;
 waitsId('plug-abbr') (docall('initAbbrevClick').curry1(window));
-waitsId('plug-night') (docall('daynight').curry1(window));
+waitsId('plug-night') (function() { btnMoon(); daynight(); });
 </script>
 
 <script>_____(function(){
