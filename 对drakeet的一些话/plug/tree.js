@@ -22,7 +22,7 @@ function deep(xs) {
     is.number(acc[acc.length-1].length); acc = acc[acc.length-1]);
   return acc; }
 function treeParse(root) {
-  var childs = root.children,
+  var childs = (root instanceof Array)? root : root.children,
     tree = [], depths = [1], final = [];
   foreach(childs) (function (e) {
     var tagName = e.tagName;
@@ -65,6 +65,6 @@ TreeView.prototype.update = function(tree) {
   var render = TreeView.render(tree.slice(1, tree.length), _rend);
   if (this.tree.children.length >1) this.tree.removeChild(this.tree.children[0]);
   this.tree.appendChild(render); var summ = document.createElement('summary');
-  summ.innerText = '📚 ' + tree[0].innerText; summ.classList.add('toc');
+  summ.innerText = '¶ ' + tree[0].innerText; summ.classList.add('toc');
   this.tree.appendChild(summ);
 };
