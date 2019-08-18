@@ -1,0 +1,13 @@
+.nsfw { color: yellowgreen !important; }
+a { color: #1eaa1e; !important; }
+mark { background-color: #f0ce29; }
+.markdown-body .highlight pre, .markdown-body pre { border-radius: unset; }
+quote {
+  font-family: CustomSerif,Georgia,Cambria,'Times New Roman',serif;
+  font-size: 21px;
+  font-style: italic;
+  color: #898989;
+  margin: 18px 21px 16px;
+  padding: 0 18px;
+  text-align: center;
+}

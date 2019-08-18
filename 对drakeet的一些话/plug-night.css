@@ -1,0 +1,17 @@
+@keyframes nighted {
+  0% { color: #24292e; background-color: white; }
+  100% { color: #dbdbdb; background-color: #0d0d0d; }
+}
+@keyframes dayed {
+  0% { color: #dbdbdb; background-color: #0d0d0d; }
+  100% { color: #24292e; background-color: white; }
+}
+.dayed { animation: dayed .7s cubic-bezier(.08,.82,.17,1); }
+body[night=""] {
+  color: #dbdbdb;
+  background-color: #0d0d0d;
+  animation: nighted .5s cubic-bezier(.08,.82,.17,1);
+}
+body[night=""] .markdown-body .highlight pre, body[night=""] .markdown-body pre {
+  background-color: #3d0f14;
+}

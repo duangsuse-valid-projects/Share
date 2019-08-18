@@ -1,4 +1,4 @@
-const fp = require('./fp');
+const fp = require('../fp');
 const p = fp.parserc;
 
 let __ = p.wsP(), _ = p.ws0P();

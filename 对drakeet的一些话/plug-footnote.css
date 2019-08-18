@@ -1,0 +1,27 @@
+.footnote {
+  padding-left: 4px; padding-right: 4px;
+  text-decoration: maroon double underline; }
+@keyframes footnoteCas {
+  0% { background-color: currentColor; color: whitesmoke; }
+  100%  { background-color: #4c3c91; color: whitesmoke; }
+}
+.footnote:hover {
+  background-color: #4c3c91;
+  color: whitesmoke;
+  animation: footnoteCas 0.3s ease;
+}
+.footref { text-decoration: maroon wavy underline; }
+
+@keyframes footrefFoc {
+  0% { padding-right: 1px; background-color: #4c3c91; }
+  20% { padding-right: 3px; }
+  40% { padding-right: 5px; }
+  60% { padding-right: 2px; }
+  80% { padding-right: 3px; }
+  100% { padding-right: 0px; background-color: white; }
+}
+.footrefFoc {
+  animation: footrefFoc 0.4s linear;
+  padding-left: 2px; padding-right: 2px;
+  color: whitesmoke;
+}

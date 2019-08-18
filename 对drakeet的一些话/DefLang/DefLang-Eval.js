@@ -1,5 +1,5 @@
-const fp = require('./fp');
-const p = require('./fp').parserc;
+const fp = require('../fp');
+const p = require('../fp').parserc;
 const pp = require('./DefLang');
 const fs = require('fs');
 

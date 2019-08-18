@@ -30,7 +30,7 @@ function linkFootnotes() {
     if (!is.none(deff) && deff.tagName === 'A') {
       deff.href = '#'+we.id;
       deff.classList.add('footnote');
-      deff.onclick = function() { singleShotAnim(we, 'footrefFoc'); };
+      deff.onclick = function() { singleShotAnim(we, 'footrefFoc'); we.focus(); };
     }
     else console.warn('Failed to xlink '+we.id+' to '+we.href);
     hprepend(e, we); we.appendChild(e); });
