@@ -899,7 +899,7 @@ waitsId('plug-tree') (function() {
   var may = Maybe.of(cssSingle('.markdown-body')).fmap(function(x){return collect(x.children).slice(1, -1);});
   var doct = treeParse(may.getOr() || cssSingle('body'));
   var tree = new TreeView(helem('toc'));
-  tree.update(doct); });
+  tree.update(doct); $toc = tree; $para = doct; });
 </script>
 
 <script>_____(function(){

@@ -63,7 +63,7 @@ TreeView.prototype.update = function(tree) {
     v.innerText = name; v.href = '#'+node.id;
     return v; };
   var render = TreeView.render(tree.slice(1, tree.length), _rend);
-  if (this.tree.children.length >1) this.tree.removeChild(this.tree.children[0]);
+  if (this.tree.children.length >1) for (var n=0; n!=2; ++n) this.tree.removeChild(this.tree.children[0]);
   this.tree.appendChild(render); var summ = document.createElement('summary');
   summ.innerText = '¶ ' + tree[0].innerText; summ.classList.add('toc');
   this.tree.appendChild(summ);
