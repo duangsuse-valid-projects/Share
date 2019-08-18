@@ -27,8 +27,7 @@ var is = Object.create(kindof);
 is.null = _isActual(null);
 is.undef = _isActual(undefined);
 is.und = _isActual(kindof.undID);
-is.nan
-  = (Number.isNaN)? function nan(x) { return Number.isNaN(x); }
+is.nan = (Number.isNaN)? function nan(x) { return Number.isNaN(x); }
   : function _nan(x) { return isNaN(x); };
 is.int = function _isInt(x) { return Math.trunc(x) === x; };
 is.natural = function _natural(x) { return x>=0 && is.int(x); };
@@ -43,7 +42,7 @@ is.exist = function exists(name) { return is.defined(toplevelThis()[name]); };
 is.none = function isNone(x) { return is.null(x) || is.undef(x); };
 
 function toplevelThis() {
-  var bad = function() { return Function('return this')(); }
+  var bad = function() { return Function('return this')(); };
   return (is.nund(typeof globalThis)? (globalThis)
   :(is.nund(typeof self)? (self)
   :(is.nund(typeof window)? (window)
@@ -61,6 +60,7 @@ var document = document || {
   getElementById:noimp, querySelectorAll:noimp, importNode:noimp};
 var NodeList = NodeList || null;
 var HTMLCollection = HTMLCollection || null;
+var Symbol = Symbol || null;
 
 //// Functions
 function bound(self, meth) { return ensureBehavior(self, meth).bind(self); }
@@ -118,7 +118,7 @@ Function.prototype.also = function also(g) { var f=this;
 Function.prototype.alsoVargs = function alsoVargs(g) { var f=this;
   return function veffectAlso() { var y=f.apply(f, arguments); g(y); return y; }; };
 //
-Function.prototype.times = function times(t) { for(;t!==0;--t) this(); }
+Function.prototype.times = function times(t) { for(;t!==0;--t) this(); };
 Object.prototype.lets = Object.prototype.lets || function lets(f) { return f(this); };
 Object.prototype.with = function withSetup(f) { f(this); return this; };
 
@@ -152,7 +152,7 @@ is.defined = is.undef.andThen(not);
 is.nund = is.und.andThen(not);
 is.nm1 = is.m1.andThen(not);
 is.notfun = is.fun.andThen(not);
-var mix = bound(Object, 'assign').curriedN(1);
+var mix; if (!is.none(Object.assign)) mix = bound(Object, 'assign').curriedN(1);
 var globalThis = globalThis || toplevelThis();
 
 //// Stream iterator function
@@ -180,7 +180,7 @@ function forIter(it, f) {
 var foreach = tryIter.andThen(bound(forIter, 'curry1'));
 
 function _nextProtect(it) {
-  try { var res = it(); }
+  var res; try { res = it(); }
   catch (e) { return (e.br)? {done:true,value:breakIter}
     : _undone(nextIter); }
   return res;
@@ -249,7 +249,8 @@ function _waits(nd, f) {
     if (_isLoaded(this.readystate)) { f(); } };
 }
 
-var logs = console.log.curried1();
+if (typeof console ==='object')
+  var logs = console.log.curried1();
 var helem = bound(document, 'getElementById');
 var hmerges = bound(document, 'importNode').flip().curry1(true);
 var cssSelect = bound(document, 'querySelectorAll');
@@ -262,8 +263,8 @@ function delay(t, f) { window.setTimeout(f, t); }
 var secs = mul.curry1(1000);
 var mins = mul.curry1(1000*60);
 
-function happend(nd, x) { var nx=nd.nextSibling; nd.parentNode.insertBefore(x, nx); };
-function hprepend(nd, x) { nd.parentNode.insertBefore(x, nd); };
+function happend(nd, x) { var nx=nd.nextSibling; nd.parentNode.insertBefore(x, nx); }
+function hprepend(nd, x) { nd.parentNode.insertBefore(x, nd); }
 
 function hflag(nd, name) { return nd.getAttribute(name); }
 function hsetflag(nd, name, val) { nd.setAttribute(name, is.undef(val)? '' : val); }
@@ -586,10 +587,10 @@ Feeder.prototype.next = function nextItem() {
   if (this.saveCount !== 0) { --this.saveCount; return this.lastItem; }
   var x; if ((x = this.stream()).done) { return (this.lastItem= undefined); }
   this.lastItem = x.value; this.nextItem = x.next; var p;
-  if ((p = (this.lastIsCRLF() && (this.scanCRLF = true))  )
-    || this.lastIsCR() // carriage return is ok immediately
-    ||(!this.scanCRLF && this.lastIsLF()) // skip one '\n'
-    ||((this.scanCRLF && this.lastIsLF()) && (this.scanCRLF = false)) )
+  if ((p = (this.lastIsCRLF() && (this.scanCRLF = true))  ) ||
+    this.lastIsCR() || // carriage return is ok immediately
+    (!this.scanCRLF && this.lastIsLF()) || // skip one '\n'
+    ((this.scanCRLF && this.lastIsLF()) && (this.scanCRLF = false)) )
     { ++this.lineNum; this.col = p? (-2)/*for next <nl>*/ : (-1); }
   this.count += 1; this.col += 1;
   return this.lastItem; };
@@ -604,8 +605,8 @@ Feeder.prototype.hasNext = function nextEOF()
 Feeder.prototype.loc = function sourceLocation()
   { return this.fileName+':'+this.lineNum+':'+this.col; };
 Feeder.prototype.desc = function describe(prefix)
-  { return this.loc() +(prefix? prefix : ' ')
-    +"(pos="+this.count+'@'+_eof(this.lastItem)+(this.nextItem? ", next=`"+this.nextItem+"')" : ")"); };
+  { return this.loc() +(prefix? prefix : ' ') +
+    "(pos="+this.count+'@'+_eof(this.lastItem)+(this.nextItem? ", next=`"+this.nextItem+"')" : ")"); };
 Feeder.prototype.logs = function pushStack(x)
   { if (!is.null(this.stack)) this.stack.push(x); return this; };
 Feeder.prototype.leave = function popStack()
@@ -628,8 +629,8 @@ switch (ct) {
 function makeNew(ctor) {
   return function constructNew(matches) {
     if (primCtor(ctor)) { return ctor.apply(null, matches); }
-    try { var ths = new ctor; } catch (Error) { var ths = new Object; }
-    var o = ctor.apply(ths, matches); return ths; } }
+    var ths; try { ths = new ctor(); } catch (Error) { ths = {}; }
+    var o = ctor.apply(ths, matches); return ths; }; }
 ///
 function parsed(xs) { return xs[0]; }
 function presult(xs) { return xs[1]; }
@@ -646,7 +647,7 @@ if (!is.fun(folder)) folder = makeNew(Array);
 return function sequential(feeder) {
   var rs = [], i = 0, fail = null;
   foreach(ps)(function(parser) {
-    try { var result = parser(feeder); } catch (e) { fail = e; throw breakIter; }
+    var result; try { result = parser(feeder); } catch (e) { fail = e; throw breakIter; }
     if (parsed(result)) { rs.push(presult(result)); }
     else { var msg = msgr(feeder, rs, i, perror(result));
       fail = msg; throw breakIter; }
@@ -663,13 +664,13 @@ return function sequential(feeder) {
 // 我还是决定.... 不要 possible 算了，possible 的用户都自己写。
 function possible(ps, folders, msgr) {
 if (!is.fun(msgr)) msgr = function failedBr(f, r, i)
-  { return "All parser branches have failed @"+f.desc()
-    +", while matching item #"+i+": " + r[i][1]; };
+  { return "All parser branches have failed @"+f.desc() +
+    ", while matching item #"+i+": " + r[i][1]; };
 if (is.undef(folders) || is.empty(folders)) folders = function branchFold(i, ac) { return ac; };
 return function branches(feeder) {
   var i = 0, fails = [], accepted = null, err = null;
   foreach(ps)(function(branch) {
-    try { var result = branch(feeder); } catch (e) { err = e; throw breakIter; }
+    var result; try { result = branch(feeder); } catch (e) { err = e; throw breakIter; }
     if (parsed(result)) { accepted = presult(result); throw breakIter; }
     else { fails.push([i, perror(result)]); i += 1; throw nextIter; }
   });
@@ -683,13 +684,13 @@ return function branches(feeder) {
 
 function lookahead1(pmap, flmap, msgr) {
 if (!is.fun(msgr)) msgr = function failedLookAhead(f, n, i)
-  { return "Lookahead1: unexpected item "+_eof(n)+", expecting one of ["
-    +Object.keys(pmap).join(', ')+"] item"; };
+  { return "Lookahead1: unexpected item "+_eof(n)+", expecting one of [" +
+    Object.keys(pmap).join(', ')+"] item"; };
 return function prefetch1(feeder) {
-  var ahead1 = feeder.nextItem;
+  var ahead1 = feeder.nextItem, msg;
   if (is.object(pmap)) {
     if (!(ahead1 in pmap)) {
-      var msg = msgr(feeder, ahead1);
+      msg = msgr(feeder, ahead1);
       if (msg instanceof Error) throw msg;
       else return pfail(msg); }
     return pmatch(pmap[ahead1](ahead1));
@@ -698,7 +699,7 @@ return function prefetch1(feeder) {
     foreach(pmap)(function(case1) {
       if (case1(ahead1)) { match = flmap[case1.name]; throw breakIter; }
       i += 1; });
-    if (is.null(match)) { var msg = msgr(feeder, ahead1, i);
+    if (is.null(match)) { msg = msgr(feeder, ahead1, i);
       if (msg instanceof Error) throw msg;
       else return pfail(msg); }
     return pmatch(match(ahead1)); }
@@ -733,14 +734,14 @@ return function foldChain0(feeder) { var match, v = _foldMakeIf(folder[0]), f = 
 function chain1LeftRec(p, f) {
 return function chainRecL(feeder, v) { var lm;
   lm = p(feeder);
-  if (!parsed(match)) { return pmatch(v); }
-  else return pmatch( chainRecL(feeder, f(v, x)) );
+  if (!parsed(lm)) { return pmatch(v); }
+  else return pmatch( chainRecL(feeder, f(v, presult(lm))) );
 }; }
 function chain1RightRec(p, f, v) {
 return function chainRecR(feeder) { var lm;
   lm = p(feeder);
-  if (!parsed(match)) { return pmatch(v); }
-  else return pmatch( f(x, presult(chainRecL(feeder, v))) );
+  if (!parsed(lm)) { return pmatch(v); }
+  else return pmatch( f(presult(lm), presult(chain1RightRec(feeder, v))) );
 }; }
 
 function satisfy(predicate, m, fmt) {
@@ -789,8 +790,8 @@ return function stringP(feeder) {
 function elemP(iset, m, fmt) {
 if (!is.string(m)) m = '';
 if (!is.fun(fmt)) fmt = function format(s)
-  { return (s.eof()? 'Unexpected EOF. ':'') + 'Expecting one of ['
-    +iset.join(', ')+']' +_sp(m); };
+  { return (s.eof()? 'Unexpected EOF. ':'') + 'Expecting one of [' +
+    iset.join(', ')+']' +_sp(m); };
 return function containsP(feeder) {
   var it = feeder.lastItem;
   return (iset.includes(it) && !feeder.eof())? feeder.consume(pmatch(it)) : pfail(fmt(feeder));
@@ -798,8 +799,8 @@ return function containsP(feeder) {
 function notElemP(iset, m, fmt) {
 if (!is.string(m)) m = '';
 if (!is.fun(fmt)) fmt = function format(s)
-  { return (s.eof()? 'Unexpected EOF. ':'') + 'NOT expecting one of ['
-    +iset.join(', ')+']' +_sp(m); };
+  { return (s.eof()? 'Unexpected EOF. ':'') + 'NOT expecting one of [' +
+    iset.join(', ')+']' +_sp(m); };
 return function containsP(feeder) {
   var it = feeder.lastItem;
   return (!iset.includes(it) && !feeder.eof())? feeder.consume(pmatch(it)) : pfail(fmt(feeder));
@@ -813,14 +814,14 @@ if (!is.fun(fmt)) fmt = function(f){ return msg; };
 return function skipWhite(feeder) {
   if (!ws.includes(feeder.lastItem)) return pfail(fmt(feeder, msg));
   var count = 0+1;
-  while (ws.includes(feeder.nextItem)) { feeder.next(); ++count; };
+  while (ws.includes(feeder.nextItem)) { feeder.next(); ++count; }
   return feeder.consume(pmatch(count));
 }; }
 function ws0P() {
 return function skipWhiteMaybe(feeder) {
   if (!ws.includes(feeder.lastItem)) { return pmatch(0); }
   var count = 0+1;
-  while (ws.includes(feeder.nextItem)) { feeder.next(); ++count; };
+  while (ws.includes(feeder.nextItem)) { feeder.next(); ++count; }
   return feeder.consume(pmatch(count));
 }; }
 
@@ -828,7 +829,7 @@ function run(parser) {
 return function runParser(input) {
   if (!(input instanceof Feeder)) input = new Feeder(input);
   if (is.null(input.lastItem)) input.next();
-  try { var res = parser(input); }
+  var res; try { res = parser(input); }
   catch (e) { return Either.left(e); }
   return (parsed(res))? Either.right(presult(res)) : Either.left(perror(res));
 }; }
@@ -838,8 +839,8 @@ return function runParser(input) {
 function Functor(cat) {
   this.inner = cat; // inner category to perform morphism
 }
-Functor.of = function newFunctor() { var ths=new this;
-  this.apply(ths, arguments);  return ths; };
+Functor.of = function newFunctor() { var ths=new (this || Functor)();
+  this.apply(ths, arguments); return ths; };
 Functor.prototype.eta = function wrap(x) { return this.constructor.of(x); };
 // fmap :: (c a b) -> d (t a) (t b)
 Functor.prototype.fmap = function functorMap(f) { return this.eta(f(this.inner)); };
@@ -858,8 +859,8 @@ function Monad(cat) {
 } inherits(Monad, Functor);
 Monad.prototype.join = function flatten() { return this.inner; };
 Monad.prototype.mu = function mu() { if (this.inner instanceof Functor)
-  return this.join(); else throw Error('Inner object `'
-    +this.inner+'\' is not Functor') };
+  return this.join(); else throw Error('Inner object `' +
+    this.inner+'\' is not Functor'); };
 Monad.prototype.flatMap = function flatMap(f) { return this.fmap(f).mu(); };
 Monad.prototype.toString = function show()
   { return 'Cat@Endo('+this.inner+')'; };
@@ -874,7 +875,7 @@ Maybe.prototype.isNothing = function isNothing() { return is.none(this.inner); }
 Maybe.prototype.isJust = function isJust() { return !is.none(this.inner); };
 Maybe.prototype.get = function unwrap()
   { if (this.isJust()) return this.inner; else throw Error('Unwrapping NULL Maybe'); };
-Maybe.prototype.or = function otherMay(that) { return (this.isJust())? this : that ; }
+Maybe.prototype.or = function otherMay(that) { return (this.isJust())? this : that ; };
 Maybe.prototype.getOr = function unwrapOr(y)
   { return (this.isJust())? this.get() : y; };
 Maybe.prototype.getOrElse = function unwrapOrElse(pf)
@@ -927,38 +928,39 @@ Either.prototype.toString = function show() { return (this.isLeft())?
 
 //// Node.JS CommonJS Module exports
 try{ if (is.nund(typeof module))
-module.exports = {
-  version: '1.0',
-  kindof, is,
-  fn: { bound, boundVargs, boundStaticVargs, args2ary, mix, toplevelThis, primCtor,
-    ensure, ensureBehavior, noimp, extendWith, extendAlso, inherits },
-  func: { id, konst, add, sub, mul, div,
-    not, and, or, elem, lessThan, greaterThan,
-    oget, oset, fulleq, docall, argsv },
-  stmbase: {
-    done:_done, undone:_undone, breakIter, nextIter,
-    intoIter, tryIter, forIter, foreach, nextProtect },
-  stmaux: {
-    single:xsSingle, head:xsHead, tail:xsTail,
-    take, drop, collect },
-  stm: {
-    lookAhead1, tryLookAhead1Iter,
-    foldl, foldl1, foldr, foldr1,
-    foldnl, foldnr, foldn,
-    map, filter, join, joinMap, filterMap,
-    takeWhile, dropWhile,
-    zipWith, unzip, zipWith3, unzip3, deepIter,
-    iterBy, repeat, infseq, range, orderedLT,
-    combination: makeCats, lazyCombination: lazyCats },
-  dim: { allocSize:dimAllocSize, calcPtr:dimGetElemPtr },
-  html: { _isLoaded, _waits,
-    logs, helem, hmerges, cssSelect, waitsId, waitsCss,
-    _____, delay, secs, mins,
-    happend, hprepend, xhr },
-  parserc: { chars, Feeder, makeNew, seq, possible, lookahead1, skipP, ensureP,
-    parsed, pmatch, pfail, presult, perror,
-    someFold, manyFold, chain1LeftRec, chain1RightRec,
-    satisfy, charP, kwP, elemP, notElemP, ws, setWs, wsP, ws0P, run },
-  functor: { Functor, Monad, Maybe, Either }
-}; }catch(SyntaxError){}
+var stmt = "module.exports = { "+
+  "version: '1.0',  "+
+  "kindof, is,  "+
+  "fn: { bound, boundVargs, boundStaticVargs, args2ary, mix, toplevelThis, primCtor,  "+
+    "ensure, ensureBehavior, noimp, extendWith, extendAlso, inherits }, "+
+  "func: { id, konst, add, sub, mul, div, "+
+    "not, and, or, elem, lessThan, greaterThan, "+
+    "oget, oset, fulleq, docall, argsv }, "+
+  "stmbase: { "+
+    "done:_done, undone:_undone, breakIter, nextIter, "+
+    "intoIter, tryIter, forIter, foreach, nextProtect }, "+
+  "stmaux: { "+
+    "single:xsSingle, head:xsHead, tail:xsTail, "+
+    "take, drop, collect }, "+
+  "stm: { "+
+    "lookAhead1, tryLookAhead1Iter, "+
+    "foldl, foldl1, foldr, foldr1, "+
+    "foldnl, foldnr, foldn, "+
+    "map, filter, join, joinMap, filterMap, "+
+    "takeWhile, dropWhile, "+
+    "zipWith, unzip, zipWith3, unzip3, deepIter, "+
+    "iterBy, repeat, infseq, range, orderedLT, "+
+    "combination: makeCats, lazyCombination: lazyCats }, "+
+  "dim: { allocSize:dimAllocSize, calcPtr:dimGetElemPtr }, "+
+  "html: { _isLoaded, _waits, "+
+    "logs, helem, hmerges, cssSelect, waitsId, waitsCss, "+
+    "_____, delay, secs, mins, "+
+    "happend, hprepend, xhr }, "+
+  "parserc: { chars, Feeder, makeNew, seq, possible, lookahead1, skipP, ensureP, "+
+    "parsed, pmatch, pfail, presult, perror, "+
+    "someFold, manyFold, chain1LeftRec, chain1RightRec, "+
+    "satisfy, charP, kwP, elemP, notElemP, ws, setWs, wsP, ws0P, run }, "+
+  "functor: { Functor, Monad, Maybe, Either } " + "};";
+eval(stmt);
+}catch(SyntaxError){}
 
