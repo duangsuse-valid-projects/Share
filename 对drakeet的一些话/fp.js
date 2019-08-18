@@ -57,10 +57,11 @@ function noimp() { throw Error("Function not implemented"); }
 //// PlainJS module for Node compat
 if(!is.object(document))
 var document = document || {
-  getElementById:noimp, querySelectorAll:noimp, importNode:noimp};
+  getElementById:noimp, querySelector:noimp, querySelectorAll:noimp, importNode:noimp};
 var NodeList = NodeList || null;
 var HTMLCollection = HTMLCollection || null;
 var Symbol = Symbol || null;
+var XMLHttpRequest = XMLHttpRequest || null;
 
 //// Functions
 function bound(self, meth) { return ensureBehavior(self, meth).bind(self); }
@@ -254,6 +255,7 @@ if (typeof console ==='object')
 var helem = bound(document, 'getElementById');
 var hmerges = bound(document, 'importNode').flip().curry1(true);
 var cssSelect = bound(document, 'querySelectorAll');
+var cssSingle = bound(document, 'querySelector');
 
 var waitsId = helem.andThen(_waits.curriedN(1));
 var waitsCss = cssSelect.andThen(xsSingle).andThen(_waits.curriedN(1));
@@ -270,11 +272,35 @@ function hflag(nd, name) { return nd.getAttribute(name); }
 function hsetflag(nd, name, val) { nd.setAttribute(name, is.undef(val)? '' : val); }
 function hclrflag(nd, name) { nd.removeAttribute(name); }
 
-function xhrSend() {}
-function xhrGET() {}
-function xhrPOST() {}
+function xhrSend(meth, url, hdrs, timeout, timeouted, finst) {
+  var xhr = new XMLHttpRequest(); if (!is.natural(finst)) finst = XMLHttpRequest.DONE;
+  xhr.open(meth || 'GET', url);
+  xhr.timeout = timeout || undefined; if (is.fun(timeouted)) xhr.ontimeout = timeouted;
+  if (!is.none(hdrs)) foreach(Object.entries(hdrs)) (function(kv) { xhr.setRequestHeader(kv[0], kv[1]); });
+  var callbackonce = false; return [function thunk(cb, st) {
+    var callcb; xhr.onreadystatechange = callcb = function(ev) { callbackonce = true;
+      if (xhr.readyState !== finst) { if (is.fun(st)) st(xhr.readyState, xhr); return; }
+      var resp = [xhr.responseType, xhr.response, xhr.responseText];
+      var stat = [xhr.status, xhr.statusText];
+      cb(stat, resp, bound(xhr, 'getResponseHeader'));
+    };
+    if (!callbackonce && xhr.readyState === finst) { callbackonce = true; callcb(); }
+  }, xhr];
+}
+function xhrMakeSend(meth) {
+return function xhrSender(url, hdrs, body, timeout, timeouted) {
+  var xhs = xhrSend(meth, url, hdrs, timeout, timeouted);
+  xhs[1].send(body);
+  return xhs[0];
+}; }
 
-var xhr = { send: xhrSend, gets: xhrGET, posts: xhrPOST };
+var xhrGET = xhrMakeSend('GET');
+var xhrPOST = xhrMakeSend('POST');
+var xhrPUT = xhrMakeSend('PUT');
+var xhrDELETE = xhrMakeSend('DELETE');
+var xhrOPTIONS = xhrMakeSend('OPTIONS');
+
+var xhr = { send: xhrSend, gets: xhrGET, posts: xhrPOST, puts: xhrPUT, dels: xhrDELETE, opts: xhrOPTIONS };
 
 // Monkey patching!
 foreach ([NodeList, HTMLCollection, Array]) (function(it){
