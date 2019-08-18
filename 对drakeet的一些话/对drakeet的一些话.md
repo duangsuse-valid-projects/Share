@@ -896,7 +896,7 @@ waitsId('plug-abbr') (docall('initAbbrevClick').curry1(window));
 waitsId('plug-night') (function() { btnMoon(bannerDiv()); daynight(); });
 waitsId('plug-fnref') (docall('linkFootnotes').curry1(window));
 waitsId('plug-tree') (function() {
-  var may = Maybe.of(cssSingle('.markdown-body')).fmap(function(x){return collect(x).slice(1, -1);});
+  var may = Maybe.of(cssSingle('.markdown-body')).fmap(function(x){return collect(x.children).slice(1, -1);});
   var doct = treeParse(may.getOr() || cssSingle('body'));
   var tree = new TreeView(helem('toc'));
   tree.update(doct); });
