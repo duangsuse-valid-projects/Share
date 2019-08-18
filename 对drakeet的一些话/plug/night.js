@@ -28,8 +28,8 @@ function btnMoon(banner) {
   moon.onclick = function() {
     var body = document.body;
     if (is.empty(hflag(body, night.name))) deepDay(); else deepNight(3);
-    var shouldserif = count %3 ==0; console.log('Night: serif count='+
-      count+shouldserif? '[change]':'[unchanged]');
+    var shouldserif = count %2 ==0; console.log('Night: serif count='+
+      count+(shouldserif? '[change]':'[unchanged]'));
     if (shouldserif) {
       if (is.empty(hflag(body, night.serifName))) { body.classList.remove('serif'); hclrflag(body, night.serifName); }
       else { body.classList.add('serif'); hsetflag(body, night.serifName); } }
