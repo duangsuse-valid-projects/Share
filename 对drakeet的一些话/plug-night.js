@@ -4,7 +4,7 @@ function getOrInitItem(name, repval) {
   return repval;
 }
 
-var night = { begin: getOrInitItem('nightBegin', 12+9), end: getOrInitItem('nightEnd', 7) };
+var night = { name: 'night', begin: getOrInitItem('nightBegin', 12+9), end: getOrInitItem('nightEnd', 7) };
 night.blackFrom = 0x0d;
 night.whiteFrom = 0xdb;
 
@@ -14,12 +14,36 @@ function rgbGrayscale(n) {
   return '#' + collect(repeat(xn, 3)).join('');
 }
 
+function bannerDiv() {
+  var fst = cssSingle('body .container-lg');
+  if (fst) fst = fst.children[0]; else return null;
+  return (is.empty(fst.id) && fst.tagName === 'H1')? fst : null; 
+}
+
+function btnMoon() {
+  var banner = bannerDiv();
+  if (is.null(banner) || is.empty(banner.children)) return;
+  var moon = document.createElement('small');
+  moon.innerText = '🌗'; moon.style.cssFloat = 'right';
+  happend(banner.children[0], moon);
+  moon.onclick = function() { if (hflag(document.body, night.name)) deepDay(); else deepNight(3); };
+}
+
 function hours() { return new Date().getHours(); }
 function deepNight(n) {
-  hsetflag(document.body, 'night');
+  hsetflag(document.body, night.name);
   var sty = document.body.style;
   sty.color = rgbGrayscale(night.whiteFrom + n);
   sty.backgroundColor = rgbGrayscale(night.blackFrom - n);
+}
+function deepDay() {
+  singleShotAnim(document.body, 'dayed');
+  hclrflag(document.body, night.name);
+  var sty = document.body.style;
+  sty.color = sty.backgroundColor = ''; }
+function singleShotAnim(nd, name) {
+  nd.classList.add(name);
+  nd.onanimationend = function() { nd.classList.remove(name); };
 }
 function daynight() {
   var hourz = hours(), beg = Number(night.begin), end = Number(night.end);
