@@ -66,7 +66,7 @@ function descentParseHeadingTree(hlist, idx, level) {
 }
 function parseHeadingTreeRecurse(root, idx) {
   if (!is.natural(idx)) idx = 0;
-  var result = descentParseHeadingTree(collect(filter(isHeading, root.children)), idx, 1);
+  var result = descentParseHeadingTree(collect(filter(isHeading, root)), idx, 1);
   return result[1].slice(0, result[1].length - (result[0]-1)); // cancel tail read (may occur beacuse index overflow)
 } contentTree.parseTree = parseHeadingTreeRecurse;
 })(); // end scope
