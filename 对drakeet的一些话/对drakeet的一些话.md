@@ -896,7 +896,7 @@ function enable(name) {
   return function callInitialize() { var plugin = window[name];
     if (is.fun(plugin.enable)) plugin.enable(); }; };
 
-waitsId('plug-nsfw') (delay.curry2(mins(5), enable('nsfw_template')) ) ;
+waitsId('plug-nsfw') (delay.curry2(mins(5), enable('nsfw_template')));
 waitsId('plug-abbr') (enable('abbrev_view'));
 waitsId('plug-night') (enable('night'));
 waitsId('plug-fnref') (enable('footnote'));

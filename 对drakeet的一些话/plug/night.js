@@ -21,7 +21,7 @@ night.depthCalculators.excited = function(h, b, e) { return Math.abs(h - b); }; 
 night.depthCalculators.bd = function balancedDepth(h, b, e) { // 平衡数量级算法
   var db = Math.abs(23 - b), de = Math.abs(0 - e);
   var ratioeb = de / db;
-  return night.algorithmCoeff* ((h >= b)? ratioeb/ ((h-b) || 1) : (e-h)*ratioeb);
+  return night.algorithmCoeff* ((h >= b)? ratioeb/ ((h-b) || 0.23e1) : (e-h)*ratioeb);
 };
 night.calculateDepth = night.depthCalculators[night.alogrithm] || night.depthCalculators.bd;
 /* scoped */ (function() {
