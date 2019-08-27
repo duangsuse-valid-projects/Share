@@ -4,7 +4,7 @@ night.deftNight = night.st('defaultDepth', 3, parseInt);
 night.blackFrom = night.st('blackFrom', 0x29, parseInt);
 night.whiteFrom = night.st('whiteFrom', 0xd3, parseInt);
 night.alogrithm = night.st('depthAlgor', 'bd');
-night.algorithmCoeff = night.st('graidentLevel', 5, parseInt);
+night.algorithmCoeff = night.st('graidentLevel', 1, parseInt);
 night.autoNight = night.st('autoNight', true, JSON.parse);
 night.autoUpdate = night.st('nightUpdates', true, JSON.parse);
 night.sty = document.body.style;
@@ -23,7 +23,14 @@ night.depthCalculators.bd = function balancedDepth(h, b, e) { // 平衡数量级
   var ratioeb = de / db;
   return night.algorithmCoeff* ((h >= b)? ratioeb/ ((h-b) || 0.23e1) : (e-h)*ratioeb);
 };
+night.depthCalculators.balanced = function simpleBalance(h, b, e) {
+  var ratiobegend = Math.abs(23 - b) / Math.abs(0 - e);
+  return night.algorithmCoeff* ((h >= b)? (h - b) : ratiobegend*(e - h) );
+};
 night.calculateDepth = night.depthCalculators[night.alogrithm] || night.depthCalculators.bd;
+night.calculateDepthNames = {
+  sd: '简单起止距离', sdr: '起止距离（叠加白昼时间）', sdb: '起止距离（叠加白昼距离）', excited: '突变', bd: '数量级平衡', balanced: '数量级平衡（仅入夜侧）'
+};
 /* scoped */ (function() {
 function rgbGrayscale(n) {
   n = Math.min(0xff, Math.floor(n));
@@ -86,7 +93,8 @@ night.daynight = function daynight() {
   var dlt; if (night.autoNight) { dlt = dayNightTime(); delay(dlt, daynight); }
   if (hourz < beg && hourz > end) { if(is.natural(dlt)) console.log("Night mode scheduled: "+(dlt/60/60/1000)+"hrs"); return; } // day
   var depth = night.calculateDepth(hourz, beg, end); // or (23-beg)+hourz?
-  deepNight(depth); console.log("Night mode: depth="+depth+" :: h"+hourz+" ("+beg+", "+end+")");
+  deepNight(depth); console.log("Night mode: depth="+depth+" :: h"+hourz+" ("+beg+", "+end+") algor: "+
+    (night.calculateDepthNames[night.alogrithm]||'unknown'));
   if (night.autoUpdate) { var dpt = nightDepthChangeTime(); delay(dpt, daynight);
   console.log("Night mode change schedule update="+(dpt/60/1000)+"mins"); }
 };
