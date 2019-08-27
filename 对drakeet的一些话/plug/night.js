@@ -1,5 +1,6 @@
 function getOrInitItem(name, repval) {
-  var x; if (x = localStorage.getItem(name)) return x;
+  { var x = localStorage.getItem(name);
+    if(x) return x; }
   localStorage.setItem(name, repval);
   return repval;
 }
@@ -24,7 +25,7 @@ function btnMoon(banner) {
   if (is.null(banner) || is.empty(banner.children)) return;
   var moon = document.createElement('small');
   moon.innerText = '◑'; moon.style.cssFloat = 'right'; moon.style.fontSize = '22px';
-  happend(banner.children[0], moon); var count = 0;
+  happend(banner.children[0], moon); var count = 1; // first click=switch, not serif swi
   moon.onclick = function() {
     var body = document.body;
     if (is.empty(hflag(body, night.name))) deepDay(); else deepNight(3);
