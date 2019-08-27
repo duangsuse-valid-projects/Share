@@ -26,7 +26,7 @@ function parseHeadingTree(root) {
     resultstk.pop();
     layer = peek(resultstk); } } // for top <h1>
 
-  foreach(root.children) (function(elem) {
+  foreach(root) (function(elem) {
     if (!isHeading(elem)) throw nextIter;
     var depth = headingDepth(elem),
         lastdept = peek(depthstk);
