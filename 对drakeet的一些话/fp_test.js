@@ -413,6 +413,13 @@ its (html.prepend);
 its (html.xhr.send);
 its (html.xhr.gets);
 its (html.xhr.posts);
+its (html.C);
+allok(it([1,2,3], [1,2])[0] === 3);
+its (html.getOrInitStore);
+its (html.singleshotAnim);
+its (html.grayscale);
+its (html.hex);
+allok(it(html.grayscale(0xff), 3*2) === 'ffffff', it(html.grayscale(1), 3*2).length === 6);
 fintest();
 
 testing('Parser combinator');

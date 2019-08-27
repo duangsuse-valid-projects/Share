@@ -147,6 +147,7 @@ function docall(fname, x0, x1) {
 
 function argsv() { return args2ary(arguments); }
 
+is.any = is.none.andThen(not);
 is.some = is.empty.andThen(not);
 is.single = oget.curry1('length').andThen(fulleq.curry1(1));
 is.defined = is.undef.andThen(not);
@@ -155,6 +156,7 @@ is.nm1 = is.m1.andThen(not);
 is.notfun = is.fun.andThen(not);
 var mix; if (!is.none(Object.assign)) mix = bound(Object, 'assign').curriedN(1);
 var globalThis = globalThis || toplevelThis();
+if (!is.exist('localStorage')) { var localStorage = {getItem:noimp, setItem:noimp}; }
 
 //// Stream iterator function
 function _done() { return { value: undefined, done: true }; }
@@ -301,6 +303,27 @@ var xhrDELETE = xhrMakeSend('DELETE');
 var xhrOPTIONS = xhrMakeSend('OPTIONS');
 
 var xhr = { send: xhrSend, gets: xhrGET, posts: xhrPOST, puts: xhrPUT, dels: xhrDELETE, opts: xhrOPTIONS };
+
+function namedStorage(prefix) {
+  return function getOrInitStore(name, repval, convert) {
+    { var x = localStorage.getItem(prefix+name);
+      if(x) return is.fun(convert)? convert(x) : x; }
+    localStorage.setItem(prefix+name, repval);
+    return repval; };
+} var getOrInitStore = namedStorage('');
+
+/** Suppresses numeric overflow & negative inputs! */
+function grayscale(n) {
+  n = Math.abs(n);
+  return 0x010000 * n | 0x000100 * n | 0x000001 * n; }
+function hex(n, dig) {
+  var hexd = n.toString(16), pad = dig - hexd.length;
+  return is.natural(pad)? collect(repeat('0', pad)).join('') + hexd : hexd; }
+
+function singleshotAnim(nd, name) {
+  nd.classList.add(name);
+  nd.onanimationend = function() { nd.classList.remove(name); };
+}
 
 // Monkey patching!
 foreach ([NodeList, HTMLCollection, Array]) (function(it){
@@ -578,6 +601,14 @@ return function cats(n) {
     { return map(function(c) { return c+x; }, items); },
       (n !== 0)? cats(--n) : konst(_done()))]);
 }; }
+
+function C(setA, setB) {
+  var compleAB = []; foreach (setA) (function(x) {
+    if (setB.includes(x)) return;
+    compleAB.push(x);
+  });
+  return compleAB;
+}
 
 //// Simple Left-Right recursive(1) Parser Combinator
 function chars(str) {
@@ -981,7 +1012,8 @@ var stmt = "module.exports = { "+
   "html: { _isLoaded, _waits, "+
     "logs, helem, hmerges, cssSelect, waitsId, waitsCss, "+
     "_____, delay, secs, mins, "+
-    "happend, hprepend, xhr }, "+
+    "happend, hprepend, xhr, C, getOrInitStore, singleshotAnim,"+
+    "grayscale, hex }, "+
   "parserc: { chars, Feeder, makeNew, seq, possible, lookahead1, skipP, ensureP, "+
     "parsed, pmatch, pfail, presult, perror, "+
     "someFold, manyFold, chain1LeftRec, chain1RightRec, "+
