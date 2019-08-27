@@ -48,7 +48,7 @@ night.forceNight = deepNight;
 function deepDay() {
   hclrflag(document.body, night.name);
   singleshotAnim(document.body, 'dayed');
-  night.sty.color = sty.backgroundColor = ''; }
+  night.sty.color = night.sty.backgroundColor = ''; }
 night.forceDay = deepDay;
 
 function nightSerif() { var body = document.body;
