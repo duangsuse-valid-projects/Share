@@ -895,13 +895,14 @@ _无限只猴子随机地敲打键盘，总有一天能敲打出莎士比亚全�
 function enable(name) {
   return function callInitialize() { var plugin = window[name];
     if (is.fun(plugin.enable)) plugin.enable(); }; };
+
 waitsId('plug-nsfw') (delay.curry2(mins(5), enable('nsfw_template')) ) ;
 waitsId('plug-abbr') (enable('abbrev_view'));
 waitsId('plug-night') (enable('night'));
 waitsId('plug-fnref') (enable('footnote'));
 waitsId('plug-tree') (function() {
   var may = Maybe.of(cssSingle('.markdown-body')).fmap(function(x){return collect(x.children).slice(1, -1);});
-  var doct = treeParse(may.getOr() || cssSingle('body'));
+  var doct = contentTree.parseTree(may.getOr(cssSingle('body')));
   var tree = new TreeView(helem('toc'));
   tree.update(doct); $toc = tree; $para = doct; });
 </script>

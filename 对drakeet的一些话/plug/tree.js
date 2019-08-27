@@ -1,50 +1,75 @@
-var contentTree = {
-  headerDept: function htmlHeaderDepth(tagName) {
-    var mn = tagName.match(/^[hH](1|2|3|4|5|6)$/);
-    if (is.none(mn)) return undefined;
-    var n = Number(mn[1]);
-    return n; },
-  headerMixN: function makeHtmlHeaderMixture(k) {
-    return function htmlHeaderMixed(tagName) {
-      var n = contentTree.headerDept(tagName);
-      return contentTree.valid(n+k)? 'H'+(n+k).toString() : undefined; }; },
-  valid: function headingValid(n) { return n > 0 && n <= 6; },
-  tagNames: "H1 H2 H3 H4 H5 H6",
-  lessThan: function (a, b) { return contentTree.headerDept(a) < contentTree.headerDept(b); }
-};
-contentTree.succ = contentTree.headerMixN(+1);
-contentTree.pred = contentTree.headerMixN(-1);
-contentTree.tagNames += ' ' + contentTree.tagNames.toLowerCase();
-contentTree.tagNames = contentTree.tagNames.split(' ');
+var contentTree = { verbose: true };
 
-function deep(xs) {
-  var acc; for (acc = xs; (acc.length > 0) &&
-    is.number(acc[acc.length-1].length); acc = acc[acc.length-1]);
-  return acc; }
-function treeParse(root) {
-  var childs = (root instanceof Array)? root : root.children,
-    tree = [], depths = [1], final = [];
-  foreach(childs) (function (e) {
-    var tagName = e.tagName;
-    if (!contentTree.tagNames.includes(tagName)) return;
-    var depth = contentTree.headerDept(tagName);
-    var d0 = depths.pop();
-    var subtree = [];
-    if (depth > d0) {
-      depths.push(d0); depths.push(depth);
-      deep(tree).push(subtree); }
-    else if (depth < d0) {
-      if (d0 - depth === 1) depths.push(depth); // 处理递增项目
-      if (depths[depths.length-1] === depths[depths.length-2]) depths.pop(); // 合并相邻项目
-      final.push(tree.shift());
-      tree.push(subtree); }
-    else { depths.push(d0); }
-    console.log(depths, e, d0,depth);
-    deep(tree).push(e);
+/* scoped */ (function() {
+var _1to6 = '1,2,3,4,5,6'.split(',');
+function isHeading(e) { var nm = e.tagName;
+  return nm.length > 1 && nm[0] === 'H' && nm[1] in _1to6; }
+function headingDepth(e) { return Number.parseInt(e.tagName[1]); } // why not regex?
+function peek(xs) { return xs[xs.length -1]; }
+function topItem2Stk(xs) { var top = xs.pop(); return (top instanceof Array? top : [top]); }
+function deepest(xs, n){ n=n||0; var xx; for (xx = xs; xx.length >n && xx[n] instanceof Array; xx = xx[n]); return xx; }
+
+function parseHeadingTree(root) {
+  var resultstk = [[{tagName:'H1', innerText:'GraphRoot'}]], depthstk = [1];
+  var leaf = peek.curry1(resultstk),
+      append = function(e) { leaf().push(e); };
+  function deduceToLevelBase(lev) {
+    var deducecnt = (depthstk.length-1) - depthstk.findIndex(function(x){ return x<lev; });
+    if(contentTree.verbose) console.log('<', deducecnt, ' of ', lev, depthstk);
+    for (deducecnt-=1; deducecnt !==0; --deducecnt) { resultstk.pop(); depthstk.pop(); }
+    depthstk.push(lev); var sub = []; leaf().push(sub); resultstk.push(sub); }
+  function closeUntilRoot() {
+    var layer = peek(resultstk);
+    while (layer instanceof Array &&
+      (layer.length === 0 ||
+      headingDepth(deepest(layer)[0]) !== 1) ) {
+    resultstk.pop();
+    layer = peek(resultstk); } } // for top <h1>
+
+  foreach(root.children) (function(elem) {
+    if (!isHeading(elem)) throw nextIter;
+    var depth = headingDepth(elem),
+        lastdept = peek(depthstk);
+    if(contentTree.verbose) console.log(depthstk, elem, resultstk);
+    if (depth > lastdept) {
+      depthstk.push(depth); var parent;
+      append(parent = topItem2Stk(leaf()));
+      var subtree = []; parent.push(subtree);
+      resultstk.push(subtree);
+      if(contentTree.verbose) console.log('>', depth-lastdept, elem, parent, subtree); }
+    else if (depth < lastdept) {
+      deduceToLevelBase(depth); }
+    append(elem);
   });
-  for (x=2; x!=0; --x) final.push(tree.shift());
-  return final;
+  closeUntilRoot();
+  return peek(resultstk);
+} contentTree.parseTreeFast = parseHeadingTree;
+
+function descentParseHeadingTree(hlist, idx, level) {
+  var layer = []; if(contentTree.verbose) console.log('>', level, '@', idx);
+  var count = 0; if (idx >= hlist.length) { console.log('0<'); return [0, layer]; }
+  for (var i = idx; i !== hlist.length; ++i, ++count) {
+      var elem = hlist[i], nextdept = headingDepth(elem);
+      console.log(level, nextdept, elem);
+    if (nextdept > level) {
+      var child = descentParseHeadingTree(hlist, i, nextdept);
+      layer.push(child[1]); i += child[0];
+      if (i >= hlist.length) { console.log('?<', i); return [count, layer]; }
+    } else if (nextdept < level) {
+      if(contentTree.verbose) console.log('<', level, '@', idx);
+      return [count-1, layer]; // ignore this `peek` read!
+    } else if (nextdept === level) {
+      layer.push(elem);
+    }
+  }
+  return [count, layer];
 }
+function parseHeadingTreeRecurse(root, idx) {
+  if (!is.natural(idx)) idx = 0;
+  var result = descentParseHeadingTree(collect(filter(isHeading, root.children)), idx, 1);
+  return result[1].slice(0, result[1].length - (result[0]-1)); // cancel tail read (may occur beacuse index overflow)
+} contentTree.parseTree = parseHeadingTreeRecurse;
+})(); // end scope
 
 function TreeView(div) {
   this.tree = document.createElement('details');
