@@ -902,7 +902,7 @@ waitsId('plug-night') (enable('night'));
 waitsId('plug-fnref') (enable('footnote'));
 waitsId('plug-tree') (function() {
   var may = Maybe.of(cssSingle('.markdown-body')).fmap(function(x){return collect(x.children).slice(1, -1);});
-  var doct = contentTree.parseTree(may.getOr(cssSingle('body')));
+  var doct = contentTree.parseTree(may.getOr(cssSingle('body').children));
   var tree = new TreeView(helem('toc'));
   tree.update(doct); $toc = tree; $para = doct; });
 </script>

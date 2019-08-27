@@ -1,12 +1,12 @@
-var night = { name: 'night', serifName: 'serifd', st: namedStorage('night') };
-night.begin = night.st('Begin', 12+9, parseInt); night.end = night.st('End', 7, parseInt);
-night.deftNight = night.st('DefaultDepth', 3, parseInt);
-night.blackFrom = night.st('BlackFrom', 0x29, parseInt);
-night.whiteFrom = night.st('WhiteFrom', 0xd3, parseInt);
-night.alogrithm = night.st('DepthAlgor', 'bd');
-night.algorithmCoeff = night.st('GraidentLevel', 5, parseInt);
-night.autoNight = night.st('AutoNight', true, JSON.parse);
-night.autoUpdate = night.st('NightUpdates', true, JSON.parse);
+var night = { name: 'night', serifName: 'serifd', st: namedStorage('night.') };
+night.begin = night.st('begin', 12+8, parseInt); night.end = night.st('end', 7, parseInt);
+night.deftNight = night.st('defaultDepth', 3, parseInt);
+night.blackFrom = night.st('blackFrom', 0x29, parseInt);
+night.whiteFrom = night.st('whiteFrom', 0xd3, parseInt);
+night.alogrithm = night.st('depthAlgor', 'bd');
+night.algorithmCoeff = night.st('graidentLevel', 5, parseInt);
+night.autoNight = night.st('autoNight', true, JSON.parse);
+night.autoUpdate = night.st('nightUpdates', true, JSON.parse);
 night.sty = document.body.style;
 
 night.depthCalculators = {}; // 艰难 复用...
@@ -21,9 +21,9 @@ night.depthCalculators.excited = function(h, b, e) { return Math.abs(h - b); }; 
 night.depthCalculators.bd = function balancedDepth(h, b, e) { // 平衡数量级算法
   var db = Math.abs(23 - b), de = Math.abs(0 - e);
   var ratioeb = de / db;
-  return night.algorithmCoeff* ((h >= b)? ratioeb/(h-b) : (e-h)*ratioeb);
+  return night.algorithmCoeff* ((h >= b)? ratioeb/ ((h-b) || 1) : (e-h)*ratioeb);
 };
-night.calculateDepth = night.depthCalculators[night.alogrithm];
+night.calculateDepth = night.depthCalculators[night.alogrithm] || night.depthCalculators.bd;
 /* scoped */ (function() {
 function rgbGrayscale(n) {
   n = Math.min(0xff, Math.floor(n));
