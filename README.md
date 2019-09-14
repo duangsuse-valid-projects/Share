@@ -91,3 +91,8 @@ __where__
 [View here](https://github.com/duangsuse-valid-projects/Share/tree/master/Others)
  [wiki](https://github.com/duangsuse-valid-projects/Share/wiki)
 
+## HTMLs
+
++ [身份证校验码](HTMLs/idnum.html)
++ [无聊编辑器 TeaMeow 复刻](HTMLs/TeaMeoow.html)
+

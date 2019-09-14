@@ -1,0 +1,47 @@
+<!DOCTYPE HTML Public "-//duangsuse//Kate 18.12.2//EN">
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="height=device-height, initial-scale=1.0"/>
+    <title>Chinese PRC IDnum calculator</title>
+    <style>
+    #msg { color: green; }
+    .middle { vertical-align: center; text-align: center; transform: translate(0, 50%); }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script>
+      const
+        coefficients = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2]
+        verify = '10X98765432';
+      function calcVerify(str) {
+        let checksum = (s, cs = 0) => {
+          for (let i=0; i <17; ++i)
+            cs += coefficients[i] * str[i];
+            return cs; }
+        return verify[checksum(str) % 11];
+      }
+    </script>
+
+    <script>
+      $(() => {
+        const
+          idcard = $('#idcard'),
+          result = $('#result');
+        idcard.on('keyup', () => {
+          let input = idcard.val();
+          if (/^\d{17}$/.test(input)) {
+            result.text(`Verify: ${calcVerify(input)}`);
+          } else {
+            result.html('Bad input!'.bold());
+          }
+        }).change();
+      });
+    </script>
+  </head>
+  <body class="middle">
+    <h1 id="msg">Input your IDnum to figure out verify digit</h1>
+    <input id="idcard" placeholder="First 17 digi of ID number"></input>
+    <div id="result"><i>result verify digit shown here</i></div>
+  </body>
+</html>

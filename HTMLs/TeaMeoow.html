@@ -1,0 +1,115 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <title>TeaMeoow （迫真）复刻版本</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <meta name="viewport" content="width=device-width, maximum-scale=1.0" />
+    <meta name="theme-color" content="#009688" />
+    <meta name="description" content="TeaMeow 编辑框复制版本" />
+    <meta name="favicon" content="https://www.mdui.org/static/home/default/static/index/img/case6.png" />
+    <meta name="og:site_name" content="TeaMeow" />
+    <link rel="fluid-icon" href="https://github.com/fluidicon.png" />
+    
+    <style>
+    .textmeow-ta { font-family: monospace; font-size: 11px; }
+    .teameow-btnbar button { margin: 0.25em; padding: 0.4rem; }
+    .teameow-ed { margin: 0 auto; }
+    </style>
+  </head>
+  <body>
+    <h1><a style="color: teal">Tea</a> MEOOW!</h1>
+    <sup>&lt;div class="teameow-ed" id="simple"&gt;</sup>
+    <div class="teameow-ed" id="simple">
+      <textarea class="teameow-ta" onkeyup></textarea><p>
+      <p style="margin-left: 10%">字数：<a class="teameow-count"><sub>Init~</sub></a> <button s="clr">清空</button></p>
+      <table class="teameow-btnbar">
+        <tr>
+          <td><button o="**" alt="C b">Bold</button></td>
+          <td><button o="*" alt="C i">Italic</button></td>
+          <td><button o="```" alt="C c">Code</button></td>
+          <td><button o="~~" alt="C s">Strikeout</button></td>
+        </tr>
+        <tr>
+          <td><button s="[]" alt="C k">URL</button></td>
+          <td><button s="![]" alt="C l">Image</button></td>
+          <td><button o="&#10;" alt="Enter">Newline</button></td>
+        </tr>
+      </table>
+      <script>
+        function bound(e, nm) { return e[nm].bind(e); }
+        
+        window.bindMap = { DEBUG: true };
+        function bindKey(kexpr, listen) {
+          // ctrl0 = Alt(A)/Shift(S)/Ctrl(C)
+          // Enter = enter
+          if (!kexpr || !kexpr.match) return;
+          var ctrls = kexpr.split(' ');
+          var ctrl0 = (ctrls.length>=2)? ctrls[0] : '-', ctrlis = ctrls.filter(function(c){ return c.match(/^Enter|[a-z]$/) !==null; });
+          if (ctrl0.match(/^[A-Z]{1,2}$|\-/) === null) throw Error("Bad bindkey expr control0 " + ctrls.join('+'));
+          if (!(ctrl0 in window.bindMap)) window.bindMap[ctrl0] = {};
+          var kid = ctrlis[0]==='Enter'? 'Enter' : 'Key'+ctrlis[0].toUpperCase();
+          window.bindMap[ctrl0][kid] = listen;
+          if ('DEBUG' in window.bindMap) console.log(ctrl0 + "+" + ctrlis.join('+') + " = " + listen);
+        }
+        function registerBindkeyService(doc) {
+          document.onkeyup = function callBoundKey(ev) {
+            ev.preventDefault();
+            var ctr = ev.ctrlKey, alt = ev.altKey, sft = ev.shiftKey, k = ev.code;
+            var ctrlkls = (ctr?'C':'') + (sft?'S':'') + (alt?'A':'');
+            ctrlkls = (ctrlkls.length !==0)? ctrlkls : '-';
+            if ('DEBUG' in window.bindMap) console.log(ctrlkls+'/'+k+'::'+ev.code);
+            if (ctrlkls in window.bindMap) if (k in window.bindMap[ctrlkls])
+              window.bindMap[ctrlkls][k](ev);
+          };
+        }
+
+        function TeaMeow(div) {
+          if (!div.classList.contains('teameow-ed')) throw Error("Bad TeaMeow Editor element " + div);
+          var qs = bound(div,'querySelector');
+          this.container = div, this.ta = qs('.teameow-ta');
+          this.cnt = qs('.teameow-count'), this.clr = qs('p button');
+          this.btns = div.querySelectorAll('button');
+        }
+        TeaMeow.prototype.updateTextCount = function() {
+          var arab2chn = "零一二三四五六七八九".split('')
+          function tf(wsz) {
+            var units = "十 百 千 万 十万 百万 千万".split(' ');
+            var sizes = [10, 100, 1000, 10000, 10*10000, 100*10000, 1000*10000];
+            var fmts = [];
+            for (var n = wsz, u = sizes.length-1; 0<=u && 10 <= n; u--) {
+              if (sizes[u] > n) continue;
+              fmts.push(arab2chn[Math.floor(n / sizes[u])]);
+              fmts.push(' '+units[u]+'，');
+              n = n % sizes[u];
+            }
+            fmts.push(' 零 ' + n);
+            return fmts.join('');
+          }
+          this.cnt.innerText = tf(this.ta.value.length)+" 字";
+        };
+        TeaMeow.prototype.init = function() {
+          function asks(t) { var got=window.prompt(t); if(got===null) throw null; return got; }
+          var ta = this.ta, self = this;
+          function write2Ta(s) { ta.value += s; self.updateTextCount(); }
+          function fixedLogic(flid) { switch (flid) {
+            case 'clr': return function() { ta.value = ''; self.updateTextCount(); }
+            case '[]': return function() { write2Ta('['+asks("输入标签")+']'+'('+asks("输入链接")+')'); }
+            case '![]': return function() { write2Ta('!['+asks("输入图片标签")+']'+'('+asks("输入图片链接")+')'); }
+          } }
+
+          this.btns.forEach(function(b) { var arg0, op;
+            if ((arg0= b.getAttribute('o'))) {
+              op = b.onclick = function() { write2Ta(arg0); }; }
+       else if ((arg0= b.getAttribute('s'))) { op = b.onclick = fixedLogic(arg0); }
+            bindKey(b.getAttribute('alt'), op);
+          });
+          ta.onkeyup = bound(this,'updateTextCount');
+          this.updateTextCount();
+          registerBindkeyService(document.body);
+        };
+      </script>
+      <script>var tm = new TeaMeow(document.getElementById('simple')); tm.init();</script>
+    </div>
+  </body>
+</html>
