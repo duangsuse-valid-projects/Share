@@ -10,64 +10,97 @@
     <meta name="favicon" content="https://www.mdui.org/static/home/default/static/index/img/case6.png" />
     <meta name="og:site_name" content="TeaMeow" />
     <link rel="fluid-icon" href="https://github.com/fluidicon.png" />
-    
+
     <style>
-    .textmeow-ta { font-family: monospace; font-size: 11px; }
+    .teameow-ta { font-family: monospace; font-size: 11px; height: 542px; width: 383px; }
     .teameow-btnbar button { margin: 0.25em; padding: 0.4rem; }
     .teameow-ed { margin: 0 auto; }
+    .sym { color: red; }
     </style>
   </head>
   <body>
-    <h1><a style="color: teal">Tea</a> MEOOW!</h1>
-    <sup>&lt;div class="teameow-ed" id="simple"&gt;</sup>
+    <h1><a style="color: teal">Tea</a> MEOOW! 🍵🐱</h1>
+<table>
+<tr>
+  <td><sup>&lt;div class="teameow-ed" id="simple"&gt;</sup>
+  <td><a>(divider)</a>
+  <td><sub>&lt;div id="buggy"&gt;</sub>
+</tr>
+<tr>
+<td>
     <div class="teameow-ed" id="simple">
       <textarea class="teameow-ta" onkeyup></textarea><p>
       <p style="margin-left: 10%">字数：<a class="teameow-count"><sub>Init~</sub></a> <button s="clr">清空</button></p>
       <table class="teameow-btnbar">
         <tr>
-          <td><button o="**" alt="C b">Bold</button></td>
-          <td><button o="*" alt="C i">Italic</button></td>
-          <td><button o="```" alt="C c">Code</button></td>
-          <td><button o="~~" alt="C s">Strikeout</button></td>
+          <td><button o="****" alt="CS b">Bold ✒️</button></td>
+          <td><button o="__" alt="CA i">Italic 🖋</button></td>
+          <td><button o="``" alt="CA q">Quote 💻</button></td>
+          <td><button o="```&#10;```" alt="C c">Code 💻</button></td>
+          <td><button o="~~~~" alt="CS s">Strikeout 🖌</button></td>
+          <td><button o="[]" alt="CA s">Sqbracket <a class="sym">[</a></button></td>
+          <td><button o="()" alt="CA p">Paren <a class="sym">(</a></button></td>
+          <td><button o="{}" alt="CA b">Brace <a class="sym">{</a></button></td>
         </tr>
         <tr>
-          <td><button s="[]" alt="C k">URL</button></td>
-          <td><button s="![]" alt="C l">Image</button></td>
-          <td><button o="&#10;" alt="Enter">Newline</button></td>
+          <td><button s="[]" alt="CS u">URL 🔗</button></td>
+          <td><button s="![]" alt="CS l">Image 🖼</button></td>
+          <td><button o="&#10;&#10;" alt="C Enter">Newline</button></td>
         </tr>
       </table>
       <script>
         function bound(e, nm) { return e[nm].bind(e); }
-        
-        window.bindMap = { DEBUG: true };
+
+        window.bindMap = { DEBUG: true, OVERRIDE: true };
         function bindKey(kexpr, listen) {
           // ctrl0 = Alt(A)/Shift(S)/Ctrl(C)
           // Enter = enter
           if (!kexpr || !kexpr.match) return;
           var ctrls = kexpr.split(' ');
-          var ctrl0 = (ctrls.length>=2)? ctrls[0] : '-', ctrlis = ctrls.filter(function(c){ return c.match(/^Enter|[a-z]$/) !==null; });
+          var ctrl0 = (ctrls.length>=2)? ctrls[0] : '-', ctrlis = ctrls.filter(function(c){ return c.match(/^[a-z]|Enter|Space|Arrow(Up|Down|Left|Right)|Escape|\*\w+$/) !==null; });
           if (ctrl0.match(/^[A-Z]{1,2}$|\-/) === null) throw Error("Bad bindkey expr control0 " + ctrls.join('+'));
           if (!(ctrl0 in window.bindMap)) window.bindMap[ctrl0] = {};
-          var kid = ctrlis[0]==='Enter'? 'Enter' : 'Key'+ctrlis[0].toUpperCase();
+          if(ctrlis.length < 1) throw new Error('Bad control1 ' + ctrls); var ctrli0 = ctrlis[0];
+          var kid = ctrli0.length===1? 'Key'+ctrli0.toUpperCase() : ctrli0.replace(/\W/, '');
           window.bindMap[ctrl0][kid] = listen;
           if ('DEBUG' in window.bindMap) console.log(ctrl0 + "+" + ctrlis.join('+') + " = " + listen);
         }
         function registerBindkeyService(doc) {
           document.onkeyup = function callBoundKey(ev) {
-            ev.preventDefault();
             var ctr = ev.ctrlKey, alt = ev.altKey, sft = ev.shiftKey, k = ev.code;
             var ctrlkls = (ctr?'C':'') + (sft?'S':'') + (alt?'A':'');
             ctrlkls = (ctrlkls.length !==0)? ctrlkls : '-';
             if ('DEBUG' in window.bindMap) console.log(ctrlkls+'/'+k+'::'+ev.code);
-            if (ctrlkls in window.bindMap) if (k in window.bindMap[ctrlkls])
-              window.bindMap[ctrlkls][k](ev);
+            if (ctrlkls in window.bindMap) if (k in window.bindMap[ctrlkls]) {
+              if ('OVERRIDE' in window.bindMap) ev.preventDefault();
+              window.bindMap[ctrlkls][k](ev); }
           };
         }
+
+        function TeaEdit(textarea) {
+          this.ta = textarea;
+          this.lines = 1, this.line_starts = [];
+          var self = this;
+          this.ta.onkeydown = function (ev) {
+            if (ev.code === 'Enter') { self.lines += 1; self.line_starts.push(self.ta.textLength); }
+            else { if (self.ta.textLength <= Math.max(1, self.line_starts[self.line_starts.length-1]))
+              { self.lines -= 1; self.line_starts.pop(); } } };
+
+          Object.defineProperty(this, 'value', // See also: Mixins
+            {get: function(){ return this.ta.value; }, set: function(nv){ this.ta.value = nv; }}); }
+
+        TeaEdit.prototype.select = function createSelection(beg, end) { // See also: porting
+          if (end === undefined) end = beg; // (, ]
+          var ta=this.ta; if(ta.selectionStart) { ta.selectionStart = beg, ta.selectionEnd = end; }
+        else if (ta.setSelectionRange) { ta.setSelectionRange(beg, end); }
+        else if (ta.createTextRange) { var tr = ta.createTextRange(); tr.collapse(true);
+          tr.moveStart('character', beg); tr.moveEnd('character', end); tr.select(); }
+        };
 
         function TeaMeow(div) {
           if (!div.classList.contains('teameow-ed')) throw Error("Bad TeaMeow Editor element " + div);
           var qs = bound(div,'querySelector');
-          this.container = div, this.ta = qs('.teameow-ta');
+          this.container = div, this.ta = new TeaEdit(qs('.teameow-ta'));
           this.cnt = qs('.teameow-count'), this.clr = qs('p button');
           this.btns = div.querySelectorAll('button');
         }
@@ -86,30 +119,41 @@
             fmts.push(' 零 ' + n);
             return fmts.join('');
           }
-          this.cnt.innerText = tf(this.ta.value.length)+" 字";
+          this.cnt.innerText = tf(this.ta.ta.textLength)+" 字、"+" "+this.ta.lines+" 行";
+          this.ta.ta.focus();
         };
         TeaMeow.prototype.init = function() {
           function asks(t) { var got=window.prompt(t); if(got===null) throw null; return got; }
           var ta = this.ta, self = this;
           function write2Ta(s) { ta.value += s; self.updateTextCount(); }
           function fixedLogic(flid) { switch (flid) {
-            case 'clr': return function() { ta.value = ''; self.updateTextCount(); }
+            case 'clr': return function() { ta.value = '', ta.lines = 1; self.updateTextCount(); }
             case '[]': return function() { write2Ta('['+asks("输入标签")+']'+'('+asks("输入链接")+')'); }
             case '![]': return function() { write2Ta('!['+asks("输入图片标签")+']'+'('+asks("输入图片链接")+')'); }
           } }
 
           this.btns.forEach(function(b) { var arg0, op;
             if ((arg0= b.getAttribute('o'))) {
-              op = b.onclick = function() { write2Ta(arg0); }; }
+              op = b.onclick = function() { write2Ta(arg0); self.ta.select(self.ta.ta.textLength-(arg0.length/2)); }; }
        else if ((arg0= b.getAttribute('s'))) { op = b.onclick = fixedLogic(arg0); }
             bindKey(b.getAttribute('alt'), op);
           });
-          ta.onkeyup = bound(this,'updateTextCount');
+          ta.ta.onkeyup = bound(this,'updateTextCount');
           this.updateTextCount();
           registerBindkeyService(document.body);
         };
       </script>
       <script>var tm = new TeaMeow(document.getElementById('simple')); tm.init();</script>
     </div>
+</td><td colspan="4" style="width: 50%"><td>
+    <div rowspan="100" id="buggy" style="padding-left: 20px"></div>
+</td></tr>
+</table>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/10.0.0/markdown-it.js" integrity="sha256-uhsZv/1rhiqa0K9vDMZzGa5ZEFVECUsJ1yQ7qtShRlc=" crossorigin="anonymous"></script>
+    <script>
+      var preview = document.getElementById('buggy'), mdit = markdownit();
+      function updateMdit() { preview.innerHTML = mdit.render(tm.ta.value); };
+      bindKey('Enter', updateMdit);
+    </script>
   </body>
 </html>
