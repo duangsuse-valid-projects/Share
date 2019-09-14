@@ -35,17 +35,18 @@
         <tr>
           <td><button o="****" alt="C b">Bold ✒️</button></td>
           <td><button o="__" alt="C i">Italic 🖋</button></td>
-          <td><button o="``" alt="C q">Quote 💻</button></td>
+          <td><button o="``" alt="CS q">Quote 💻</button></td>
           <td><button o="```&#10;```" alt="C c">Code 💻</button></td>
-          <td><button o="~~~~" alt="C t">Strikeout 🖌</button></td>
-          <td><button o="[]" alt="CS s">Sqbracket <a class="sym">[</a></button></td>
-          <td><button o="()" alt="CS p">Paren <a class="sym">(</a></button></td>
+          <td><button o="~~~~" alt="CS u">Strikeout 🖌</button></td>
+          <td><button o="[]" alt="CA s">Sqbracket <a class="sym">[</a></button></td>
+          <td><button o="()" alt="CA p">Paren <a class="sym">(</a></button></td>
           <td><button o="{}" alt="CS b">Brace <a class="sym">{</a></button></td>
         </tr>
         <tr>
           <td><button s="[]" alt="C k">URL 🔗</button></td>
           <td><button s="![]" alt="C j">Image 🖼</button></td>
-          <td><button o="&#10;&#10;" alt="C Enter">Newline</button></td>
+          <td><button o="&#10;&#10;" alt="Enter">New MDLine</button></td>
+          <td><button s="render" alt="C Enter">Render 👓</button></td>
         </tr>
       </table>
       <script>
@@ -66,7 +67,7 @@
           if ('DEBUG' in window.bindMap) console.log(ctrl0 + "+" + ctrlis.join('+') + " = " + listen);
         }
         function registerBindkeyService(doc) {
-          document.onkeyup = function callBoundKey(ev) {
+          document.onkeydown = function callBoundKey(ev) {
             var ctr = ev.ctrlKey, alt = ev.altKey, sft = ev.shiftKey, k = ev.code;
             var ctrlkls = (ctr?'C':'') + (sft?'S':'') + (alt?'A':'');
             ctrlkls = (ctrlkls.length !==0)? ctrlkls : '-';
@@ -131,6 +132,7 @@
             case 'clr': return function() { ta.value = '', ta.lines = 1; self.updateTextCount(); }
             case '[]': return function() { write2Ta('['+asks("输入标签")+']'+'('+asks("输入链接")+')'); }
             case '![]': return function() { write2Ta('!['+asks("输入图片标签")+']'+'('+asks("输入图片链接")+')'); }
+            case 'render': return function() { updateMdit(); }
           } }
 
           this.btns.forEach(function(b) { var arg0, op;
@@ -154,7 +156,6 @@
     <script>
       var preview = document.getElementById('buggy'), mdit = markdownit();
       function updateMdit() { preview.innerHTML = mdit.render(tm.ta.value); };
-      bindKey('Enter', updateMdit);
     </script>
   </body>
 </html>
