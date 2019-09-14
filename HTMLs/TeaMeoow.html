@@ -33,18 +33,18 @@
       <p style="margin-left: 10%">字数：<a class="teameow-count"><sub>Init~</sub></a> <button s="clr">清空</button></p>
       <table class="teameow-btnbar">
         <tr>
-          <td><button o="****" alt="CS b">Bold ✒️</button></td>
-          <td><button o="__" alt="CA i">Italic 🖋</button></td>
-          <td><button o="``" alt="CA q">Quote 💻</button></td>
+          <td><button o="****" alt="C b">Bold ✒️</button></td>
+          <td><button o="__" alt="C i">Italic 🖋</button></td>
+          <td><button o="``" alt="C q">Quote 💻</button></td>
           <td><button o="```&#10;```" alt="C c">Code 💻</button></td>
-          <td><button o="~~~~" alt="CS s">Strikeout 🖌</button></td>
-          <td><button o="[]" alt="CA s">Sqbracket <a class="sym">[</a></button></td>
-          <td><button o="()" alt="CA p">Paren <a class="sym">(</a></button></td>
-          <td><button o="{}" alt="CA b">Brace <a class="sym">{</a></button></td>
+          <td><button o="~~~~" alt="C t">Strikeout 🖌</button></td>
+          <td><button o="[]" alt="CS s">Sqbracket <a class="sym">[</a></button></td>
+          <td><button o="()" alt="CS p">Paren <a class="sym">(</a></button></td>
+          <td><button o="{}" alt="CS b">Brace <a class="sym">{</a></button></td>
         </tr>
         <tr>
-          <td><button s="[]" alt="CS u">URL 🔗</button></td>
-          <td><button s="![]" alt="CS l">Image 🖼</button></td>
+          <td><button s="[]" alt="C k">URL 🔗</button></td>
+          <td><button s="![]" alt="C j">Image 🖼</button></td>
           <td><button o="&#10;&#10;" alt="C Enter">Newline</button></td>
         </tr>
       </table>
@@ -72,7 +72,7 @@
             ctrlkls = (ctrlkls.length !==0)? ctrlkls : '-';
             if ('DEBUG' in window.bindMap) console.log(ctrlkls+'/'+k+'::'+ev.code);
             if (ctrlkls in window.bindMap) if (k in window.bindMap[ctrlkls]) {
-              if ('OVERRIDE' in window.bindMap) ev.preventDefault();
+              if ('OVERRIDE' in window.bindMap) { ev.stopPropagation(); ev.preventDefault(); }
               window.bindMap[ctrlkls][k](ev); }
           };
         }
@@ -81,6 +81,7 @@
           this.ta = textarea;
           this.lines = 1, this.line_starts = [];
           var self = this;
+          this.ta.onpaste = function (ev) { self.lines = ev.clipboardData.getData('text/plain').search("\n"); };
           this.ta.onkeydown = function (ev) {
             if (ev.code === 'Enter') { self.lines += 1; self.line_starts.push(self.ta.textLength); }
             else { if (self.ta.textLength <= Math.max(1, self.line_starts[self.line_starts.length-1]))
