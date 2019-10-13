@@ -12,6 +12,7 @@ Arguments: [file+] [-o output] [-c css selector] | [(-/--)?help]/[-h]
 EOHELP
   def self.parse_args(argv)
     check_given = ->(wtf, o) { raise ArgumentError, "#{wtf} is given as #{o}" unless o.nil? }
+    is_file = ->(nam) { nam == '-' or not nam.start_with?('-') }
     raise ArgumentError, 'At least give me a file' if argv.size < 1
     s0, ex_opath, ex_fs, ex_css = (0...100).to_a; state = s0
     args = Arguments.new
@@ -22,14 +23,14 @@ EOHELP
           when '-o' then state = ex_opath
           when '-c' then state = ex_css
           when 'help', '--help', '-help', '-h' then puts(HELP); break
-          else state = ex_fs; redo # does not consume paths
+          else if is_file.call(arg) then state = ex_fs; redo
+               else raise ArgumentError, "Bad argument #{arg}" end # does not consume paths
         end
       when ex_opath
         check_given.call('Output path', args.output_path)
         args.output_path = arg
         state = s0
       when ex_fs
-        if arg.start_with?('-') then state = s0; redo; end
         raise ArgumentError, "File #{arg} not exists" unless File.exist?(arg)
         args.files.push(arg)
       when ex_css
