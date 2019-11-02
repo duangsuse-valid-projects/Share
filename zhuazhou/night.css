@@ -7,4 +7,4 @@
   border-radius: 0px;
 }
 
-*, .serif .markdown-body { font-family: Georgia, "Times New Roman", serif !important; }
+*[serif=""] .markdown-body { font-family: Georgia, "Times New Roman", serif !important; }
