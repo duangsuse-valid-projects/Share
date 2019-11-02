@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * ToC, Table of Contents，递归的文档 Heading 树插件
  * 提供 parse(div, lev = 0), render(gs, f=tocTree.renderf) 对外接口
@@ -14,7 +12,8 @@
  *   tocTree.config.setItem = function(e) { e.classList.add('toc-entry'); }; // inner item
  */
 var tocTree = {
-  parse: function(div, lev) {return tocTree.parseRec(div, 0, lev || 0)[1][0];},
+  parse: function(div, lev) {
+    return tocTree.parseRec(div, 0, lev || 0)[1][0];},
   parseRec: function(div, i0, lev) {
     var index = i0, layer = [];
     for (; index < div.children.length; ++index) {

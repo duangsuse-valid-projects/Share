@@ -1,9 +1,8 @@
-'use strict';
 function identity(x) {return x;}
 function bound(o, k) { return o[k].bind(o); }
 function undefq(ref) { return ref === undefined; }
 function objsetOf() { var dict = Object();
-  for (ak in arguments) dict[arguments[ak]] = undefined;
+  for (var ak in arguments) dict[arguments[ak]] = undefined;
   return dict;
 }
 
@@ -13,11 +12,11 @@ var cssSingle = bound(document, 'querySelector');
 
 function hflag(f) { this.flag = f; }
 hflag.prototype.get = function(e) {return e.getAttribute(this.flag);};
-hflag.prototype.notNull = function(e) {return this.get(e) !== null};
+hflag.prototype.notNull = function(e) {return this.get(e) !== null;};
 hflag.prototype.set = function(e, v) {return e.setAttribute(this.flag, v);};
 hflag.prototype.setFlag = function(e) {return this.set(e, '');};
 hflag.prototype.del = function(e) {return e.removeAttribute(this.flag);};
-hflag.prototype.switch = function(e) { if (this.notNull(e)) this.del(e); else this.setFlag(e); }
+hflag.prototype.switch = function(e) { if (this.notNull(e)) this.del(e); else this.setFlag(e); };
 
 function _isLoaded(rs) {
   return undefq(rs) || rs in objsetOf('loaded', 'complete'); }
