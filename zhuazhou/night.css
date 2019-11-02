@@ -1,0 +1,10 @@
+*[night=""] {
+  color: #dbdbdb;
+  background-color: #292929;
+}
+*[night=""] .markdown-body .highlight pre, body[night=""] .markdown-body pre {
+  background-color: #3d0f14;
+}
+
+*, .serif .markdown-body { font-family: Georgia, "Times New Roman", serif !important; }
+

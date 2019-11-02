@@ -1,0 +1,10 @@
+function NightButton(btn) { this.e = btn; this.serif = false; }
+NightButton.flag = new hflag('night');
+NightButton.fserif = new hflag('serif');
+NightButton.div = document.body;
+NightButton.prototype.register = function()  { this.e.onclick = bound(this, 'clicked'); };
+NightButton.prototype.clicked = function() {
+  NightButton.flag.switch(NightButton.div);
+  if(this.serif) NightButton.fserif.switch(NightButton.div);
+  this.serif = !this.serif; //时序
+};
