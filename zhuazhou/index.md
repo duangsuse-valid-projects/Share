@@ -523,7 +523,7 @@ waits(document.body, function(){articleSplit.execute(document.body)});
 </script>
 
 <script src="nsfw_switcher.js"></script>
-<style>*[nsfw=""] { color: limegreen; }</style>
+<style>*[nsfw=""] { color: limegreen !important; }</style>
 <script src="night.js"></script>
 <link rel="stylesheet" href="night.css" />
 <script>
