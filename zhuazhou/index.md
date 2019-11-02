@@ -32,7 +32,7 @@ keywords: fiction China school gaokao 高考
     var toc_tree = tocTree.parse(helem('zhuazhou').parentNode.parentNode);
     var toc_head = toc_tree.shift();
     tocTree.config.setSubtree = function(e) { e.classList.add('toc-subtree'); };
-    tocTree.config.setItem = function(e) { e.classList.add('toc-entry'); };
+    tocTree.config.setItem = function(e) { if(e.classList) e.classList.add('toc-entry'); };
     helem('toc').appendChild(tocTree.render(toc_tree));
     helem('toc-summary').innerText = '¶ '+toc_head.innerText.match(/^(\S+\s©\S+\s).*|^(\S+)\s.*/)[1];
   }

@@ -4,6 +4,7 @@
 }
 *[night=""] .markdown-body .highlight pre, body[night=""] .markdown-body pre {
   background-color: #3d0f14;
+  border-radius: 0px;
 }
 
 *, .serif .markdown-body { font-family: Georgia, "Times New Roman", serif !important; }
