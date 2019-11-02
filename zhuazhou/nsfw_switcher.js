@@ -3,9 +3,13 @@ NsfwButton.prototype.register = function() {
   this.e.onclick = bound(this, 'clicked');
 };
 NsfwButton.prototype.clicked = function() {
-  if (this.nsfwed) NsfwButton.hideNsfw(); else NsfwButton.showNsfw();
+  if (this.nsfwed) {
+    NsfwButton.hideNsfw();
+  } else {
+    NsfwButton.showNsfw(); }
   this.nsfwed = !this.nsfwed;
   this.update();
+  NsfwButton.classesOn.switch(this.e);
 };
 NsfwButton.prototype.update = function()
   { this.e.innerText = !this.nsfwed? NsfwButtonKst.show : NsfwButtonKst.hide; };
@@ -15,5 +19,6 @@ NsfwButton.hideNsfw = function() { this.elems().forEach(
   function(e) { NsfwButtonKst.fhide.setFlag(e); }); };
 NsfwButton.showNsfw = function() { this.elems().forEach(
   function(e) { NsfwButtonKst.fhide.del(e); }); };
+NsfwButton.classesOn = new hclasses(['outline']);
 
 var NsfwButtonKst = { show: '显示 NSFW', hide: '隐藏 NSFW', css: '*[nsfw=""]', fhide: new hflag('hidden') };

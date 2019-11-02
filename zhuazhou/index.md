@@ -7,7 +7,9 @@ tags: Life Statement Book
 keywords: fiction China school gaokao 高考
 ---
 
-<h1><a id="zhuazhou">《抓周》</a> <b>©</b><a href="https://github.com/duangsuse"><a rel="author">duangsuse</a></a> <button id="btn-nsfw">吐槽！</button> <button id="btn-night">昼/夜</button></h1>
+<link rel="stylesheet" href="https://neko-dev.github.io/neko.css/dist/css/neko.css" />
+
+<h1><a id="zhuazhou">《抓周》</a> <b>©</b><a href="https://github.com/duangsuse"><a rel="author">duangsuse</a></a> <button class="neko-btn shadow neko-color-green" id="btn-nsfw">吐槽！</button> <button class="neko-btn shadow" id="btn-night">昼/夜</button></h1>
 
 <div class="main-content">
 <blockquote>本文以 <a href="#CC-BY-4.0">CC-BY 4.0</a> （知识共享-署名）许可证、短篇小说体裁发布于 <a href="https://duangsuse-valid-projects.github.io/Share/">duangsuse 的个人分享页</a>；创作时间 <a rel="time">2019.11.1</a></blockquote>
@@ -500,7 +502,7 @@ Linux 成功了。也许这是因为它的开放和应景、也许这是因为�
 
 ## <a id="CC-BY-4.0">许可证</a> | CC-BY 4.0
 
-<a rel="license" href="http://creativecommons.org/licenses/by/4.0/"><img alt="知识共享许可协议" style="border-width:0" src="https://i.creativecommons.org/l/by/4.0/88x31.png" /></a><br><span xmlns:dct="http://purl.org/dc/terms/" property="dct:title">小说《抓周》</span> 由 <a xmlns:cc="http://creativecommons.org/ns#" href="https://duangsuse-valid-projects.github.io/Share/zhuazhou" property="cc:attributionName" rel="cc:attributionURL">duangsuse</a> 采用 <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">知识共享 署名 4.0 国际 许可协议</a>进行许可。
+<a rel="license" href="http://creativecommons.org/licenses/by/4.0/"><img class="neko-helper-center" alt="知识共享许可协议" style="border-width:0" src="https://i.creativecommons.org/l/by/4.0/88x31.png" /></a><br><span xmlns:dct="http://purl.org/dc/terms/" property="dct:title">小说《抓周》</span> 由 <a xmlns:cc="http://creativecommons.org/ns#" href="https://duangsuse-valid-projects.github.io/Share/zhuazhou" property="cc:attributionName" rel="cc:attributionURL">duangsuse</a> 采用 <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">知识共享 署名 4.0 国际 许可协议</a>进行许可。
 
 ### 你可以做的事情
 

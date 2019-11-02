@@ -18,6 +18,26 @@ hflag.prototype.setFlag = function(e) {return this.set(e, '');};
 hflag.prototype.del = function(e) {return e.removeAttribute(this.flag);};
 hflag.prototype.switch = function(e) { if (this.notNull(e)) this.del(e); else this.setFlag(e); };
 
+function hclasses(cs) { this.classes = cs; }
+hclasses.prototype.enable = function(e) {
+  for (var i=0; i<this.classes.length; ++i) { var it = this.classes[i];
+    e.classList.add(it); } };
+hclasses.prototype.disable = function(e) {
+  for (var i=0; i<this.classes.length; ++i) { var it = this.classes[i];
+    e.classList.remove(it); } };
+hclasses.prototype.enabled = function(e) {
+  var to_cover = new Set(this.classes); // {CS} - {ACTUAL} = \emptyset (containsAll)
+  for (var i=0; i<e.classList.length; ++i) { var it = e.classList[i];
+    if (to_cover.has(it)) to_cover.delete(it);
+    else continue;
+  }
+  return to_cover.size == 0;
+};
+hclasses.prototype.switch = function(e) {
+  var enabled = this.enabled(e);
+  if (!enabled) this.enable(e); else this.disable(e);
+};
+
 function _isLoaded(rs) {
   return undefq(rs) || rs in objsetOf('loaded', 'complete'); }
 
