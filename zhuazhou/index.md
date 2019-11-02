@@ -30,11 +30,13 @@ keywords: fiction China school gaokao 高考
 <script>
   function drawToc() {
     var toc_tree = tocTree.parse(helem('zhuazhou').parentNode.parentNode);
-    var toc_head = toc_tree.shift();
+    var re = /^(\S+\s©\S+\s).*|^(\S+)\s.*/;
+    var toc_head; do { toc_head = toc_tree.shift() }
+      while(!re.test(toc_head.innerText));
     tocTree.config.setSubtree = function(e) { e.classList.add('toc-subtree'); };
     tocTree.config.setItem = function(e) { if(e.classList) e.classList.add('toc-entry'); };
     helem('toc').appendChild(tocTree.render(toc_tree));
-    helem('toc-summary').innerText = '¶ '+toc_head.innerText.match(/^(\S+\s©\S+\s).*|^(\S+)\s.*/)[1];
+    helem('toc-summary').innerText = '¶ '+toc_head.innerText.match(re)[1];
   }
   waits(helem('plug-tree'), drawToc);
 </script>
