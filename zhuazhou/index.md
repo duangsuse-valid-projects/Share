@@ -461,7 +461,7 @@ Linux 成功了。也许这是因为它的开放和应景、也许这是因为�
 
 + [waits](waits.js): 辅助函数库，提供 DOM 高层抽象
 + [toc_tree](toc_tree.js): 解析和渲染文章的 markdown 目录
-+ [article_split](article_spilt.js): 利用 `<template articleBegin></template>...<template articleEnd></template>` 解决 Markdown 长文 `<article>` 标签内联 HTML5 支持问题的自动 DOM Tree 切分插件，需要在 TOC 解析后运行
++ [article_split](article_split.js): 利用 `<template articleBegin></template>...<template articleEnd></template>` 解决 Markdown 长文 `<article>` 标签内联 HTML5 支持问题的自动 DOM Tree 切分插件，需要在 TOC 解析后运行
 + [nsfw_switcher](nsfw_switcher.js): 吐槽切换按钮控件
 + [night](night.js): 夜间模式与字体切换控件
 
