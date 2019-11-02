@@ -82,6 +82,12 @@ __where__
 
 ![\[ n\geq{10} \land m\leq{10^9} \]](https://latex.codecogs.com/png.latex?n\geq{10}\land{}m\leq{10^9})
 
+### 小说《抓周》 [view](zhuazhou)
+
+这个短片小说名字叫《抓周》，大致以不连续的时间顺序给『自然语言处理』方面的计算机科学爱好者陆凌风从少年到中年的历史做了注释
+
+本书的最终主旨就是 —— 追求自己的热爱、保持自己的本心，不要被外物所迷惑 也不要因为看不到希望、不被人理解而放弃
+
 ## Contents/Favorite Lists
 
 + [2019-07-B](Recommends/推荐.txt)
