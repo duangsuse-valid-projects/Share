@@ -200,6 +200,8 @@ keywords: fiction China school gaokao 高考
 
 ### 第二章 历史课
 
+<button onclick="window.scrollTo(scrollX,0)">暂时没写完…… <a nsfw>（懒得写……真的没兴趣写小说什么的）</a> 不如打开【吐槽】再看一遍？</button>
+
 <a nsfw>这节课陆凌风会因为『政治敏感』批评了曾经早已平反的做法（文革），被已经三观扭曲的历史老师送去见复主任……</a>
 
 <a nsfw>这一章节会写『实践出真知』的名句，以及别人批判凌风没情商…… 出场（对）白人物应该包含林、李、马、复</a>
