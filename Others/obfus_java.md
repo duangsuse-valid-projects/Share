@@ -18,7 +18,7 @@ __肯定不是程序员顶着社会需求的压力为计算机服务，两者是
 
 能把代码写得（或者刻意写得）别人看不懂，很 NB。但是更 NB 的是你写出的代码不仅别人轻而易举都能搞懂，而且 __别人最少 10 行你最多 5 行__，这就是 🐮 逼之处，这就是你『比别人优秀』的底气所在。
 
-推荐阅读 [Hello, declarative world](https://codon.com/hello-declarative-world)，这篇文章以后也可能随便瞎放点与题目无关的东西……
+推荐阅读 [Hello, declarative world](https://codon.com/hello-declarative-world)，本篇文章以后也可能随便瞎放点与题目无关的东西……
 
 当然 duangsuse 的二进制读写器项目 Binarie 还在后面待补完，暂时不能写它呢……
 
@@ -203,7 +203,7 @@ object Name: Parser<String> {
 ```kotlin
 fun main() {
   val white1 = PeekConsume("   1")
-  ws.read(white1)
+  ws.read(white1) //skip spaces
   println(white1) //"1"
   val hello = PeekConsume("_hello1_")
   println(Name.read(hello)) //"_hello1_"
@@ -299,7 +299,9 @@ TODO("只是一个小例子，我现在貌似还有点其他的事需要做…�
 
 懒得写了，就当是对 Literate Kotlin 的一次练手吧，平时时间的确不多，而且这个问题是可以写很久。
 
-效果还不错，这得归功于 JetBrains 把一切做成库的开源思想，要不然我没 Kotlin Playground 用。
+__我太难了！__
+
+效果还不错，这得归功于 JetBrains 把一切做成库的开源思想，要不然我没 Kotlin Playground 用。科你太美！
 
 在我完成『绝句』前，专门处理 Literate Kotlin 代码、转化诸如 Gradle 项目的 Kotlin 命令行工具也会被开发出来，但愿过程顺利吧。
 
