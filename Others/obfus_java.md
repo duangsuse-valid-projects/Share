@@ -156,10 +156,6 @@ sealed class Ast
 我们用 `sealed class` 这种子类仅在一个文件里确定的类型，
 免得 `when` `is` 要加 `else`。
 
-```java
-public class Main { …… }
-```
-
 ```plain
 whitespace ' '|'\n'
 Name [a-zA-Z_].([a-zA-Z0-9_])*
@@ -213,9 +209,18 @@ fun main() {
   println(Name.read(hello)) //"_hello1_"
   val _1abc = PeekConsume("1abc")
   println(Name.read(_1abc)) //null
+  // Name = namePartNoDigi.namePart*
+  val abc1 = PeekConsume("abc1")
+  println(Name.read(abc1)) //"abc1"
 }
 ```
 <div class="literateEnd"></div>
+
+接下来我们一起冷静分析一下上文用到的 Java 语法。
+
+```java
+public class Main { …… }
+```
 
 ```plain
 Modifier public|static
@@ -285,6 +290,10 @@ sealed class Statement
 所以 Java 这门语言的语法实在是太简单了，又简单又没那么贴合人的思想，所以说“辣鸡 Jawa”。
 
 <div class="literateEnd"></div>
+
+```kotlin
+TODO("只是一个小例子，我现在貌似还有点其他的事需要做……")
+```
 
 ## 最后
 
