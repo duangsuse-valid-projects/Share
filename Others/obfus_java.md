@@ -282,17 +282,17 @@ data class Block(val _233: List<Statement>)
 sealed class Statement
 ```
 
-所以 Java 这门语言的语法实在是太简单了，又简单又没那么贴合人的思想。
+所以 Java 这门语言的语法实在是太简单了，又简单又没那么贴合人的思想，所以说“辣鸡 Jawa”。
+
+<div class="literateEnd"></div>
 
 ## 最后
 
-懒得写了，就当是对 Literate Kotlin 的一次练手吧，平时时间的确不多，而且这个问题是可以很久。
+懒得写了，就当是对 Literate Kotlin 的一次练手吧，平时时间的确不多，而且这个问题是可以写很久。
 
-效果还不错，这得归功于 JetBrains 把一切做成库的开源思想。
+效果还不错，这得归功于 JetBrains 把一切做成库的开源思想，要不然我没 Kotlin Playground 用。
 
 在我完成『绝句』前，专门处理 Literate Kotlin 代码、转化诸如 Gradle 项目的 Kotlin 命令行工具也会被开发出来，但愿过程顺利吧。
-
-<div class="literateEnd"></div>
 
 <script src="https://duangsuse-valid-projects.github.io/Share/%E7%BB%9D%E5%8F%A5/literate_kt.js"></script>
 <script src="https://unpkg.com/kotlin-playground@1"></script>
