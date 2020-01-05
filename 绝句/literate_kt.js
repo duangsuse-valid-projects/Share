@@ -3,7 +3,11 @@ function nextBy(succ) {
     for (let cur = init; succ(cur); cur = succ(cur)) yield cur;
   };
 }
-function *takeWhile(p, xs) { for (let x of xs) if (p(x)) { yield x; } else break; }
+function *takeWhile(p, xs) {
+  for (let x of xs)
+    if (p(x)) { yield x; }
+    else break;
+}
 function negate(p) { return x => !p(x); }
 
 function assignDOMAttribute(node, attributes) {
@@ -11,8 +15,8 @@ function assignDOMAttribute(node, attributes) {
     node.setAttribute(name, value.toString());
 }
 
-nextSiblings = nextBy(x => x.nextSibling);
-const sectionEnd = it => it.classList!=null&&it.classList.contains("literateEnd");
+const nextSiblings = nextBy(e => e.nextSibling);
+const sectionEnd = e => e.classList!=null&&e.classList.contains("literateEnd");
 function filterCode(begin_e, p = e => e.classList.contains("language-kotlin")) {
   let neighbors = nextSiblings(begin_e);
   let section = takeWhile(negate(sectionEnd), neighbors);
@@ -41,16 +45,28 @@ function enableCodeFilter(begin_e) {
   let end_e = [...nextSiblings(begin_e)].find(sectionEnd);
   let codeDiv = document.createElement("div"); codeDiv.innerHTML = `<button>Kotlin Code</button>`; codeDiv.classList.add("playground");
   begin_e.parentElement.insertBefore(codeDiv, end_e);
-  let dependencyDivs = begin_e.getAttribute("depend"); if (dependencyDivs!=null) dependencyDivs = dependencyDivs.split(" ").map(id => filterCode(document.getElementById(id)));
+  let dependencies = begin_e.getAttribute("depend"); if (dependencies!=null) dependencies = dependencies.split(" ").map(id => filterCode(document.getElementById(id)));
   let btn = codeDiv.children[0];
   btn.onclick = () => {
-    let pre = createPreCodeElement(filterCode(begin_e)); configKotlinPlayground(pre);
-    if (dependencyDivs!=null) {
-      let dependTa = createTextarea(dependencyDivs.join(""));
-      dependTa.classList.add("hidden-dependency"); pre.firstChild.appendChild(dependTa);
+    let pre = createPreCodeElement(filterCode(begin_e));
+    if (dependencies!=null) {
+      let code = pre.firstChild; configKotlinPlayground(code);
+      let dependTa = createTextarea(dependencies.join(""));
+      dependTa.classList.add("hidden-dependency"); code.appendChild(dependTa);
     }
-    codeDiv.appendChild(pre); btn.remove(); KotlinPlayground(codeDiv);
+    codeDiv.appendChild(pre); btn.remove();
+    schedule("KotlinPlayground", codeDiv);
   };
 }
+function schedule(name, e) {
+  let found = this[name];
+  if (found!=undefined) {
+    while (schedule.queue.length!=0)
+      found(schedule.queue.shift());
+    found(e);
+  }
+  else schedule.queue.push(e);
+}
+schedule.queue = [];
 
 document.addEventListener("DOMContentLoaded", () => document.querySelectorAll(".literateBegin").forEach(enableCodeFilter));
