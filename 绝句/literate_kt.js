@@ -1,3 +1,17 @@
+class SaveIterator {
+  constructor(s) {
+    this.s = s[Symbol.iterator]();
+    this.last = null;
+  }
+  next() {
+    this.last = this.s.next();
+    return this.last;
+  }
+  get lastItem() {
+    return this.last.value;
+  }
+  [Symbol.iterator]() { return this; }
+}
 function nextBy(succ) {
   return function *(init) {
     for (let cur = init; succ(cur); cur = succ(cur)) yield cur;
@@ -9,6 +23,7 @@ function *takeWhile(p, xs) {
     else break;
 }
 function negate(p) { return x => !p(x); }
+function or(p, q) { return x => p(x) || q(x); }
 
 function assignDOMAttribute(node, attributes) {
   for (let [name, value] of Object.entries(attributes))
@@ -16,11 +31,23 @@ function assignDOMAttribute(node, attributes) {
 }
 
 const nextSiblings = nextBy(e => e.nextSibling);
-const sectionEnd = e => e.classList!=null&&e.classList.contains("literateEnd");
-function filterCode(begin_e, p = e => e.classList.contains("language-kotlin")) {
-  let neighbors = nextSiblings(begin_e);
-  let section = takeWhile(negate(sectionEnd), neighbors);
-  return [...section].filter(e => e.classList!=null&&p(e)).map(e => e.innerText).join("");
+const hasCSSClass = css => e => e.classList!=null&&e.classList.contains(css);
+const
+  literateBegin = hasCSSClass("literateBegin"),
+  literateEnd = hasCSSClass("literateEnd");
+function filterCode(begin_e, p = hasCSSClass("language-kotlin")) {
+  let neighbors = new SaveIterator(nextSiblings(begin_e));
+  let sections = [];
+  neighbors.next(); //literateBegin
+  let scanContent = () => sections.push(...takeWhile(negate(or(literateEnd, literateBegin)), neighbors));
+  scanContent();
+  do { // CodePart = (Content (IgnoreInnerLiterate Content)?)*? End
+    if (literateBegin(neighbors.lastItem)) {
+      [...takeWhile(negate(literateEnd), neighbors)];
+      scanContent();
+    }
+  } while (!literateEnd(neighbors.lastItem));
+  return sections.filter(p).map(e => e.innerText).join("");
 }
 
 function configKotlinPlayground(code) {
@@ -42,7 +69,7 @@ function createTextarea(text) {
   return textarea;
 }
 function enableCodeFilter(begin_e) {
-  let end_e = [...nextSiblings(begin_e)].find(sectionEnd);
+  let end_e = [...nextSiblings(begin_e)].find(literateEnd);
   let codeDiv = document.createElement("div"); codeDiv.innerHTML = `<button>Kotlin Code</button>`; codeDiv.classList.add("playground");
   begin_e.parentElement.insertBefore(codeDiv, end_e);
 
