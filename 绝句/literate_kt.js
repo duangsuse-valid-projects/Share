@@ -49,13 +49,13 @@ function enableCodeFilter(begin_e) {
   let btn = codeDiv.children[0];
   btn.onclick = () => {
     let pre = createPreCodeElement(filterCode(begin_e));
+    let code = pre.firstChild; configKotlinPlayground(code);
     if (dependencies!=null) {
-      let code = pre.firstChild; configKotlinPlayground(code);
       let dependTa = createTextarea(dependencies.join(""));
       dependTa.classList.add("hidden-dependency"); code.appendChild(dependTa);
     }
     codeDiv.appendChild(pre); btn.remove();
-    schedule("KotlinPlayground", codeDiv);
+    schedule("KotlinPlayground", code);
   };
 }
 function schedule(name, e) {
