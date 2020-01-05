@@ -45,14 +45,16 @@ function enableCodeFilter(begin_e) {
   let end_e = [...nextSiblings(begin_e)].find(sectionEnd);
   let codeDiv = document.createElement("div"); codeDiv.innerHTML = `<button>Kotlin Code</button>`; codeDiv.classList.add("playground");
   begin_e.parentElement.insertBefore(codeDiv, end_e);
+
   let dependencies = begin_e.getAttribute("depend"); if (dependencies!=null) dependencies = dependencies.split(" ").map(id => filterCode(document.getElementById(id)));
-  let btn = codeDiv.children[0];
+  let btn = codeDiv.firstChild;
+
   btn.onclick = () => {
     let pre = createPreCodeElement(filterCode(begin_e));
     let code = pre.firstChild; configKotlinPlayground(code);
     if (dependencies!=null) {
-      let dependTa = createTextarea(dependencies.join(""));
-      dependTa.classList.add("hidden-dependency"); code.appendChild(dependTa);
+      let dependTa = createTextarea(dependencies.join("")); dependTa.classList.add("hidden-dependency");
+      code.appendChild(dependTa);
     }
     codeDiv.appendChild(pre); btn.remove();
     schedule("KotlinPlayground", code);
