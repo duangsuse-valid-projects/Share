@@ -12,6 +12,7 @@ class SaveIterator {
   }
   [Symbol.iterator]() { return this; }
 }
+
 function nextBy(succ) {
   return function *(init) {
     for (let cur = init; succ(cur); cur = succ(cur)) yield cur;
@@ -29,12 +30,15 @@ function assignDOMAttribute(node, attributes) {
   for (let [name, value] of Object.entries(attributes))
     node.setAttribute(name, value.toString());
 }
+////
 
 const nextSiblings = nextBy(e => e.nextSibling);
 const hasCSSClass = css => e => e.classList!=null&&e.classList.contains(css);
 const
   literateBegin = hasCSSClass("literateBegin"),
   literateEnd = hasCSSClass("literateEnd");
+
+// [codes, endDiv]
 function filterCode(begin_e, p = hasCSSClass("language-kotlin")) {
   let neighbors = new SaveIterator(nextSiblings(begin_e));
   let sections = [];
@@ -47,7 +51,7 @@ function filterCode(begin_e, p = hasCSSClass("language-kotlin")) {
       scanContent();
     }
   } while (!literateEnd(neighbors.lastItem));
-  return sections.filter(p).map(e => e.innerText).join("");
+  return [sections.filter(p).map(e => e.innerText).join(""), neighbors.lastItem];
 }
 
 function configKotlinPlayground(code) {
@@ -69,15 +73,15 @@ function createTextarea(text) {
   return textarea;
 }
 function enableCodeFilter(begin_e) {
-  let end_e = [...nextSiblings(begin_e)].find(literateEnd);
+  let [codes, endDiv] = filterCode(begin_e);
+  let pre = createPreCodeElement(codes);
   let codeDiv = document.createElement("div"); codeDiv.innerHTML = `<button>Kotlin Code</button>`; codeDiv.classList.add("playground");
-  begin_e.parentElement.insertBefore(codeDiv, end_e);
+  begin_e.parentElement.insertBefore(codeDiv, endDiv);
 
-  let dependencies = begin_e.getAttribute("depend"); if (dependencies!=null) dependencies = dependencies.split(" ").map(id => filterCode(document.getElementById(id)));
+  let dependencies = begin_e.getAttribute("depend"); if (dependencies!=null) dependencies = dependencies.split(" ").map(id => filterCode(document.getElementById(id))[0]);
   let btn = codeDiv.firstChild;
 
   btn.onclick = () => {
-    let pre = createPreCodeElement(filterCode(begin_e));
     let code = pre.firstChild; configKotlinPlayground(code);
     if (dependencies!=null) {
       let dependTa = createTextarea(dependencies.join("")); dependTa.classList.add("hidden-dependency");
