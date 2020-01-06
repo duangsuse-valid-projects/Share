@@ -40,19 +40,14 @@ export function preetyShowList(xs: Array<String>, sep = ", ", last_sep = " and "
   else return xs.slice(0, last).join(sep) + last_sep + xs[last];
 }
 
-function isLoaded(rs: string) {
-  return rs === undefined ||
-    rs === 'loaded' ||
-    rs === 'complete'; }
-
 type Action = () => any
+/** Use document.body to refer whole DOM content */
 export function waitsElement(e: Element, op: Action) {
+  const isLoaded = (rs:string) => rs == 'complete';
   if (e === document.body) {
-    document.addEventListener('DOMContentLoaded', op);
-    return;
+    if (isLoaded(document.readyState)) return op();
+    else document.addEventListener('DOMContentLoaded', op);
   } else {
-    e.addEventListener('load', () => {
-      if (isLoaded(this.readystate)) { op(); }
-    });
+    e.addEventListener('load', op);
   }
 }

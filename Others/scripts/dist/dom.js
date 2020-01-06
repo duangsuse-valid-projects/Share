@@ -99,23 +99,17 @@ define(["require", "exports", "./read"], function (require, exports, read_1) {
             return xs.slice(0, last).join(sep) + last_sep + xs[last];
     }
     exports.preetyShowList = preetyShowList;
-    function isLoaded(rs) {
-        return rs === undefined ||
-            rs === 'loaded' ||
-            rs === 'complete';
-    }
+    /** Use document.body to refer whole DOM content */
     function waitsElement(e, op) {
-        var _this = this;
+        var isLoaded = function (rs) { return rs == 'complete'; };
         if (e === document.body) {
-            document.addEventListener('DOMContentLoaded', op);
-            return;
+            if (isLoaded(document.readyState))
+                return op();
+            else
+                document.addEventListener('DOMContentLoaded', op);
         }
         else {
-            e.addEventListener('load', function () {
-                if (isLoaded(_this.readystate)) {
-                    op();
-                }
-            });
+            e.addEventListener('load', op);
         }
     }
     exports.waitsElement = waitsElement;

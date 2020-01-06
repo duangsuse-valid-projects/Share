@@ -9,5 +9,5 @@
     "pretty": true,
     "lib": [ "dom" ]
   },
-  "include": [ "literate_kotlin.ts", "obfus_java_main.ts" ]
+  "include": [ "literate_kotlin_post.ts" ]
 }
