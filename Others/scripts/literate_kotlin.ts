@@ -1,72 +1,12 @@
-/** An Iterator saving its last yield item,
- * for `takeWhile`-like functions "lookbehind" */
-class SaveIterator<T> implements Iterator<T> {
-  iter: Iterator<T>
-  last: IteratorResult<T>
-  constructor(iter: Iterator<T>) {
-    this.iter = iter;
-    this.last = iter.next();
-  }
-  next() {
-    this.last = this.iter.next();
-    return this.last;
-  }
-  get lastItem() {
-    return this.last.value;
-  }
-}
-class PeekConsume<T> {
-  iter: Iterator<T>
-  last: IteratorResult<T>
-  constructor(iter: Iterator<T>) {
-    this.iter = iter;
-    this.last = iter.next()
-  }
-  *iterator() {
-    if (this.last.done) return;
-    yield this.last;
-    this.last = this.iter.next()
-  }
-}
+import { nextSiblings, hasCSSClass, preetyShowList, schedule } from './dom';
+import { assignElementAttribute, createTextarea, createPreCodeElement } from './dom';
+import { waitsElement } from './dom';
 
-class PartialIterable<T> implements Iterable<T> {
-  iter: Iterator<T>
-  constructor(iter: Iterator<T>) { this.iter = iter; }
-  [Symbol.iterator]() { return this.iter; }
-}
+import {Peek, iterator} from './read';
+import {peekWhile} from './read';
+import {Predicate, negate, or} from './read';
 
-type Rewrite<T> = (old:T) => T
-type Predicate<T> = (item:T) => Boolean
-
-function chainBy<T>(succ: Rewrite<T>): (init:T) => Iterable<T> {
-  return function *(init) {
-    for (let cur = init; succ(cur); cur = succ(cur)) yield cur;
-  };
-}
-function *takeWhile<T>(p: Predicate<T>, xs: Iterable<T>) {
-  for (let x of xs)
-    if (p(x)) { yield x; }
-    else break;
-}
-function negate<T>(p: Predicate<T>): Predicate<T>
-  { return x => !p(x); }
-function or<T>(p: Predicate<T>, q: Predicate<T>): Predicate<T>
-  { return x => p(x) || q(x); }
-
-function assignDOMAttribute(node: Element, attributes: Object) {
-  for (let [name, value] of Object['entries'](attributes))
-    node.setAttribute(name, value);
-}
-function createElementInitialText(node_type: any, text: string) {
-  let node = document.createElement(node_type); node.textContent = text;
-  return node;
-}
-////
-
-const nextSiblings = chainBy((e:Element) => e.nextElementSibling);
-const hasCSSClass = (css:string) => (e:Element) => e.classList?.contains(css) ?? false;
-
-const literateKtConfig = {
+export const literateKtConfig = {
   literateBegin: hasCSSClass("literateBegin"),
   literateEnd: hasCSSClass("literateEnd"),
   literateCodeFilter: hasCSSClass("language-kotlin"),
@@ -78,75 +18,76 @@ const literateKtConfig = {
     "match-brackets": true
   }
 };
+const literateKtMagics = {
+  dependAttribute: "depend",
+  hiddenDependencyClass: "hidden-dependency",
+  playgroundClass: "playground",
+  dependSeprator: " ",
+  KotlinPlaygroundGlobalId: "KotlinPlayground"
+};
 
+function read<T>(p: Predicate<T>, s: Peek<T>) {
+  if (p(s.peek)) s.next();
+  else throw Error(`Expecting ${p} for ${s}`);
+}
 /** Returns [codes, endDiv] */
-function filterCode(begin_e: Element): [string, Element] {
+export function filterCode(begin_e: Element): [string, Element] {
   const {literateBegin, literateEnd, literateCodeFilter} = literateKtConfig;
-  let neighborsIter = new SaveIterator(nextSiblings(begin_e)[Symbol.iterator]());
-  let neighbors = new PartialIterable(neighborsIter);
+  const literatePart = negate(or(literateEnd, literateBegin));
   let tags: Array<any> = [];
-  neighborsIter.next(); //literateBegin
-  const eoLiterateP = negate(or(literateEnd, literateBegin));
-  const scanContent = () => tags.push(...takeWhile(eoLiterateP, neighbors));
-  scanContent();
+  const scanContent = () => tags.push(...peekWhile(literatePart, neighbors));
+
+  let neighbors = new Peek(iterator(nextSiblings(begin_e)));
+  read(literateBegin, neighbors);
   do { // CodePart = (Content (IgnoreInnerLiterate Content)?)*? End
-    if (literateBegin(neighborsIter.lastItem)) {
-      [...takeWhile(negate(literateEnd), neighbors)];
-      scanContent();
+    scanContent();
+    if (literateBegin(neighbors.peek)) {
+      [...peekWhile(negate(literateEnd), neighbors)];
+      read(literateEnd, neighbors);
     }
-  } while (!literateEnd(neighborsIter.lastItem));
+  } while (!literateEnd(neighbors.peek));
+  let endDiv = neighbors.peek;
+  read(literateEnd, neighbors);
+
   let codes = tags.filter(literateCodeFilter).map(e => e.innerText).join("");
-  return [codes, neighborsIter.lastItem];
+  return [codes, endDiv];
 }
 
-function createPreCodeElement(text: string) {
-  let pre = document.createElement("pre");
-  let code = createElementInitialText("code", text);
-  pre.appendChild(code); return pre;
-}
-function createTextarea(text: string) {
-  let textarea = createElementInitialText("textarea", text);
-  return textarea;
-}
-function preetyShowList(xs: Array<String>, sep = ", ", last_sep = " and ") {
-  const last = xs.length-1;
-  if (xs.length == 0 || xs.length == 1) return xs.join(sep);
-  else return xs.slice(0, last).join(sep) + last_sep + xs[last];
-}
+export function enableCodeFilter(begin_e: Element) {
+  const {playgroundDefaults} = literateKtConfig;
+  const {playgroundClass: playground, hiddenDependencyClass: hiddenDependency,
+    KotlinPlaygroundGlobalId: KotlinPlayground} = literateKtMagics;
 
-function enableCodeFilter(begin_e: Element) {
-  let [codes, endDiv] = filterCode(begin_e);
-  let pre = createPreCodeElement(codes);
+  let [codeTexts, endDiv] = filterCode(begin_e);
+  let [dependencies, describe] = dependenciesAndDescribe(begin_e);
 
-  let dependencies: Array<string> = begin_e.getAttribute("depend")?.split(" ");
-  let describe = `${begin_e.id? " for "+begin_e.id :""}${dependencies? " depends on "+preetyShowList(dependencies) :""}`;
-  dependencies = dependencies?.map(id => filterCode(document.getElementById(id))[0]);
-
-  let codeDiv = document.createElement("div"); codeDiv.innerHTML = `<button>Kotlin Code${describe}</button>`; codeDiv.classList.add("playground");
+  let codeDiv = document.createElement("div"); codeDiv.innerHTML = `<button>Kotlin Code${describe}</button>`; codeDiv.classList.add(playground);
   begin_e.parentElement.insertBefore(codeDiv, endDiv);
 
-  let btn = codeDiv.children[0];
-  let showKotlinSource = () => {
-    let code = pre.children[0]; assignDOMAttribute(code, literateKtConfig.playgroundDefaults);
+  let showCodeBtn = codeDiv.firstElementChild;
+  const showKotlinSource = () => { //[codeTexts, dependencies, codeDiv]
+    let preCode = createPreCodeElement(codeTexts);
+    let code = preCode.firstElementChild; assignElementAttribute(code, playgroundDefaults);
     if (dependencies != null) {
-      let dependTa = createTextarea(dependencies.join("")); dependTa.classList.add("hidden-dependency");
+      let dependTa = createTextarea(dependencies.join("")); dependTa.classList.add(hiddenDependency);
       code.appendChild(dependTa);
     }
-    codeDiv.appendChild(pre); btn.remove();
-    schedule("KotlinPlayground", code);
+    codeDiv.appendChild(preCode); //ok
+    showCodeBtn.remove();
+    schedule(KotlinPlayground, code);
   };
-  btn.addEventListener("click", showKotlinSource);
+  showCodeBtn.addEventListener("click", showKotlinSource);
+}
+function dependenciesAndDescribe(e: Element): [Array<string>, string] {
+  const {dependAttribute: depend, dependSeprator} = literateKtMagics;
+
+  let dependencies: Array<string> = e.getAttribute(depend)?.split(dependSeprator);
+  let describe = `${e.id? " for "+e.id :""}${dependencies? " depends on "+preetyShowList(dependencies) :""}`;
+  dependencies = dependencies?.map(id => filterCode(document.getElementById(id))[0]);
+
+  return [dependencies, describe];
 }
 
-let scheduleQueue: Array<Array<any>> = [];
-function schedule(name: string, ...args: any) {
-  let found = global[name];
-  if (found != undefined) {
-    while (scheduleQueue.length != 0)
-      found(...scheduleQueue.shift());
-    found(...args);
-  }
-  else scheduleQueue.push(args);
+export function enable() {
+  document.querySelectorAll('.literateBegin').forEach(enableCodeFilter)
 }
-
-document.addEventListener("DOMContentLoaded", () => document.querySelectorAll(".literateBegin").forEach(enableCodeFilter));

@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "module": "none",
+    "module": "amd",
     "target": "es5",
     "noImplicitAny": true,
     "noEmitOnError": true,
@@ -9,5 +9,5 @@
     "pretty": true,
     "lib": [ "dom" ]
   },
-  "include": [ "literate_kotlin.ts" ]
+  "include": [ "literate_kotlin.ts", "obfus_java_main.ts" ]
 }

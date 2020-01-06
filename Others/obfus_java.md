@@ -305,5 +305,6 @@ __我太难了！__
 
 在我完成『绝句』前，专门处理 Literate Kotlin 代码、转化诸如 Gradle 项目的 Kotlin 命令行工具也会被开发出来，但愿过程顺利吧。
 
-<script src="scripts/dist/literate_kotlin.js"></script>
-<script src="https://unpkg.com/kotlin-playground@1"></script>
+<script src="https://unpkg.com/kotlin-playground@1" defer></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.js" integrity="sha256-lIXwkX+X/PT2Ol6jZSAP/VfxI/RROCovmhrS4v1RrJs=" crossorigin="anonymous" data-main="scripts/dist/obfus_java_main.js" defer></script>
