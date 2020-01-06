@@ -10,7 +10,7 @@
 
 即便目前还只是个简单的翻译器，绝句不屑于与『易』语言为伍。
 
-无论绝句还是 Kotlin，其抽象能力和设计推敲远在易语言之上。
+无论绝句还是 Kotlin，抽象能力和设计推敲皆远在易语言之上。
 
 ### 『你没吃药？』
 
@@ -106,10 +106,12 @@ __注意__：以上例子并非自然语言处理领域主流，请与语法知�
 
 ### 学术上
 
-+ Donald Knutch(高德纳). Literate Programming 的创始和提倡者
-+ Churnch. 设计了 Lambda 演算，为 Scheme 的 Lexical Scoping 提供了可能
-+ Conway. 设计了「协程(coroutine)」，为 Kotlin 的 suspend function 提供理论支持
++ [Donald Knuth](https://cs.stanford.edu/~knuth/)(高德纳). Literate Programming 的创始和提倡者
++ [Alonzo Church](https://en.wikipedia.org/wiki/Alonzo_Church). 设计了 Lambda 演算，为 Scheme 的 Lexical Scoping 提供了可能
++ [John Backus](https://en.wikipedia.org/wiki/John_Backus). FORTRAN、Backus–Naur form 的创造者
++ [Melvin Conway](https://en.wikipedia.org/wiki/Melvin_Conway). 设计了「协程(coroutine)」，为 Kotlin 的 suspend function 提供理论支持
 + Scheme 程序设计语言. 设计出了 闭包(closure) 语言特性及编程方式
++ [Daniel P. Friedman](https://www.cs.indiana.edu/~dfried/). 设计了 [MiniKanren](http://minikanren.org/)，为类型推导的设计提供重要且易学的理论帮助
 
 ### 工程上
 
