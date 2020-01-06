@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "module": "none",
+    "target": "es5",
+    "noImplicitAny": true,
+    "noEmitOnError": true,
+    "downlevelIteration": true,
+    "outDir": "dist",
+    "pretty": true,
+    "lib": [ "dom" ]
+  },
+  "include": [ "literate_kotlin.ts" ]
+}

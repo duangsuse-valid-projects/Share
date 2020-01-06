@@ -1,3 +1,6 @@
+// depreacted and reworte in TypeScript
+
+/** An Iterator saving its last yield item, for takeWhile-like functions "lookbehind" */
 class SaveIterator {
   constructor(s) {
     this.s = s[Symbol.iterator]();
@@ -13,7 +16,8 @@ class SaveIterator {
   [Symbol.iterator]() { return this; }
 }
 
-function nextBy(succ) {
+/** Give succ(lastItem) function, make a generator chain by initial item */
+function chainBy(succ) {
   return function *(init) {
     for (let cur = init; succ(cur); cur = succ(cur)) yield cur;
   };
@@ -30,20 +34,36 @@ function assignDOMAttribute(node, attributes) {
   for (let [name, value] of Object.entries(attributes))
     node.setAttribute(name, value.toString());
 }
+function createElementInitialText(node_type, text) {
+  let node = document.createElement(node_type); node.textContent = text;
+  return node;
+}
 ////
 
-const nextSiblings = nextBy(e => e.nextSibling);
+const nextSiblings = chainBy(e => e.nextSibling);
 const hasCSSClass = css => e => e.classList!=null&&e.classList.contains(css);
-const
-  literateBegin = hasCSSClass("literateBegin"),
-  literateEnd = hasCSSClass("literateEnd");
 
-// [codes, endDiv]
-function filterCode(begin_e, p = hasCSSClass("language-kotlin")) {
+const literateKtConfig = {
+  literateBegin: hasCSSClass("literateBegin"),
+  literateEnd: hasCSSClass("literateEnd"),
+  literateCodeFilter: hasCSSClass("language-kotlin"),
+  playgroundDefaults: {
+    "indent": 2,
+    "auto-indent": true,
+    "data-autocomplete": true,
+    "highlight-on-fly": true,
+    "match-brackets": true
+  }
+};
+
+/** Returns [codes, endDiv] */
+function filterCode(begin_e) {
+  const {literateBegin, literateEnd, literateCodeFilter} = literateKtConfig;
   let neighbors = new SaveIterator(nextSiblings(begin_e));
-  let sections = [];
+  let tags = [];
   neighbors.next(); //literateBegin
-  let scanContent = () => sections.push(...takeWhile(negate(or(literateEnd, literateBegin)), neighbors));
+  const eoLiterateP = negate(or(literateEnd, literateBegin));
+  const scanContent = () => tags.push(...takeWhile(eoLiterateP, neighbors));
   scanContent();
   do { // CodePart = (Content (IgnoreInnerLiterate Content)?)*? End
     if (literateBegin(neighbors.lastItem)) {
@@ -51,38 +71,39 @@ function filterCode(begin_e, p = hasCSSClass("language-kotlin")) {
       scanContent();
     }
   } while (!literateEnd(neighbors.lastItem));
-  return [sections.filter(p).map(e => e.innerText).join(""), neighbors.lastItem];
+  let codes = tags.filter(literateCodeFilter).map(e => e.innerText).join("");
+  return [codes, neighbors.lastItem];
 }
 
-function configKotlinPlayground(code) {
-  assignDOMAttribute(code, {
-    "indent": 2,
-    "auto-indent": true,
-    "data-autocomplete": true,
-    "highlight-on-fly": true,
-    "match-brackets": true
-  });
-}
 function createPreCodeElement(text) {
   let pre = document.createElement("pre");
-  let code = document.createElement("code"); code.textContent = text;
+  let code = createElementInitialText("code", text);
   pre.appendChild(code); return pre;
 }
 function createTextarea(text) {
-  let textarea = document.createElement("textarea"); textarea.textContent = text;
+  let textarea = createElementInitialText("textarea", text);
   return textarea;
+}
+function preetyShowList(xs, sep = ", ", last_sep = " and ") {
+  const last = xs.length-1;
+  if (xs.length == 0 || xs.length == 1) return xs.join(sep);
+  else return xs.slice(0, last).join(sep) + last_sep + xs[last];
 }
 function enableCodeFilter(begin_e) {
   let [codes, endDiv] = filterCode(begin_e);
   let pre = createPreCodeElement(codes);
-  let codeDiv = document.createElement("div"); codeDiv.innerHTML = `<button>Kotlin Code</button>`; codeDiv.classList.add("playground");
+
+  let dependencies = begin_e.getAttribute("depend");
+  if (dependencies!=null) dependencies = dependencies.split(" ");
+  let describe = `${begin_e.id? " for "+begin_e.id:""}${dependencies? " depends on "+preetyShowList(dependencies) : ""}`;
+  if (dependencies!=null) dependencies = dependencies.map(id => filterCode(document.getElementById(id))[0]);
+
+  let codeDiv = document.createElement("div"); codeDiv.innerHTML = `<button>Kotlin Code${describe}</button>`; codeDiv.classList.add("playground");
   begin_e.parentElement.insertBefore(codeDiv, endDiv);
 
-  let dependencies = begin_e.getAttribute("depend"); if (dependencies!=null) dependencies = dependencies.split(" ").map(id => filterCode(document.getElementById(id))[0]);
   let btn = codeDiv.firstChild;
-
   btn.onclick = () => {
-    let code = pre.firstChild; configKotlinPlayground(code);
+    let code = pre.firstChild; assignDOMAttribute(code, literateKtConfig.playgroundDefaults);
     if (dependencies!=null) {
       let dependTa = createTextarea(dependencies.join("")); dependTa.classList.add("hidden-dependency");
       code.appendChild(dependTa);
@@ -91,14 +112,14 @@ function enableCodeFilter(begin_e) {
     schedule("KotlinPlayground", code);
   };
 }
-function schedule(name, e) {
+function schedule(name, ...args) {
   let found = this[name];
   if (found!=undefined) {
     while (schedule.queue.length!=0)
-      found(schedule.queue.shift());
-    found(e);
+      found(...schedule.queue.shift());
+    found(...args);
   }
-  else schedule.queue.push(e);
+  else schedule.queue.push(args);
 }
 schedule.queue = [];
 

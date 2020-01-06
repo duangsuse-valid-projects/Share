@@ -305,5 +305,5 @@ __我太难了！__
 
 在我完成『绝句』前，专门处理 Literate Kotlin 代码、转化诸如 Gradle 项目的 Kotlin 命令行工具也会被开发出来，但愿过程顺利吧。
 
-<script src="https://duangsuse-valid-projects.github.io/Share/%E7%BB%9D%E5%8F%A5/literate_kt.js"></script>
+<script src="scripts/dist/literate_kotlin.js"></script>
 <script src="https://unpkg.com/kotlin-playground@1"></script>
