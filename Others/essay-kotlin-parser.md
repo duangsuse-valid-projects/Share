@@ -365,7 +365,7 @@ fun String.surround(prefix: String, suffix: String): String = prefix+this+suffix
 class StringFeed(private val seq: CharSequence): Feed<Char> {
   private var position = 0
   override val peek: Char get() = try { seq[position] }
-    catch (_: IndexOutOfBoundsException) { seq[position.dec()] }
+    catch (_: IndexOutOfBoundsException) { seq[seq.lastIndex] }
   override fun consume(): Char = try { seq[position++] }
     catch (_: IndexOutOfBoundsException) { throw Feed.End() }
 }
@@ -380,6 +380,11 @@ class StringFeed(private val seq: CharSequence): Feed<Char> {
 如果我们把 `peek` 抛出的异常捕获，它就不会把异常直接抛给使用它的算法了（没有 `hasPeek():Boolean` 真麻烦！）
 
 但 `consume()` 完最后一项后如何 `throw Feed.End()` 呢？答案是，只要保护住 `peek` 在正好 `position=lastIndex+1` 时不抛，`consume()` 自然会在稍后抛出异常的，捕获住统一化就好了。
+
+但在更大的情况下，如果它在抛完 `Feed.End()` 后仍被 `peek` 呢？此时仅第一次索引越界用 `position.dec()` 是不够的，只能每次都取最后一项。
+（`n.dec() == n -1`）
+
+~~另外一种思路是，在 `throw Feed.End()` 的情况再多  `position--`，改回任何已经越界的 `position`。~~
 
 思路不错，可是只能解决字符串读取的问题，如果要写一个 `Array<out String>` 的解析器呢？
 
@@ -446,7 +451,7 @@ fun <E> slice(list: List<E>): Slice<E> = object: Slice<E> {
 class SliceFeed<E>(private val slice: Slice<E>): Feed<E> {
   private var position = 0
   override val peek: E get() = try { slice[position] }
-    catch (_: IndexOutOfBoundsException) { slice[position.dec()] }
+    catch (_: IndexOutOfBoundsException) { slice[slice.lastIndex] }
     //^ don't panic when position=lastIndex+1, put off to consume()
   override fun consume(): E = try { slice[position++] }
     catch (_: IndexOutOfBoundsException) { throw Feed.End() }
@@ -461,7 +466,7 @@ class SliceFeed<E>(private val slice: Slice<E>): Feed<E> {
 
 ## Talk is cheap, show me the code
 
-<div class="literateBegin" id="TalkIsCheap" depend="WTFCanUDo PeekWhile-2"></div>
+<div class="literateBegin" id="TalkIsCheap" depend="WTFCanUDo notParsed PeekWhile-2"></div>
 
 > + 上面我们早就知道要读取 3 个单词，可如果我们不知道，要怎么动态判断何时停止呢？
 > + 为了实现一个解析器，要写许多比这复杂许多倍的子程序，我们怎么解决那时代码的繁复性？
@@ -480,9 +485,12 @@ class SliceFeed<E>(private val slice: Slice<E>): Feed<E> {
 + __成功__ 代表你把冰块放回了对的模具，你知道要对它做什么、需要它的哪些信息。
 + __失败__ 代表你又遇到了一个新的、不认识、不属于你的冰块，什么信息都拿不到。
 
+<div class="literateBegin" id="notParsed"></div>
+
 ```kotlin
 val notParsed: Nothing? = null
 ```
+<div class="literateEnd"></div>
 
 `Boolean?` 的意思是除了原 `Boolean` 的 `true`、`false` 外还可以是 `null`，`Nothing?` 以此类推。
 
@@ -516,8 +524,10 @@ class Seq_1<T, R>(private vararg val sub: Parser<T, R>): Parser<T, List<R>> {
   override fun read(s: Feed<T>): List<R>? {
     val results: MutableList<R> = mutableListOf()
     for (item in sub) {
-      val parsed = item.read(s) ?: return notParsed // 若失败，此 Seq 立刻返回匹配失败
-      results.add(parsed) // 否则，把结果储存起来
+      val parsed = item.read(s) ?: return notParsed
+      // 若任何一项失败，此 Seq 立刻匹配失败
+      results.add(parsed)
+      // 否则，把结果储存起来，测试下一项
     }
     return results
   }
@@ -533,7 +543,7 @@ class Repeat_1<T, R>(private val item: Parser<T, R>): Parser<T, List<R>> {
     var lastResult: R
     do {
       lastResult = item.read(s) ?: break
-      lastResult.let(results::add)
+      lastResult?.let(results::add)
       //= if (lastResult != null) lastResult.let(results::add)
       //= if (lastResult != null) results.add(lastResult)
     } while (lastResult != notParsed)
@@ -542,7 +552,7 @@ class Repeat_1<T, R>(private val item: Parser<T, R>): Parser<T, List<R>> {
 }
 ```
 
-其实以上实现应该简化，但为了开开眼界，先这么写吧。
+其实以上实现很应该简化也用了<a href="#KotlinNullabilityOps">下文才提到的知识点</a>，但为了开开眼界，先这么写吧，看不懂可以等着看下文，不过你也可以试着分析写的有哪些莫名其妙的地方，给自己指出来。
 
 现在我们已经可以读取 `(a b c)` 和 `{a}` 这种模式了，可还剩下 `letter = [a-z]`、`Whitespace?` 没有实现。
 
@@ -565,8 +575,8 @@ object WhitespaceMay_1: Parser<Char, Unit> {
 object Name_1: Parser<Char, String> {
   override fun read(s: Feed<Char>): String? {
     return s.peekWhile_2 { it in 'a'..'z' }
-      .takeIf { it.isNotEmpty() }?
-      .let { it.joinToString("") }
+      .takeIf { it.isNotEmpty() }
+      ?.let { it.joinToString("") }
   }
 }
 ```
@@ -585,8 +595,8 @@ fun main() {
   println(something) //2
   something?.let { that_thing -> println(that_thing) } //2
   something?.let(::println) //2
-  something?.let { println(it) }
-  something?.let { it -> println(it) } // it argument can be implicit
+  something?.let { println(it) } //2
+  something?.let { it -> println(it) } //2 "it" argument can be implicit
   null?.let { _ -> error("This block is never called") }
 
   check(1.takeIf { it is Int } != null)
@@ -602,11 +612,33 @@ fun main() {
 
 看起来不好简化吧！它们是那么复杂，稍后等我们多做点其他方面的改进，再看看。
 
-接下来就是见证奇迹的时刻。
+接下来就是见证奇迹的时刻，我们刚才不是写了等价的 `StringFeed` 和 `SliceFeed` 吗？正好测试一下。
 
 ```kotlin
-fun main() {}
+fun main() {
+  val someWords = "Pinky Rainbow Applejack".toLowerCase()
+  // 毕竟我们还没准备好读大写名词，是吧？
+  val feed = IteratorFeed(someWords.iterator())
+
+  val feeds: List<Feed<Char>> = listOf(
+    IteratorFeed(someWords.iterator()),
+    StringFeed(someWords),
+    SliceFeed(slice(someWords))
+  )
+  feeds.forEach(::readWords)
+}
+// Input = {Whitespace? Word}
+val InputParser = Repeat_1(Seq_1(WhitespaceMay_1, Name_1))
+
+fun readWords(input: Feed<Char>) {
+  println(InputParser.read(input))
+}
 ```
+<div class="literateEnd"></div>
+
+来瓶香槟庆祝一下，🐮🍺 啊，虽然这还只是开始…… 其实连开始都算不算，但别灰心——万物都是从无到有的，什么时候开始都不晚。
+
+<div class="literateBegin" id="TalkIsCheapBut" depend="WTFCanUDo notParsed"></div>
 
 当然，许多编程语言的语法，都是可以被拆成『通用模式』和『通用模式的特化』而解析提取的，这样利用子程序<sub>sub-procedure</sub> 抽象出它们的读取方式，就能极大地方便解析器的编写过程。
 
@@ -635,8 +667,19 @@ fun <T, R> Parser<T, R>.surroundBy(prefix: Parser<T, *>, suffix: Parser<T, *>): 
 ```kotlin
 typealias Matcher<T> = Parser<T, *>
 ```
-
 <div class="literateEnd"></div>
+
+```kotlin
+TODO("jonBy")
+TODO("汉字数字读取")
+TODO("引入基本组合 then, contextual, toDefault")
+TODO("引入 Reducer 的设计")
+TODO("引入 Tuple 的设计")
+TODO("中缀链解析")
+TODO("Trie 动态关键字解析")
+TODO("引入 SourceLocation 和 MarkReset")
+TODO("引入 ErrorHandler 和 clamUntil")
+```
 
 ## 说点别的
 
