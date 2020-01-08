@@ -165,6 +165,10 @@ interface Parser<T, out R> {
 } // 本节仅阐述概念，不写实例了。
 ```
 
+~~`out` 在作为类型参数修饰符的时候表示此类型仅用于方法或属性的输出，`in` 在相同位置的时候则表示仅用于输入~~
+
+~~一般而言不加好像也没什么问题，但 `in`/`out` 提供了类型系统的类型兼容性(子类型)上的一些约束，从而允许更多样的使用方式，相关知识太多这里不能说清。~~
+
 而有的时候，我们只是想让 `Parser` 对输入的 `Feed` 进行一些操作如跳过空格，并不希望获得一个输出值，正如 Java 里 `void` 函数一样。
 
 使用 `Parser<Unit>` 的话，其中的 `read(Feed<T>):R` 就是 `read(Feed<T>):Unit` 了，刚刚好。（`kotlin.Unit` 这里类似 Java 的 `void`）
@@ -454,11 +458,88 @@ class SliceFeed<E>(private val slice: Slice<E>): Feed<E> {
 
 ## Talk is cheap, show me the code
 
+<div class="literateBegin" id="TalkIsCheap" depend="WTFCanUDo"></div>
+
 > + 上面我们早就知道要读取 3 个单词，可如果我们不知道，要怎么动态判断何时停止呢？
 > + 为了实现一个解析器，要写许多比这复杂许多倍的子程序，我们怎么解决那时代码的繁复性？
 > <br>__欲知方法如何，请看下节分解。__
 
-还记得我们之前对 `interface Parser` 的<a href="#Parser">定义</a>吗？
+还记得我们之前对 `interface Parser<T, R>` 的<a href="#Parser">定义</a>吗？
+
+还记得我们之前谈论的『模式<sub>pattern</sub>』吗？
+
+我们并不是生来就会『编程』、生来就能识文断字，那为什么后来又能『看懂』代码、读懂文章？
+
+靠的是『模式识别<sub>pattern recognition</sub>』，读多了自然懂得语法，再稍加分析和对应就学会了一门『语言』。
+
+有了模式，可以针对任何输入进行『模式匹配<sub>pattern matching</sub>』，好比把从几个模具里做出来的一堆冰块试着放回本来的模具，而这个过程只有两种结果——__成功(matched)__ 或 __失败(unmatched)__。
+
++ __成功__ 代表你把冰块放回了对的模具，你知道要对它做什么、需要它的哪些信息。
++ __失败__ 代表你又遇到了一个新的、不认识、不属于你的冰块，什么信息都拿不到。
+
+```kotlin
+val notParsed: Nothing? = null
+```
+
+`Boolean?` 的意思是除了原 `Boolean` 的 `true`、`false` 外还可以是 `null`，`Nothing?` 以此类推。
+
+实在不明白或者想再深入了解就去下面那个<a href="#WhatIsValue">值是什么</a>看看。
+
+当然，成功和失败都是对于『子解析器<sub>sub-parser</sub>』而非『整体解析过程』而言的，因为我们是要『组合解析器<sub>combined parser</sub>』。
+
+> 上面我们早就知道要读取 3 个单词，可如果我们不知道，要怎么动态判断何时停止呢？
+
+__答案很简单，那应该是一种抽象的模式，而不是某个特定的『读取』程序。__ 那时候那么写，只是为了方便你理解而已。
+
+```groovy
+for (_t in 1..3) {
+  println(readWhitespace(fruits2))
+  println(readName(fruits2))
+}
+```
+
+```plain
+Input = {Whitespace? Word}
+Word = {letter}
+letter = [a-z]
+```
+
+```kotlin
+/** 按顺序读取全部 [sub] 子解析器，
+  读取它们支持的 [T] 流(Feed)，收集子解析器的结果到 [R] 的 List */
+class Seq_1<T, R>(private vararg val sub: Parser<T, R>): Parser<T, List<R>> {
+}
+```
+
+当然，许多编程语言的语法，都是可以被拆成『通用模式』和『通用模式的特化』而解析提取的，这样利用子程序<sub>sub-procedure</sub> 抽象出它们的读取方式，就能极大地方便解析器的编写过程。
+
+比如，<a href="#SampleCode">开头的示例</a>用到了三种括号：`<a>`、`(a)`、`{a}`。
+
+括号的区分往往是为了语言的易读性，或是为了区分使用的子语法种类，我们在读取子语法本身过程中的目标其实是括号里的 `a`。
+
+这种『被包围』的文法，其实就是一种模式，我们可以为它创建一个子解析器：
+
+```kotlin
+fun <T, R> Parser<T, R>.surroundBy(prefix: Parser<T, *>, suffix: Parser<T, *>): Parser<T, R>
+= object: Parser<T, R> {
+  override fun read(s: Feed<T>): R? {
+    if (prefix.read(s) == notParsed) return notParsed
+    val innerResult = this@surroundBy.read(s)
+    if (suffix.read(s) == notParsed) return notParsed
+    return innerResult
+  }
+}
+```
+
+上面的 `Parser<T, *>` 表示『接受 `T` 流、返回结果是什么都可以的解析器』。
+
+我们给它起个名字叫 `Matcher`<sub>匹配器</sub>，因为它返回 `notParsed` 表示未匹配、返回其它任何值都表示匹配。
+
+```kotlin
+typealias Matcher<T> = Parser<T, *>
+```
+
+<div class="literateEnd"></div>
 
 ## 说点别的
 
@@ -502,6 +583,185 @@ export class Peek<T> implements Iterator<T> {
 这里，我们认为单个字符就是所谓的『终结符』，其实分出『词法分析』和『文法分析』阶段也可以不把单个字符视为『终结符』，事实上那个现在还更常用。
 
 Lex/Yacc style 说的就是 scanner/parser 词法/文法分析，分开的情况，当然对编译原理一般也可直接去掉对两个分析过程的隔离，这就是本文的 scanner-less parsing。
+
+### ~~值是什么~~
+
+> 如果你已经知道了 `Boolean?` 的意思是除了原 `Boolean` 的 `true`、`false` 外还可以是 `null`，
+并且对类型理论（虽然下面我也不想再谈太深刻的）不感兴趣，那接下来的全篇可以直接跳过。
+
+<div class="literateBegin" id="WhatIsValue"></div>
+
+```kotlin
+fun main() {
+```
+
+Kotlin 里，我们把所有 `Boolean`<sub>真假值</sub>、`Int`、`Float`<sub>浮点数</sub>、`Char`<sub>字</sub>、`String`<sub>文本</sub> 都称为『值<sub>value</sub>』。
+
+值，就是可以参加计算的东西，比如 `1+1` 的两个 `1` 是值，`(+)` 是接受两个值、返回一个值的计算子程序。
+
+```kotlin
+println(1+1) //2
+println(1.plus(1)) //2
+println(1 is Int) //true
+```
+
+对 `String` 也一样，大部分『静态类型』的编程语言都有一个重要特性——
+多态重载<sub>polymorphism overloading</sub>，其本质是<a href="#AboutPolymorphism">多态</a>，意味着一些不同的操作（计算）可以用相同的名字引用。
+
+```
+val name = "Alice"
+println("Hello " + name + ".") //Hello Alice.
+```
+
+一般我们会把类型<sub>type</sub> 视为属从它们值的集合，如 `Boolean` 包含 `true`、`false`，`Int` 包含 `1`、`42`、`(-3)` 等等。
+
+```kotlin
+val booleans: Set<Boolean> = setOf(true, false)
+val someNumber: List<Int> = listOf(1, 42, -3)
+```
+
+有些类型的所有可能值，也全都属从于另外一个类型——比如，所有 `Boolean` 都是 `Any`、所有 `Int` 也全都是 `Any`…… 也就是说，所有这些，都是『值』。
+
+```kotlin
+check(true is Any && false is Any)
+check(someNumber.all { it is Any })
+```
+
+……都是值，或者说是 `kotlin.Any` 的『子类型<sub>subtype</sub>』，换句话说，如果有一个操作，或者变量能接受 `Any`，那它势必能接受所有这些 `Boolean`、`Int`、……
+
+~~（这里 `kotlin.Any` 是一个带点号的名字，称为全称名<sub>qualified name</sub>，大概就是能把南极企鹅非洲企鹅分清的那个『全称』）~~
+
+```kotlin
+fun someOperation(value: Any) {
+  println("Value ${value.toString()} at ${value.hashCode()}")
+}
+check(::someOperation is (Any) -> Unit)
+
+for (num in someNumber) someOperation(num) // 给 (Any) -> Unit 以整数
+for (bool in booleans) someOperation(bool) // 给 (Any) -> Unit 以真假
+```
+
+__刚才我们看到的 `Nothing` 如果视作集合，是一个空集__，在 Kotlin 里，一个返回 `Nothing` 的子程序，实际上不可能返回，如 `System::exit`。
+
+也正因类型是 `Nothing` 的表达式实际求值时总是导致程序抛出异常，或直接退出而永远不能拿到它们的值，__它可以被认为是任何类型的子类型__，
+因为对类似 `fun operate(x: Nothing): WTF` 这样操作的实际调用根本不可能发生。
+
+`Nothing?` 乃至 _forall `T`._ `T?` 的意思是 `(T|null)`，表达一个类型，属从它的值可能是任意属从 `T` 的值或者 `null`，如 `Int?` 可以是 `1` 或 `null`。
+
+```kotlin
+check(1 is Int  && null !is Int)
+check(1 is Int? && null is Int?)
+```
+
+`p && q` 表示 `p 且 q`、`||` 则是「或」的意思，注意这里没有反向推导，但不代表计算机不能 [反向计算](https://codon.com/hello-declarative-world)。
+
+`Nothing` 是 `Nothing?` 的子类型，也可看作子集，所有 `Nothing` 的值都属从 `Nothing?`，所以所有接受 `Nothing?` 的地方也能被提供 `Nothing`。
+
+超集 `Nothing?` 就比 `Nothing` 多个 `null`。
+
+```kotlin
+} // 上面『值是什么』讲完了
+```
+
+如果有一个操作能输出 `Boolean`，那它输出的也即属从 `Any`，并且它本身也可以在任何需要函数类型 `() -> Any` 的地方被提供，`in`/`out` 也就是这个意思。~~这里不想再细讲了……~~
+
+```kotlin
+interface FunctionType<in T, out R>
+fun <T, R> FunctionType(_op: (T) -> R) = object: FunctionType<T, R> {}
+
+// "*" 在 out 的位置代表 Any?，任何类型的亲类型
+fun acceptCharSeq(someFunc: FunctionType<String, *>) {}
+// "*" 在 in 的位置代表 Nothing，任何类型的子类型
+fun resultNumber(someFunc: FunctionType<*, Number>) {}
+
+fun typeIsOkHere() {
+  check(Unit is Unit) // 叫 "Unit" 的既可能是一个值，也可能是一个类型（多态）
+  check((1 as Int) is Number) // Int 是 Number 的子类型
+  check(("emmm" as String) is CharSequence) // String 是 CharSequence 的子类型
+
+  // 如果一个函数能输出值属从 Number 的 Int，那它自然可以视为能输出 Number
+  // 所以，任何需要 () -> Number 的位置都可以提供一个 () -> Int
+  resultNumber(FunctionType<Unit, Int> { _: Unit -> 1 })
+
+  // 如果一个函数连 CharSequence 都能接受，那它自然能接受值属从 CharSequence 的 String
+  // 所以，任何需要 (String) -> * 的地方反而都可以给一个 (CharSequence) -> *
+  acceptCharSeq(FunctionType<CharSequence, Unit> { _: CharSequence -> println() })
+}
+```
+<div class="literateEnd"></div>
+
+#### 关于多态
+
+<div class="literateBegin" id="AboutPolymorphism"></div>
+
+```kotlin
+fun main() {
+```
+
+```kotlin
+println("hello " + "world") //hello world
+println(1 + 2) //3
+
+//println(String::plus) //fun kotlin.String.plus(kotlin.Any?): kotlin.String
+//val intPlus: (Int, Int) -> Int = Int::plus
+//println(intPlus) //fun kotlin.Int.plus(kotlin.Int): kotlin.Int
+```
+
+这里正好有个反例——许多数学子领域就没有这种特性，如集合论——有一些基础计算 交集、并集、补集。
+
+对于并集来说，很多人感觉它像是 `A+B`，集合论则是自己又创建了一套『数学操作符』。
+
+```kotlin
+// (∪) Union of sets
+println(setOf(1) + setOf(2)) //[1, 2]
+// (∩) Intersection of sets
+println(setOf("cat").intersect(setOf("mouse"))) //[]
+// ∁(A,B) Complement of A,B
+println(setOf("monkey", "apple", "banana") - setOf("monkey")) //[apple, banana]
+
+println('?' in "How are you Alice?") //true
+println(1 in 0..9) //true
+println(1 in setOf(6, 7)) //false
+```
+
+还有逻辑上的 且、或、非：
+
+```kotlin
+// (∧): Logical AND
+println(true and true) //true
+println(true and false) //false
+
+// (∨): Logical OR
+println(true or false) //true
+println(false or false) //false
+
+// ¬_: Logical NOT
+println(!true) //false
+println(!false) //true
+```
+
+在计算机和微电子领域常用二进制，也有叫『且、或』的二进制计算，我们称为『位运算<sub>bitwise operation</sub>』。
+
+```kotlin
+fun bitPrintln(i: Int) = println(i.toString(2))
+
+bitPrintln(0b01 and 0b10) //00
+bitPrintln(0b11 and 0b10) //10
+
+bitPrintln(0b11 or 0b00) //11
+bitPrintln(0b10 or 0b01) //11
+```
+
+（上文的 `0bXX` 是 Kotlin 里对二进制数值的一种写法）
+
+（当然，我们知道二进制、十进制实际上只是表达整数的『位置计数法』而已，数字的加减乘除运算、比较大小和相等性才是实际『数』的抽象，换算只存在于文本表示上）
+
+再谈下去就扯远了…… 现在还不是时候。
+
+```kotlin
+}
+```
+<div class="literateEnd"></div>
 
 ## 亲爱的 Literate Kotlin
 
