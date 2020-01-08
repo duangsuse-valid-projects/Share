@@ -159,6 +159,16 @@ class IteratorFeed<T>(private val iterator: Iterator<T>): Feed<T> {
 
 我们把接受一个 `Feed<T>`、返回某种 `R` 的东西称为『解析器』，因为它能够从 `T` 的序列里，提取出数据 `R`，比如从一串符号 `"123"` 里阅读出数值 `123`。
 
+```kotlin
+interface Parser<T, out R> {
+  fun read(s: Feed<T>): R
+} // 本节仅阐述概念，不写实例了。
+```
+
+而有的时候，我们只是想让 `Parser` 对输入的 `Feed` 进行一些操作如跳过空格，并不希望获得一个输出值，正如 Java 里 `void` 函数一样。
+
+使用 `Parser<Unit>` 的话，其中的 `read(Feed<T>):R` 就是 `read(Feed<T>):Unit` 了，刚刚好。（`kotlin.Unit` 这里类似 Java 的 `void`）
+
 这时候我们灵感突发：如果要读（也可跳过）空格怎么办？就是判断+读取、到预取不是空格为止啊！这样下一次、下一个解析器读取时，不就没空格了吗？
 
 但是仅仅对是不是空格的情况设计，太大材小用了，我们应该提取出数学命题，
@@ -172,13 +182,15 @@ typealias Predicate<T> = (T) -> Boolean
 ```kotlin
 fun <T> Feed<T>.peekWhile_1(predicate: Predicate<T>): List<T> {
   val satisfied: MutableList<T> = mutableListOf()
-  while (predicate(peek))
-    satisfied.add(consume())
+  while (predicate(peek)) // 重复若条件对某项成立
+    satisfied.add(consume()) // 把它取到列表里；检查下一项。
   return satisfied
 }
 ```
 
 （起名带 `_1` 是因为这不是最终版，下文皆是如此）
+
+### 读几个单词吧
 
 <div class="literateBegin" id="TryIteratorFeed" depend="WTFCanUDo"></div>
 
@@ -245,9 +257,9 @@ fun part3_ItWorksMaybe() {
   try {
     while (true) {
       println(readWhitespace_1(fruits))
-      //[ ] //[ ]
+      //[] //[ ] //[ ]
       println(readName_1(fruits))
-      //[b, l, u, e, b, e, r, r, y] //Done.
+      //[a, p, p, l, e] //[b, l, u, e, b, e, r, r, y] //Done.
     }
   } catch (_: Feed.End) {
     println("Done.")
@@ -256,9 +268,11 @@ fun part3_ItWorksMaybe() {
 fun readWhitespace_1(feed: Feed<Char>) = feed.peekWhile_1 { it == ' ' }
 ```
 
-（读那个 `// [ ] // [ ]` 的时候请注意你读错了，是从上往下、从左往右读）
+（读那个 `// [] // [ ]` 的时候请注意你读错了，是从上往下、从左往右读）
 
-我们直接循环读取了，因为余下 `" blueberry cucumber"` 正好是 `{ws Word}` 的形式。（组合出一个用来读取的『解析子程序』）
+我们直接循环（重复）读取了，因为余下 `" blueberry cucumber"` 正好是 `{ws Word}` 的形式。
+
+（其实，这就组合出了一个用来读取的『解析子程序』）
 
 这里 `ws` 是 `Whitespace` 的意思，一般而言 `Whitespace` 和 `Newline` 是非常特殊的字符，所以我给起的名字也很特殊。
 
@@ -276,6 +290,8 @@ fun <T> Feed<T>.peekWhile_2(predicate: Predicate<T>): List<T> {
 }
 ```
 
+~~具体的原因是 `peekWhile_1` 在判断并添加 `"cucumber"` 最后一个 `'r'` 后，我们的 `Feed` 会再多给出一次 `'r'`，但这个 `r` 在 `consume()` 时会抛异常代表它实际上不存在、不可取。~~
+
 最后我们终于得到了一个成品，
 
 ```kotlin
@@ -283,23 +299,31 @@ fun part4_FinalParser() {
   val fruits2 = IteratorFeed(FRUITY_STRING.iterator())
   for (_t in 1..3) {
     println(readWhitespace(fruits2))
+    //[] //[ ] //[ ]
     println(readName(fruits2))
+    //[a, p, p, l, e] //[b, l, u, e, b, e, r, r, y] //[c, u, c, u, m, b, e, r]
   }
 }
 fun readWhitespace(feed: Feed<Char>) = feed.peekWhile_2 { it == ' ' }
 fun readName(feed: Feed<Char>): List<Char> = feed.peekWhile_2 { it in 'a'..'z' }
 ```
-
-正常多了，可是我们得到的 `['a', 'p', 'p', ...]` 和原来的 `"apple"` 完全不是一个东西，怎么处理？
-
-为了实现一个解析器要写许多比这复杂许多倍的子程序，我们怎么解决那时代码的繁复性？
 <div class="literateEnd"></div>
+
+正常多了，可是我们得到的 `[a, p, p, l, e]`（一个字符列表）和原来的 `"apple"` 完全不是一个东西，怎么处理？
 
 > 其实可以用 `a_p_p_l_e.joinToString("")` 拼回原名，但下节内容远远不止于这一点。
 
+上面我们已经知道有 3 个单词，可如果我们不知道，要怎么动态判断何时停止呢？
+
+现在没异常了，只能判断 `peekWhile` 取到的列表是否为空啊！要定义新变量，真麻烦……
+
+为了实现一个解析器，要写许多比这复杂许多倍的子程序，我们怎么解决那时代码的繁复性？
+
 __欲知方法如何，请看下节分解。__
 
-下面是一些关于本节内容定义的辅助类，其含义请自己扩散思维，举例理解。
+### 给 `Feed` 的一些辅助类
+
+下面是一些关于本节内容定义的辅助类，其含义及食用方式请自己扩散思维，举例理解。
 
 ```kotlin
 fun <T> T.rawItem(): String = toString().escape().let {
@@ -344,20 +368,18 @@ class StringFeed(private val seq: CharSequence): Feed<Char> {
 
 但 `consume()` 完最后一项后如何 `throw Feed.End()` 呢？答案是，只要保护住 `peek` 在正好 `position=lastIndex+1` 时不抛，`consume()` 自然会在稍后抛出异常的，捕获住统一化就好了。
 
-思路不错，可是只能解决字符串读取的问题，如果要写一个 `Array<out String>` 的解析器呢？于是我们可以抽象出一个 `Slice`。
+思路不错，可是只能解决字符串读取的问题，如果要写一个 `Array<out String>` 的解析器呢？
+
+其实它们有个共同点，就是都类似于列表，于是我们可以抽象出一个 `Slice<E>`。
 
 ```kotlin
-typealias Cnt = Int // counted
 typealias Idx = Int // index number
-
-interface Sized {
-  val size: Cnt
-}
-val Sized.isEmpty get() = size == 0
-val Sized.isNotEmpty get() = size != 0
-val Sized.lastIndex get() = size.dec()
-val Sized.indices get() = 0..lastIndex
+typealias Cnt = Int // counted number like length, size
 ```
+
+上面引入一些优化代码可读性的类型别名<sub>typealias</sub>
+
+我们认为，任何有『索引』的东西都有『大小』也即属于 `Sized`。
 
 ```kotlin
 interface Slice<out E>: Sized {
@@ -365,7 +387,30 @@ interface Slice<out E>: Sized {
 }
 ```
 
+它依赖的类型 `Sized` 定义如下：
+
+```kotlin
+interface Sized {
+  val size: Cnt
+}
+```
+
+自然可以弄出许多类似 `kotlin.collection.List` 上的扩展属性<sub>extension property</sub>
+
+```kotlin
+val Sized.isEmpty get() = size == 0
+val Sized.isNotEmpty get() = size != 0
+val Sized.lastIndex get() = size.dec()
+val Sized.indices get() = 0..lastIndex
+```
+
 当然，我们也可以扩展出 `MutableSlice<E>` 或者带 `operator fun get(indices: IntRange): Slice<E>` 的 `Slice<E>`，但这里没有任何必要。
+
+记住，编程只在必要时引入对问题的解决方案，尽可能把和特有逻辑无关的东西放在别处，不能都混在一起。
+
+换句话说，能够泛化<sub>generialize</sub>的东西要懂得泛化，表述有主次有结构，
+这也是泛型<sub>generics</sub>或者说参数化多态<sub>parametric polymorphism</sub>、闭包<sub>closure</sub>、
+协程<sub>coroutine</sub>、序列<sub>sequences</sub>乃至高级程序设计语言本身设计最重要的理念。
 
 ```kotlin
 fun slice(char_seq: CharSequence): Slice<Char> = object: Slice<Char> {
@@ -382,7 +427,7 @@ fun <E> slice(list: List<E>): Slice<E> = object: Slice<E> {
 }
 ```
 
-这样就可以写出能够兼容更多 `ArrayLike`（有 `size` 和 `get` 而可随机访问的数据结构）的输入 `Feed` 了。
+这样就可以写出能够兼容更多 `ArrayLike`（有 `size` 和 `get` 而可随机访问的数据结构）的输入，而不仅仅 `StringFeed` 了。
 
 ```kotlin
 class SliceFeed<E>(private val slice: Slice<E>): Feed<E> {
@@ -395,7 +440,7 @@ class SliceFeed<E>(private val slice: Slice<E>): Feed<E> {
 }
 ```
 
-于是我们就有了 `IteratorFeed` 和 `SliceFeed`，可以实现普通解析器和类似 browser console 的 REPL。
+于是我们就有了 `IteratorFeed` 和 `SliceFeed`，可以实现普通文件解析器和类似 browser console 的 REPL。
 
 注：REPL = Read-Eval-Print-Loop，或者说交互式解释环境。
 
@@ -409,7 +454,7 @@ class SliceFeed<E>(private val slice: Slice<E>): Feed<E> {
 export class Peek<T> implements Iterator<T> {
   iter: Iterator<T>
   last: IteratorResult<T>
-  //...
+  //...hasPeek, peek
   next() {
     let oldLast = this.last;
     this.last = this.iter.next();
@@ -418,17 +463,21 @@ export class Peek<T> implements Iterator<T> {
 }
 ```
 
-这里的实现对 `peek` 来说不是很严谨，因为最后一次 `iterator` 终末取不到 `next()` 时，会直接保留最后一个 `peek`，不过不要紧，因为 `consume()` 的时候会抛异常。
+这里的实现对 `peek` 来说不是很严谨，因为最后一次 `iterator` 终末取不到 `next()` 时，会直接保留最后一个 `peek`，不过不要紧，因为 `consume()` 的时候会抛异常，上面也说了。
+
+### 关于『阅读法』
 
 这篇文章里教的阅读法就是所谓的『自顶向下』，因为它早就知道应该读什么结构，『顶』的实际含义是我们最开始阅读的规则、『向下』是“往单个字符读”的意思。
 
 对应的是『自底向上』，那就有点像一个侦探了，开始不知道会给自己哪种情况的输入，随着自己的记忆和蛛丝马迹慢慢发现匹配的文法规则，一般这种都涉及数据栈而且均非手写（太难了）。
 
+写能手写的，并把它写好是本分，写不能手写的是艺术，~~把能手写的写得跟机器生成的一样，是个人才。~~
+
 这个阅读法其实依靠 Kotlin 对递归的支持，也是可以阅读其中可能包含自身引用规则的。如 `Accept = Something "->" Accept`。
 
-总而言之，就叫『递归下降法<sub>recursive descent method</sub>』。
+总而言之，就叫『递归下降法<sub>recursive descent method</sub>』，相当知名的序列解析算法。Lua 等程序设计语言官方实现即采用递归下降实现文法处理部分。
 
-在文法推导里的非终结符<sub>non-terminal</sub>的名字，上文采用 `Capitalized` 形式。
+在文法推导里的非终结符<sub>non-terminal</sub>的名字，上文采用 `Capitalized` 形式，除了 `ws` 和 `newline`，上面也说了。
 
 终结符<sub>terminal</sub>的名字都是 `snake_cased` 形式。
 
@@ -436,7 +485,9 @@ export class Peek<T> implements Iterator<T> {
 
 其实也不一定，只要不能再被视作其它项继续阅读就可以。如 `Fruits => Apple` 的 `Fruits` 显然不是终结符，而 `Apple` 不是由其它项构成，是原子<sub>atom</sub>项，所以是终结符。
 
-这里，我们认为单个字符就是所谓的『终结符』，其实分出『词法分析』和『文法分析』阶段也可以，事实上那个还更常用。
+这里，我们认为单个字符就是所谓的『终结符』，其实分出『词法分析』和『文法分析』阶段也可以不把单个字符视为『终结符』，事实上那个现在还更常用。
+
+Lex/Yacc style 说的就是 scanner/parser 词法/文法分析，分开的情况，当然对编译原理一般也可直接去掉对两个分析过程的隔离，这就是本文的 scanner-less parsing。
 
 ## 亲爱的 Literate Kotlin
 
