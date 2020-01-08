@@ -606,9 +606,9 @@ println(1 is Int) //true
 ```
 
 对 `String` 也一样，大部分『静态类型』的编程语言都有一个重要特性——
-多态重载<sub>polymorphism overloading</sub>，其本质是<a href="#AboutPolymorphism">多态</a>，意味着一些不同的操作（计算）可以用相同的名字引用。
+多态重载<sub>overloading</sub>，其本质是<a href="#AboutPolymorphism">多态</a>，意味着一些不同的操作（计算）可以用相同的名字引用。
 
-```
+```kotlin
 val name = "Alice"
 println("Hello " + name + ".") //Hello Alice.
 ```
@@ -642,6 +642,16 @@ for (bool in booleans) someOperation(bool) // 给 (Any) -> Unit 以真假
 ```
 
 __刚才我们看到的 `Nothing` 如果视作集合，是一个空集__，在 Kotlin 里，一个返回 `Nothing` 的子程序，实际上不可能返回，如 `System::exit`。
+
+```kotlin
+fun impossible(): Nothing = throw IllegalStateException()
+lateinit var cantBeGot: Nothing
+try { cantBeGot = impossible() }
+catch (_: Exception) { println("See? Isn't any value here.") }
+
+try { System.exit(throw IllegalStateException()) }
+catch (_: Exception) { println("See? System::exit isn't called actually.") }
+```
 
 也正因类型是 `Nothing` 的表达式实际求值时总是导致程序抛出异常，或直接退出而永远不能拿到它们的值，__它可以被认为是任何类型的子类型__，
 因为对类似 `fun operate(x: Nothing): WTF` 这样操作的实际调用根本不可能发生。
