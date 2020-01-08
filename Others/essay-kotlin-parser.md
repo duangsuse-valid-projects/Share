@@ -54,6 +54,7 @@ fun main() {
 这是一些比较泛泛而抽象的表达，但还需要一些具体一点的，如，
 
 + `"abc"` 表示字符序列，注意这里我们把 `1`、`+` 什么的也视为字符
++ `'a'` 代表单一字符
 + `[`...`]` 代表一个字符，这字符可能是其中任意字符里的一个
 + `a-z` 在 `[]` 里表示 `abcdef`...`z` 所有这些字符
 + `a b c` 里的空格代表 `{" "}?`，或者说可能有一些空格
@@ -68,33 +69,25 @@ fun <K, E> Iterable<E>.hist(key: (E) -> K): Map<K, List<E>> {}
 ```
 
 ```plain
-Fun = "fun" TypeParameters (Type "." Name) FormalParameters ":" Type Block
-TypeParameters = "<" Name {"," Name}? ">"
-FormalParameters = "(" NameType? {"," NameType}? ")"
-NameType = Name ":" Type
-Name = ( [A-Za-z] {[A-Za-z0-9_]}? )
-  |( [A-Za-z_] {[A-za-z0-9_]}? [A-za-z0-9] {[A-za-z0-9_]}?)
+Fun = "fun" TypeParameters (Type '.' Name) FormalParameters ':' Type Block
+TypeParameters = '<' Name {',' Name}? '>'
+FormalParameters = '(' NameType? {',' NameType}? ')'
+NameType = Name ':' Type
 ```
 
-那个 `Name {"," Name}?` 是一个比较通用的模式关于 `Name` 的实例，
-表达 `SomeName`、`Bananas, Apples, ...` 那种情况。注意其中 `Bananas` 什么的都是某种 `Name`。
+那个 `Name {',' Name}?` 是一个比较通用的模式关于 `Name` 的实例，
+表达 `SomeName` 及 `Bananas, Apples` 这种逗号切分列表情况。注意其中 `Bananas` 什么的都是某种 `Name`。
 
-然后那个 `Name` 定义有点复杂，是因为 `_, __, ___` 这样全下划线的名字不能用，而且名字不能以 `0-9` 开头，是吧。
-
-其实我们是这个意思，
+对于 `Name` 的定义有点复杂，是因为 `_, __, ___` 这样全下划线的名字不能用，而且名字不能以 `0-9` 开头。
 
 ```plain
-Name = ( letter {letterDigit|underscore}? )
-  |( underscore {underscore}? letterDigit {underscore}? )
+Name = (letter{letterDigit|underscore}?)
+  | (underscore{underscore}?letterDigit{letterDigit|underscore}?)
 underscore = '_'
 letter = [a-zA-Z]
 digit = [0-9]
 letterDigit = letter|digit
 ```
-
-~~对 `Name` 读取的实现上会有点问题——`{[A-Za-z0-9_]}?` 已经覆盖了它后面 `[A-Za-z0-9]` 的情况，这是极端个例，也不是不能直接在定义层面解决，你看上面不是解决了么。~~
-
-~~对于 `[abc] [ab]` 这样顺序出现，但前 `[abc]` 覆盖了 `[ab]` 而只多一个 `[c]` 的，也就是 `SetSubtract([abc], [ab]) = [c]`，一般是写错了。~~
 
 然后我们可以看看 `Type`，这里有三个 case（情况）
 
@@ -105,9 +98,12 @@ letterDigit = letter|digit
 我们看到第三种情况就很显眼地需要读另一个相同形式的 `Type`。
 
 ```plain
-Type = Name   -- E, K
-  | Name "<" Type {"," Type}? ">"
-  | "(" Name {"," Name}? ")" "->" Type
+Type = Name   -- T, E, K, V, ...
+  | (Name angleL Type {comma Type}? angleR)
+  | (parenL Name {comma Name}? parenR "->" Type)
+comma = ','
+angleL = '<'; angleR = '>'
+parenL = '('; parenR = ')'
 ```
 
 定义完了，如果你很好奇 `Map<K, List<E>>` 怎么读，就是在 `L` 这个字符的时候继续等待读另一个 `Type` 的结果嘛。
@@ -116,7 +112,7 @@ Type = Name   -- E, K
 Block = "TODO"
 ```
 
-明天再说 `Block` 是什么样子的。
+待会再定义 `Block` 是什么样子的，现在为时尚早。
 
 ## 那么你还能干什么呢
 
