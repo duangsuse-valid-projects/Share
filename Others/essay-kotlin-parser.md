@@ -126,7 +126,7 @@ Block = "TODO"
 
 不过，这里我们想得更前卫，完全使用泛型抽提接受的输入流类型。
 
-不仅仅这样，我们还利用异常系统而不允许直接判断是否 `hasPeek` ，这有点类似 Python 和 Ruby 的 `StopIteration` 异常。
+不仅仅这样，我们还利用异常系统而不允许直接判断是否 `hasPeek`，有点类似 Python 和 Ruby 的 `StopIteration`。
 
 ```kotlin
 interface Feed<out T> {
@@ -136,7 +136,9 @@ interface Feed<out T> {
 }
 ```
 
-为了让子程序可以判断是否接受某字符开头的词、不接受也不影响别人判断，如对模式 `"apple"|"blueberry"|"cucumbre"`，我们把对数据的读取分为两部分——预取<sub>peek</sub>和消耗<sub>consume</sub>，预取仅用于判断是否接受字符，且消耗时如果输入已经结束，抛下一个异常。
+为了让子程序可以判断是否接受某字符开头的词、不接受也不影响别人判断，如对模式 `("apple"|"blueberry"|"cucumber")`，
+我们把对数据的读取分为两部分——预取<sub>peek</sub>和消耗<sub>consume</sub>，
+预取仅用于判断是否接受字符，消耗时如果输入已经结束，抛下一个异常。
 
 ```kotlin
 class IteratorFeed<T>(private val iterator: Iterator<T>): Feed<T> {
@@ -159,10 +161,15 @@ class IteratorFeed<T>(private val iterator: Iterator<T>): Feed<T> {
 
 这时候我们灵感突发：如果要读（也可跳过）空格怎么办？就是判断+读取、到预取不是空格为止啊！这样下一次、下一个解析器读取时，不就没空格了吗？
 
-但是仅仅对是不是空格的情况设计，大材小用了，我们应该提取出数学命题——不过是它的简化版，我们称之为『谓词』，比如 `我(主)爱(谓)你(宾)`，这是一个可以照变量 _你、我_ 判断真假的「爱」命题：`Predicate<PairPerson>`。
+但是仅仅对是不是空格的情况设计，太大材小用了，我们应该提取出数学命题，
 
 ```kotlin
 typealias Predicate<T> = (T) -> Boolean
+```
+
+——不过是它的简化版，我们称之为『谓词』或者说『条件』，比如 `我(主)爱(谓)你(宾)`，那是一个可以照变量 _你、我_ 判断真假的「爱」命题。
+
+```kotlin
 fun <T> Feed<T>.peekWhile_1(predicate: Predicate<T>): List<T> {
   val satisfied: MutableList<T> = mutableListOf()
   while (predicate(peek))
@@ -171,7 +178,7 @@ fun <T> Feed<T>.peekWhile_1(predicate: Predicate<T>): List<T> {
 }
 ```
 
-（起名带 `_1` 是因为这不是最终版）
+（起名带 `_1` 是因为这不是最终版，下文皆是如此）
 
 <div class="literateBegin" id="TryIteratorFeed" depend="WTFCanUDo"></div>
 
@@ -183,7 +190,7 @@ val fruits = IteratorFeed(FRUITY_STRING.iterator())
 ```
 
 ```kotlin
-// 待会 A, B 部分要用
+// 待会 A, B 部分要用，现在不必理解
 fun readName_1(feed: Feed<Char>): List<Char> = feed.peekWhile_1 { it in 'a'..'z' }
 ```
 <div class="literateEnd"></div>
@@ -249,9 +256,11 @@ fun part3_ItWorksMaybe() {
 fun readWhitespace_1(feed: Feed<Char>) = feed.peekWhile_1 { it == ' ' }
 ```
 
+（读那个 `// [ ] // [ ]` 的时候请注意你读错了，是从上往下、从左往右读）
+
 我们直接循环读取了，因为余下 `" blueberry cucumber"` 正好是 `{ws Word}` 的形式。（组合出一个用来读取的『解析子程序』）
 
-这里 `ws` 是 `Whitespace` 的意思，一般而言 `Whitespace` 和 `Newline` 是非常特殊的字符。
+这里 `ws` 是 `Whitespace` 的意思，一般而言 `Whitespace` 和 `Newline` 是非常特殊的字符，所以我给起的名字也很特殊。
 
 等等…… 如果读完 `cucumber` 再读 `ws` 已经失败了会怎么样？会抛出 `Feed.End` 异常啊，于是我们这不是处理了吗？看看。
 
@@ -281,36 +290,39 @@ fun readWhitespace(feed: Feed<Char>) = feed.peekWhile_2 { it == ' ' }
 fun readName(feed: Feed<Char>): List<Char> = feed.peekWhile_2 { it in 'a'..'z' }
 ```
 
-正常多了，可是我们得到的 `['a', 'p', 'p', ...]` 和原来的 `"apple"` 完全不是一个东西，怎么处理？为了实现一个解析器要写许多比这复杂许多倍的子程序，我们怎么解决？
+正常多了，可是我们得到的 `['a', 'p', 'p', ...]` 和原来的 `"apple"` 完全不是一个东西，怎么处理？
+
+为了实现一个解析器要写许多比这复杂许多倍的子程序，我们怎么解决那时代码的繁复性？
 <div class="literateEnd"></div>
 
 > 其实可以用 `a_p_p_l_e.joinToString("")` 拼回原名，但下节内容远远不止于这一点。
 
-欲知方法如何，请看下节分解。
+__欲知方法如何，请看下节分解。__
 
 下面是一些关于本节内容定义的辅助类，其含义请自己扩散思维，举例理解。
 
 ```kotlin
 fun <T> T.rawItem(): String = toString().escape().let {
-  if (it.length == 1) it.surround("'", "'") else it.surround("\"", "\"")
+  if (it.length == 1) it.surround("'", "'")
+  else it.surround("\"", "\"")
 }
 fun String.escape(): String = translate(KOTLIN_ESCAPE)
 fun String.translate(map: Map<Char, Char>, prefix: Char = '\\'): String = fold (StringBuilder()) { acc, c ->
   map[c]?.let { acc.append(prefix).append(it) } ?: acc.append(c) }.toString()
+
 val KOTLIN_ESCAPE = mapOf( // \t\b\n\r\"\'\$\\
-  '\t' to 't',
-  '\b' to 'b',
-  '\n' to 'n',
-  '\r' to 'r',
-  '"' to '"',
-  '\'' to '\'',
+  '\t' to 't', '\b' to 'b',
+  '\n' to 'n', '\r' to 'r',
+  '"' to '"', '\'' to '\'',
   '$' to '$',
   '\\' to '\\'
 )
-fun String.surround(begin: String, end: String): String = begin+this+end
+fun String.surround(prefix: String, suffix: String): String = prefix+this+suffix
 ```
 
 上面的 `escape`、`translate` 是定义着玩的，不要用它实际组织输出 Kotlin 代码，不兼容的（虽然兼容也不用再改太多，只要 `Map<Char, (Char) -> String>` 足矣）。
+
+下面是另一种基于 `CharSequence` 的 `Feed<Char>` 实现：
 
 ```kotlin
 class StringFeed(private val seq: CharSequence): Feed<Char> {
@@ -322,7 +334,11 @@ class StringFeed(private val seq: CharSequence): Feed<Char> {
 }
 ```
 
-> 至于为什么要 `try catch` 两次，考虑一下 `seq="abc", position=2` 也即指在 `'c'`，`consume()` 时得到 `'c'`，但下一次 `position=3` getPeek 就会抛出异常，而我们认为 `peek` 不能抛出异常。
+注：一般而言基于控制结构的编程 `i++` 不是好实践方式，它与 `++i` 一样，都会顺带让 `i=i+1`，
+~~但 `i=0; xs[i++]` 是 `xs[0]`、`i=0; xs[++i]` 则是 `xs[1]`。~~
+
+> 至于为什么要两个 `try catch`，考虑一下 `seq="abc", position=2` 也即指在 `'c'`，
+`consume()` 时得到 `'c'`，但下一次 `position=3` getPeek 就会抛出异常，而我们认为 `peek` 不能抛出异常。
 
 如果我们把 `peek` 抛出的异常捕获，它就不会把异常直接抛给使用它的算法了（没有 `hasPeek():Boolean` 真麻烦！）
 
@@ -331,8 +347,8 @@ class StringFeed(private val seq: CharSequence): Feed<Char> {
 思路不错，可是只能解决字符串读取的问题，如果要写一个 `Array<out String>` 的解析器呢？于是我们可以抽象出一个 `Slice`。
 
 ```kotlin
-typealias Cnt = Int
-typealias Idx = Int
+typealias Cnt = Int // counted
+typealias Idx = Int // index number
 
 interface Sized {
   val size: Cnt
@@ -340,6 +356,7 @@ interface Sized {
 val Sized.isEmpty get() = size == 0
 val Sized.isNotEmpty get() = size != 0
 val Sized.lastIndex get() = size.dec()
+val Sized.indices get() = 0..lastIndex
 ```
 
 ```kotlin
@@ -377,6 +394,10 @@ class SliceFeed<E>(private val slice: Slice<E>): Feed<E> {
     catch (_: IndexOutOfBoundsException) { throw Feed.End() }
 }
 ```
+
+于是我们就有了 `IteratorFeed` 和 `SliceFeed`，可以实现普通解析器和类似 browser console 的 REPL。
+
+注：REPL = Read-Eval-Print-Loop，或者说交互式解释环境。
 
 <div class="literateEnd"></div>
 
