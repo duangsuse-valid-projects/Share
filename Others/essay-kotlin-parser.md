@@ -157,11 +157,11 @@ class IteratorFeed<T>(private val iterator: Iterator<T>): Feed<T> {
 }
 ```
 
-我们把接受一个 `Feed<T>`、返回某种 `R` 的东西称为『解析器』，因为它能够从 `T` 的序列里，提取出数据 `R`，比如从一串符号 `"123"` 里阅读出数值 `123`。
+我们把接受一个 `Feed<T>`、返回某种 `R` 的东西称为『<a id="Parser">解析器</a>』，因为它能够从 `T` 的序列里，提取出数据 `R`，比如从一串符号 `"123"` 里阅读出数值 `123`。
 
 ```kotlin
 interface Parser<T, out R> {
-  fun read(s: Feed<T>): R
+  fun read(s: Feed<T>): R?
 } // 本节仅阐述概念，不写实例了。
 ```
 
@@ -313,9 +313,13 @@ fun readName(feed: Feed<Char>): List<Char> = feed.peekWhile_2 { it in 'a'..'z' }
 
 > 其实可以用 `a_p_p_l_e.joinToString("")` 拼回原名，但下节内容远远不止于这一点。
 
-上面我们已经知道有 3 个单词，可如果我们不知道，要怎么动态判断何时停止呢？
+上面我们早就知道要读取 3 个单词，可如果我们不知道，要怎么动态判断何时停止呢？
 
 现在没异常了，只能判断 `peekWhile` 取到的列表是否为空啊！要定义新变量，真麻烦……
+
+还有，我们在读空格的时候和读名字的时候用的都是 `peekWhile`，但谈到『读取是否成功』，对空格来说返回列表 `[]` 也是成功的，对名字来说 `[]` 却表示失败！
+
+我们可以把这种判断『硬编码』在程序里，但那样会让代码更难看、更不规范。
 
 为了实现一个解析器，要写许多比这复杂许多倍的子程序，我们怎么解决那时代码的繁复性？
 
@@ -343,6 +347,8 @@ val KOTLIN_ESCAPE = mapOf( // \t\b\n\r\"\'\$\\
 )
 fun String.surround(prefix: String, suffix: String): String = prefix+this+suffix
 ```
+
+关于转义符，请参阅 [Kotlin Grammar: EscapedIdentifier](https://kotlinlang.org/docs/reference/grammar.html#EscapedIdentifier)。
 
 上面的 `escape`、`translate` 是定义着玩的，不要用它实际组织输出 Kotlin 代码，不兼容的（虽然兼容也不用再改太多，只要 `Map<Char, (Char) -> String>` 足矣）。
 
@@ -445,6 +451,14 @@ class SliceFeed<E>(private val slice: Slice<E>): Feed<E> {
 注：REPL = Read-Eval-Print-Loop，或者说交互式解释环境。
 
 <div class="literateEnd"></div>
+
+## Talk is cheap, show me the code
+
+> + 上面我们早就知道要读取 3 个单词，可如果我们不知道，要怎么动态判断何时停止呢？
+> + 为了实现一个解析器，要写许多比这复杂许多倍的子程序，我们怎么解决那时代码的繁复性？
+> <br>__欲知方法如何，请看下节分解。__
+
+还记得我们之前对 `interface Parser` 的<a href="#Parser">定义</a>吗？
 
 ## 说点别的
 
