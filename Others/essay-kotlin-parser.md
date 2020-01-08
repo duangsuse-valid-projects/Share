@@ -245,7 +245,7 @@ fun part2_WhyCantSkipWhites() {
 但，这其实是正常情况，如果不是这样，要读取空格的时候与代码命名等搞混，岂不是会出错？
 <div class="literateEnd"></div>
 
-<div class="literateBegin" id="TryIteratorFeed-B" depend="TryIteratorFeed"></div>
+<div class="literateBegin" id="TryIteratorFeed-B" depend="TryIteratorFeed PeekWhile-2"></div>
 
 那么怎么解决这个问题呢？答案是，跳过我们不需要的空格。
 
@@ -282,17 +282,7 @@ fun readWhitespace_1(feed: Feed<Char>) = feed.peekWhile_1 { it == ' ' }
 
 等等…… 如果读完 `cucumber` 再读 `ws` 已经失败了会怎么样？会抛出 `Feed.End` 异常啊，于是我们这不是处理了吗？看看。
 
-好像有点不对？`cucumber` 去哪了？噢…… 原来我们还没给 `peekWhile` 加上异常处理，加上就好了：
-
-```kotlin
-fun <T> Feed<T>.peekWhile_2(predicate: Predicate<T>): List<T> {
-  val satisfied: MutableList<T> = mutableListOf()
-  while (predicate(peek))
-    try { satisfied.add(consume()) }
-    catch (_: Feed.End) { break }
-  return satisfied
-}
-```
+好像有点不对？`cucumber` 去哪了？噢…… 原来我们还没给 `peekWhile` 加上异常处理，<a href="#PeekWhile-2">加上</a>就好了。
 
 ~~具体的原因是 `peekWhile_1` 在判断并添加 `"cucumber"` 最后一个 `'r'` 后，我们的 `Feed` 会再多给出一次 `'r'`，但这个 `r` 在 `consume()` 时会抛异常代表它实际上不存在、不可取。~~
 
@@ -310,6 +300,19 @@ fun part4_FinalParser() {
 }
 fun readWhitespace(feed: Feed<Char>) = feed.peekWhile_2 { it == ' ' }
 fun readName(feed: Feed<Char>): List<Char> = feed.peekWhile_2 { it in 'a'..'z' }
+```
+<div class="literateEnd"></div>
+
+<div class="literateBegin" id="PeekWhile-2" depend="WTFCanUDo"></div>
+
+```kotlin
+fun <T> Feed<T>.peekWhile_2(predicate: Predicate<T>): List<T> {
+  val satisfied: MutableList<T> = mutableListOf()
+  while (predicate(peek))
+    try { satisfied.add(consume()) }
+    catch (_: Feed.End) { break }
+  return satisfied
+}
 ```
 <div class="literateEnd"></div>
 
@@ -458,7 +461,7 @@ class SliceFeed<E>(private val slice: Slice<E>): Feed<E> {
 
 ## Talk is cheap, show me the code
 
-<div class="literateBegin" id="TalkIsCheap" depend="WTFCanUDo"></div>
+<div class="literateBegin" id="TalkIsCheap" depend="WTFCanUDo PeekWhile-2"></div>
 
 > + 上面我们早就知道要读取 3 个单词，可如果我们不知道，要怎么动态判断何时停止呢？
 > + 为了实现一个解析器，要写许多比这复杂许多倍的子程序，我们怎么解决那时代码的繁复性？
@@ -504,11 +507,105 @@ Word = {letter}
 letter = [a-z]
 ```
 
+我们来实现对 `(Whitespace? Word)` 这类模式的读取。
+
 ```kotlin
 /** 按顺序读取全部 [sub] 子解析器，
   读取它们支持的 [T] 流(Feed)，收集子解析器的结果到 [R] 的 List */
 class Seq_1<T, R>(private vararg val sub: Parser<T, R>): Parser<T, List<R>> {
+  override fun read(s: Feed<T>): List<R>? {
+    val results: MutableList<R> = mutableListOf()
+    for (item in sub) {
+      val parsed = item.read(s) ?: return notParsed // 若失败，此 Seq 立刻返回匹配失败
+      results.add(parsed) // 否则，把结果储存起来
+    }
+    return results
+  }
 }
+```
+
+再实现对 `{a}` 这类模式的读取。
+
+```kotlin
+class Repeat_1<T, R>(private val item: Parser<T, R>): Parser<T, List<R>> {
+  override fun read(s: Feed<T>): List<R> {
+    val results: MutableList<R> = mutableListOf()
+    var lastResult: R
+    do {
+      lastResult = item.read(s) ?: break
+      lastResult.let(results::add)
+      //= if (lastResult != null) lastResult.let(results::add)
+      //= if (lastResult != null) results.add(lastResult)
+    } while (lastResult != notParsed)
+    return results
+  }
+}
+```
+
+其实以上实现应该简化，但为了开开眼界，先这么写吧。
+
+现在我们已经可以读取 `(a b c)` 和 `{a}` 这种模式了，可还剩下 `letter = [a-z]`、`Whitespace?` 没有实现。
+
+对于 `Whitespace?`，先不直接实现泛化的 `a?` 读取器，因为我们早就知道怎么读 `Whitespace = {whitespace}` 了，直接写吧。
+
+```kotlin
+object WhitespaceMay_1: Parser<Char, Unit> {
+  override fun read(s: Feed<Char>): Unit? {
+    s.peekWhile_2 { it == ' ' }
+    return Unit //always parsed
+  }
+}
+```
+
+~~说句题外话，`fun emmm() {}` 默认返回 `Unit` 或者说 `fun emmm() = Unit`，可以不显式写出 `Unit` 返回类型，`{}` 里的 `return Unit` 是自动的。~~
+
+对于 `[a-z]`，想想<a href="#TryIteratorFeed-B">之前</a>是怎么写的？
+
+```kotlin
+object Name_1: Parser<Char, String> {
+  override fun read(s: Feed<Char>): String? {
+    return s.peekWhile_2 { it in 'a'..'z' }
+      .takeIf { it.isNotEmpty() }?
+      .let { it.joinToString("") }
+  }
+}
+```
+
+<div class="literateBegin" id="KotlinNullabilityOps"></div>
+
+差点忘了你们不知道 `?.` 是啥、`takeIf` 是啥、`let` 又是啥。
+
+```kotlin
+fun main() {
+  var something: Int? = null
+  check((something ?: 1) == 1)
+  something = 2
+  check((something ?: 1) == 2)
+
+  println(something) //2
+  something?.let { that_thing -> println(that_thing) } //2
+  something?.let(::println) //2
+  something?.let { println(it) }
+  something?.let { it -> println(it) } // it argument can be implicit
+  null?.let { _ -> error("This block is never called") }
+
+  check(1.takeIf { it is Int } != null)
+  check(1.takeIf { it == 100 } == null)
+  // (1 == 100) is false, and 1.takeIf {...} is null
+  // so the { fail() } block is not called
+  1.takeIf { it == 100 }?.let { error("not possible") }
+}
+```
+<div class="literateEnd"></div>
+
+当然，细心的同学肯定会发现了，我们都用到了 `peekWhile` 操作，那么这个程序是否可以简化呢？
+
+看起来不好简化吧！它们是那么复杂，稍后等我们多做点其他方面的改进，再看看。
+
+接下来就是见证奇迹的时刻。
+
+```kotlin
+fun main() {}
 ```
 
 当然，许多编程语言的语法，都是可以被拆成『通用模式』和『通用模式的特化』而解析提取的，这样利用子程序<sub>sub-procedure</sub> 抽象出它们的读取方式，就能极大地方便解析器的编写过程。
@@ -783,8 +880,10 @@ bitPrintln(0b10 or 0b01) //11
 
 ## 解释一下题目是什么意思
 
-> 看完这段 Kotlin 代码，我哭了
+> ## 《看完这段 Kotlin 代码，我哭了》
 
 知不知道你在写烂代码的时候，不仅以后熬夜维护的时候内心是崩溃的，电脑也会哭？
 
 多为使用者想想，那怕直接使用的“人”，只是按程序求解的计算机而已。
+
+另外，写这篇文章花了我好长时间，眼睛疼，难受得都快哭了，嘤嘤嘤。
