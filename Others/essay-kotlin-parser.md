@@ -325,6 +325,8 @@ fun part2_WhyCantSkipWhites() {
 
 为什么不行了？好像是因为，还有一个空格…… 空格…… `(' ' !in 'a'..'z')`，所以我们 `readName` 无数遍也无法继续下去！
 
+注：符号 `!` 读作 "not"，`!in` 是 "not in" 的意思。
+
 但，这其实是正常情况，如果不是这样，要读取空格的时候与代码命名等搞混，岂不是会出错？
 <div class="literateEnd"></div>
 
@@ -442,6 +444,8 @@ fun String.surround(prefix: String, suffix: String): String = prefix+this+suffix
 
 上面的 `escape`、`translate` 是定义着玩的，不要用它实际组织输出 Kotlin 代码，不兼容的（虽然兼容也不用再改太多，只要 `Map<Char, (Char) -> String>` 足矣）。
 
+#### 关于 `StringFeed` 这种 `Feed<Char>` 实现，它的定义
+
 下面是另一种基于 `CharSequence` 的 `Feed<Char>` 实现：
 
 ```kotlin
@@ -467,11 +471,13 @@ class StringFeed(private val seq: CharSequence): Feed<Char> {
 但在更大的情况下，如果它在抛完 `Feed.End()` 后仍被 `peek` 呢？此时仅第一次索引越界用 `position.dec()` 是不够的，只能每次都取最后一项。
 （`n.dec() == n -1`）
 
-~~另外一种思路是，在 `throw Feed.End()` 的情况再多  `position--`，改回任何已经越界的 `position`。~~
+~~另外一种思路是，在 `throw Feed.End()` 的情况再多  `position--`，改回任何已经越界的 `position` 不然它无限增加。~~
+
+#### 泛化的 `StringFeed`，不止于 `Element=Char`
 
 思路不错，可是只能解决字符串读取的问题，如果要写一个 `Array<out String>` 的解析器呢？
 
-其实它们有个共同点，就是都类似于列表，于是我们可以抽象出一个 `Slice<E>`。
+其实它们接受的低层输入有个共同点，就是都类似于列表，于是我们可以抽象出一个 `Slice<E>`。
 
 ```kotlin
 typealias Idx = Int // index number
@@ -505,13 +511,15 @@ val Sized.lastIndex get() = size.dec()
 val Sized.indices get() = 0..lastIndex
 ```
 
-当然，我们也可以扩展出 `MutableSlice<E>` 或者带 `operator fun get(indices: IntRange): Slice<E>` 的 `Slice<E>`，但这里没有任何必要。
+其实，也可扩展出 `MutableSlice<E>` 或者带 `fun subSlice(indices: IntRange): Slice<E>` 的 `Slice<E>`，但这里没有任何必要。
 
 记住，编程只在必要时引入对问题的解决方案，尽可能把和特有逻辑无关的东西放在别处，不能都混在一起。
 
 换句话说，能够泛化<sub>generialize</sub>的东西要懂得泛化，表述有主次有结构，
 这也是泛型<sub>generics</sub>或者说参数化多态<sub>parametric polymorphism</sub>、闭包<sub>closure</sub>、
 协程<sub>coroutine</sub>、序列<sub>sequences</sub>乃至高级程序设计语言本身设计最重要的理念。
+
+我们泛化出了一个 `Slice<E>`，这样就可以写出能够兼容更多 `ArrayLike`（有 `size` 和 `get` 而可随机访问的数据结构）且对任意输入项目类型 `E` 皆有效的输入 `SliceFeed<E>: Feed<E>`，而不仅仅 `StringFeed: Feed<Char>` 了。
 
 ```kotlin
 fun slice(char_seq: CharSequence): Slice<Char> = object: Slice<Char> {
@@ -527,8 +535,6 @@ fun <E> slice(list: List<E>): Slice<E> = object: Slice<E> {
   override fun get(index: Idx): E = list[index]
 }
 ```
-
-这样就可以写出能够兼容更多 `ArrayLike`（有 `size` 和 `get` 而可随机访问的数据结构）的输入，而不仅仅 `StringFeed` 了。
 
 ```kotlin
 class SliceFeed<E>(private val slice: Slice<E>): Feed<E> {
