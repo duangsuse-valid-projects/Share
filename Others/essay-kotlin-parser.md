@@ -266,7 +266,7 @@ fun <T> Feed<T>.peekWhile_1(predicate: Predicate<T>): List<T> {
 
 ### 读几个单词吧
 
-<div class="literateBegin" id="TryIteratorFeed" depend="FeedAbstraction PeekWhile-1"></div>
+<div class="literateBegin" id="TryIteratorFeed" depend="FeedAbstraction"></div>
 
 我们给一个例子：苹果、蓝莓、黄瓜。
 
@@ -274,14 +274,9 @@ fun <T> Feed<T>.peekWhile_1(predicate: Predicate<T>): List<T> {
 const val FRUITY_STRING = "apple blueberry cucumber"
 val fruits = IteratorFeed(FRUITY_STRING.iterator())
 ```
-
-```kotlin
-// 待会 A, B 部分要用，现在不必理解
-fun readName_1(feed: Feed<Char>): List<Char> = feed.peekWhile_1 { it in 'a'..'z' }
-```
 <div class="literateEnd"></div>
 
-<div class="literateBegin" id="TryIteratorFeed-A" depend="TryIteratorFeed"></div>
+<div class="literateBegin" id="TryIteratorFeed-A" depend="TryIteratorFeed ReadName-1"></div>
 
 试一试呗，
 
@@ -309,15 +304,22 @@ fun part2_WhyCantSkipWhites() {
   //IteratorFeed(' '...kotlin.text.StringsKt...$iterator...)
 }
 ```
+<div class="literateEnd"></div>
+
+<div class="literateBegin" id="ReadName-1" depend="FeedAbstraction PeekWhile-1"></div>
+
+```kotlin
+fun readName_1(feed: Feed<Char>): List<Char> = feed.peekWhile_1 { it in 'a'..'z' }
+```
+<div class="literateEnd"></div>
 
 为什么不行了？好像是因为，还有一个空格…… 空格…… `(' ' !in 'a'..'z')`，所以我们 `readName` 无数遍也无法继续下去！
 
 注：符号 `!` 读作 "not"，`!in` 是 "not in" 的意思。
 
 但，这其实是正常情况，如果不是这样，要读取空格的时候与代码命名等搞混，岂不是会出错？
-<div class="literateEnd"></div>
 
-<div class="literateBegin" id="TryIteratorFeed-B" depend="TryIteratorFeed PeekWhile-2"></div>
+<div class="literateBegin" id="TryIteratorFeed-B" depend="TryIteratorFeed ReadName-1 PeekWhile-2"></div>
 
 那么怎么解决这个问题呢？答案是，跳过我们不需要的空格。
 
