@@ -542,7 +542,7 @@ class SliceFeed<E>(private val slice: Slice<E>): Feed<E> {
 
 ## Talk is cheap, show me the code
 
-<div class="literateBegin" id="TalkIsCheap" depend="FeedAbstraction PeekWhile-2"></div>
+<div class="literateBegin" id="ParserAbstraction" depend="FeedAbstraction"></div>
 
 > + 上面我们早就知道要读取 3 个单词，可如果我们不知道，要怎么动态判断何时停止呢？
 > + 为了实现一个解析器，要写许多比这复杂许多倍的子程序，我们怎么解决那时代码的繁复性？
@@ -559,7 +559,7 @@ class SliceFeed<E>(private val slice: Slice<E>): Feed<E> {
 + __成功__ 代表你把冰块放回了对的模具，你知道要对它做什么、需要它的哪些信息。
 + __失败__ 代表你又遇到了一个新的、不认识、不属于你的冰块，什么信息都拿不到。
 
-我们把接受一个 `Feed<T>`、返回某种 `R` 的东西称为『<a id="Parser">解析器</a>』，因为它能够从 `T` 的序列里，提取出数据 `R`，比如从一串符号 `"123"` 里阅读出数值 `123`。
+我们把接受一个 `Feed<T>`、返回某种 `R` 的东西称为『解析器』，因为它能够从 `T` 的序列里，提取出数据 `R`，比如从一串符号 `"123"` 里阅读出数值 `123`。
 
 ```kotlin
 interface Parser<T, out R> {
@@ -601,7 +601,9 @@ Word = {letter}
 letter = [a-z]
 ```
 
-我们来实现对 `(Whitespace? Word)` 这类模式的读取。
+<div class="literateBegin" id="SeqRepeat-1" depend="ParserAbstraction"></div>
+
+我们来实现对 `(Whitespace? Word)` 以及 `{letter}` 这类模式的读取。
 
 ```kotlin
 /** 按顺序读取全部 [sub] 子解析器，
@@ -637,8 +639,11 @@ class Repeat_1<T, R>(private val item: Parser<T, R>): Parser<T, List<R>> {
   }
 }
 ```
+<div class="literateEnd"></div>
 
 其实以上实现很该简化，也用了<a href="#KotlinNullabilityOps">下文才提到的知识点</a>，但为了开开眼界，先这么写吧，看不懂可以等着看下文，不过你也可以试着分析写的有哪些莫名其妙的地方，给自己指出来。
+
+<div class="literateBegin" id="WhitespaceMayAndName-1" depend="ParserAbstraction PeekWhile-2"></div>
 
 现在我们已经可以读取 `(a b c)` 和 `{a}` 这种模式了，可还剩下 `letter = [a-z]`、`Whitespace?` 没有实现。
 
@@ -666,6 +671,7 @@ object Name_1: Parser<Char, String> {
   }
 }
 ```
+<div class="literateEnd"></div>
 
 <div class="literateBegin" id="KotlinNullabilityOps"></div>
 
@@ -698,6 +704,8 @@ fun main() {
 
 看起来不好简化吧！它们是那么复杂，稍后等我们多做点其他方面的改进，再看看。
 
+<div class="literateBegin" id="TryCombineParser" depend="SeqRepeat-1 WhitespaceMayAndName-1"></div>
+
 接下来就是见证奇迹的时刻，我们刚才不是写了等价的 `StringFeed` 和 `SliceFeed` 吗？正好测试一下。
 
 ```kotlin
@@ -723,8 +731,6 @@ fun readWords(input: Feed<Char>) {
 <div class="literateEnd"></div>
 
 来瓶香槟庆祝一下，🐮🍺 啊，虽然这还只是开始…… 其实连开始都算不算，但别灰心——万物都是从无到有的，什么时候开始都不晚。
-
-<div class="literateBegin" id="TalkIsCheapBut" depend="FeedAbstraction"></div>
 
 当然，许多编程语言的语法，都是可以被拆成『通用模式』和『通用模式的特化』而解析提取的，这样利用子程序<sub>sub-procedure</sub> 抽象出它们的读取方式，就能极大地方便解析器的编写过程。
 
@@ -762,6 +768,9 @@ TODO("汉字数字读取")
 TODO("引入基本组合 then, contextual, toDefault")
 TODO("引入 Reducer 的设计")
 TODO("引入 Tuple 的设计")
+```
+
+```kotlin
 TODO("中缀链解析")
 TODO("Trie 动态关键字解析")
 TODO("引入 SourceLocation 和 MarkReset")
