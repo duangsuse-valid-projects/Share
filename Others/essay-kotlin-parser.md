@@ -638,7 +638,7 @@ class Repeat_1<T, R>(private val item: Parser<T, R>): Parser<T, List<R>> {
 }
 ```
 
-其实以上实现很应该简化也用了<a href="#KotlinNullabilityOps">下文才提到的知识点</a>，但为了开开眼界，先这么写吧，看不懂可以等着看下文，不过你也可以试着分析写的有哪些莫名其妙的地方，给自己指出来。
+其实以上实现很该简化，也用了<a href="#KotlinNullabilityOps">下文才提到的知识点</a>，但为了开开眼界，先这么写吧，看不懂可以等着看下文，不过你也可以试着分析写的有哪些莫名其妙的地方，给自己指出来。
 
 现在我们已经可以读取 `(a b c)` 和 `{a}` 这种模式了，可还剩下 `letter = [a-z]`、`Whitespace?` 没有实现。
 
@@ -811,7 +811,7 @@ export class Peek<T> implements Iterator<T> {
 
 Lex/Yacc style 说的就是 scanner/parser 词法/文法分析，分开的情况，当然对编译原理一般也可直接去掉对两个分析过程的隔离，这就是本文的 scanner-less parsing。
 
-### ~~值是什么~~
+### 值是什么
 
 > 如果你已经知道了 `Boolean?` 的意思是除了原 `Boolean` 的 `true`、`false` 外还可以是 `null`，
 并且对类型理论（虽然下面我也不想再谈太深刻的）不感兴趣，那接下来的全篇可以直接跳过。
