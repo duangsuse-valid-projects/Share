@@ -125,11 +125,13 @@ letterDigit = letter|digit
 ```plain
 Type = Name   -- T, E, K, V, ...
   | (Name angleL Type {comma Type}? angleR)
-  | (parenL Name {comma Name}? parenR "->" Type)
+  | (parenL Type {comma Type}? parenR "->" Type)
 comma = ','
 angleL = '<'; angleR = '>'
 parenL = '('; parenR = ')'
 ```
+
+`angleL`、`parenL` 不好看吧？你可以试着自己再改改，看看有没有更好且不与模式描述本身相冲突的写法。
 
 定义完了，如果你很好奇 `Map<K, List<E>>` 怎么读，就是在 `L` 这个字符的时候继续等待读另一个 `Type` 的结果嘛。
 
@@ -137,7 +139,7 @@ parenL = '('; parenR = ')'
 Block = "TODO"
 ```
 
-待会再定义 `Block` 是什么样子的，现在为时尚早。
+待会（~~的确是好大一会~~）再定义 `Block` 是什么样子的，现在为时尚早。
 
 ## 那么你还能干什么呢
 
@@ -147,7 +149,63 @@ Block = "TODO"
 
 可是…… 总有些东西好像不对劲，该怎么把『读』的过程分布到几个子程序里去做呢？
 
-很简单啊！比如上面的例子里，读空格是在读完一个 `"hello"` 的情况下进行的，换句话说，它知道自己应该从 `"hello"` 后的那个空格开始读了。我们用 `CharIterator` 吧，上面有 `hasNext():Boolean` 和 `next():Char`。
+> 下文算是一些行内的笑话，能用，但也没多大思考和实际运行价值，不喜欢<a href="#WTFCanUDo-Truth">跳过</a>就好了。
+
+一些稍有常识的工程师或学生会提出，我们用 `text.search("hello")` 找这样的文本，算出它的结尾索引，再 `text.slice(helloEnd+1..text.lastIndex)` 一个，把取到的文本的一部分，交给 `readWhitespace` 再检查。
+
+而这个 `readWhitespace` 则会给出空格结束之处的索引，我们 `position = readWhitespace(restPart)` 就成功跳过了空白字符。
+
+注：JavaScript 没有数学区间的概念，`"abc".slice(0+1, "abc".length)` 是取 `"abc"` 的索引<sub>index</sub>区间 `(0+1, length]` 也就是 `"bc"`
+
+一些老练的工程师则会笑着摇头，然后说：《算法<sub>Algorithms in C++</sub>》一书上有了，简单一行就能完成这样的任务：
+
+```js
+n=0; for (i=0, c='_'; (c=str[i]) != ' '; i++) n = n*10 + (c-'0');
+```
+
+另外一位老练的工程师情不自禁地补充到，我可以写得更短、更有复用性！
+
+```js
+str => { n=0;i=0,c; while((c=str[i++]) != ' ') n = n*10 + (c-'0'); return n }
+```
+
+又一位被称为『大牛』的 JavaScript 神级程序员神秘莫测地给出了更短、性能更高、“鲁棒性”更好的代码：
+
+```js
+n=0,i=-1; while(s[++i]) {n*=10;n+=s[i]-'0'}
+```
+
+旁边的一位数学家看了看，不屑，开始写什么 Sigma、Pi、max、i^10*k……
+
+<a id="WTFCanUDo-Truth">🙈</a>……请无视上面这些魔法师的说法，我们用的可是很正经、很工程的解决方案。
+
+我们最关心的是，文本 `"abc"` 里有三个位置 `[0, 1, 2]`，要『读取』先得知道从哪读，这是解析过程可以在子程序里完成的基础。
+
+其实很简单啊！比如上面的例子里，读空格是在读完一个 `"hello"` 的情况下进行的，换句话说，它知道自己应该从 `"hello"` 后的那个空格开始读了。
+
+类似 `"hello world"` 的输入被视为一个字符流<sub>char stream</sub>。
+
+刷过抖音没有？抖音里，用户划划屏幕就能看到另外的视频，这就是一种『“短视频”的流<sub>stream of videos</sub>』。
+
+不过，对于 `"apple"` 这样的一串字符来说，它的流 `('a'...'p'...)` 是有穷尽的，我们编程时不得通过某种方式来检查，并定义流结束时该怎么办。
+
+我们用 `CharIterator` 吧，上面有 `hasNext():Boolean` 和 `next():Char`。
+
+<div class="literateBegin" id="WTFCanUDo-CharStream"></div>
+
+```kotlin
+fun main() {
+  val text = "hello world".iterator()
+  check(text is CharIterator)
+
+  /*  "hello"      ' '                   "world" */
+  readHello(text); readWhitespace(text); readWorld(text)
+}
+fun readHello(s: CharIterator): String = TODO("read text: hello")
+fun readWhitespace(s: CharIterator): String = TODO("read whitespaces")
+fun readWorld(s: CharIterator): String = TODO("read text: world")
+```
+<div class="literateEnd"></div>
 
 不过，这里我们想得更前卫，完全使用泛型抽提接受的输入流类型。
 
@@ -944,6 +1002,12 @@ bitPrintln(0b10 or 0b01) //11
 ## 亲爱的 Literate Kotlin
 
 看不见我看不见我~
+
+__真正的无知不是知识的贫乏，而是拒绝获取知识。__
+
+__真正的理解也不是能懂得或造出复杂难懂的知识，而是能把复杂难懂的知识也讲得通俗易懂。__
+
+你不懂，是我的锅。——所以这不是有 Literate Kotlin 了吗？
 
 <script src="https://unpkg.com/kotlin-playground@1"></script>
 
