@@ -240,22 +240,6 @@ class IteratorFeed<T>(private val iterator: Iterator<T>): Feed<T> {
 }
 ```
 
-我们把接受一个 `Feed<T>`、返回某种 `R` 的东西称为『<a id="Parser">解析器</a>』，因为它能够从 `T` 的序列里，提取出数据 `R`，比如从一串符号 `"123"` 里阅读出数值 `123`。
-
-```kotlin
-interface Parser<T, out R> {
-  fun read(s: Feed<T>): R?
-} // 本节仅阐述概念，不写实例了。
-```
-
-~~`out` 在作为类型参数修饰符的时候表示此类型仅用于方法或属性的输出，`in` 在相同位置的时候则表示仅用于输入~~
-
-~~一般而言不加好像也没什么问题，但 `in`/`out` 提供了类型系统的类型兼容性(子类型)上的一些约束，从而允许更多样的使用方式，相关知识太多这里不能说清。~~
-
-而有的时候，我们只是想让 `Parser` 对输入的 `Feed` 进行一些操作如跳过空格，并不希望获得一个输出值，正如 Java 里 `void` 函数一样。
-
-使用 `Parser<Char,Unit>` 的话，其中的 `read(Feed<T>):R` 就是 `read(Feed<Char>):Unit?` 了，刚刚好。（`kotlin.Unit` 这里类似 Java 的 `void`）
-
 这时候我们灵感突发：如果要读（也可跳过）空格怎么办？就是判断+消耗、到预取不是空格为止啊！这样下一次、下一个解析器读取时，不就没空格了吗？
 
 但是仅仅对是不是空格的情况设计，太大材小用了，我们应该提取出数学命题，
@@ -266,6 +250,8 @@ typealias Predicate<T> = (T) -> Boolean
 
 ——不过是它的简化版，我们称之为『谓词』或者说『条件』，比如 `我(主)爱(谓)你(宾)`，那是一个可以照变量 _你、我_ 判断真假的「爱」命题。
 
+<div class="literateBegin" id="PeekWhile-1" depend="WTFCanUDo"></div>
+
 ```kotlin
 fun <T> Feed<T>.peekWhile_1(predicate: Predicate<T>): List<T> {
   val satisfied: MutableList<T> = mutableListOf()
@@ -274,12 +260,13 @@ fun <T> Feed<T>.peekWhile_1(predicate: Predicate<T>): List<T> {
   return satisfied
 }
 ```
+<div class="literateEnd"></div>
 
 （起名带 `_1` 是因为这不是最终版，下文皆是如此）
 
 ### 读几个单词吧
 
-<div class="literateBegin" id="TryIteratorFeed" depend="WTFCanUDo"></div>
+<div class="literateBegin" id="TryIteratorFeed" depend="WTFCanUDo PeekWhile-1"></div>
 
 我们给一个例子：苹果、蓝莓、黄瓜。
 
@@ -555,13 +542,11 @@ class SliceFeed<E>(private val slice: Slice<E>): Feed<E> {
 
 ## Talk is cheap, show me the code
 
-<div class="literateBegin" id="TalkIsCheap" depend="WTFCanUDo notParsed PeekWhile-2"></div>
+<div class="literateBegin" id="TalkIsCheap" depend="WTFCanUDo PeekWhile-2"></div>
 
 > + 上面我们早就知道要读取 3 个单词，可如果我们不知道，要怎么动态判断何时停止呢？
 > + 为了实现一个解析器，要写许多比这复杂许多倍的子程序，我们怎么解决那时代码的繁复性？
 > <br>__欲知方法如何，请看下节分解。__
-
-还记得我们之前对 `interface Parser<T, R>` 的<a href="#Parser">定义</a>吗？
 
 还记得我们之前谈论的『模式<sub>pattern</sub>』吗？
 
@@ -574,12 +559,22 @@ class SliceFeed<E>(private val slice: Slice<E>): Feed<E> {
 + __成功__ 代表你把冰块放回了对的模具，你知道要对它做什么、需要它的哪些信息。
 + __失败__ 代表你又遇到了一个新的、不认识、不属于你的冰块，什么信息都拿不到。
 
-<div class="literateBegin" id="notParsed"></div>
+我们把接受一个 `Feed<T>`、返回某种 `R` 的东西称为『<a id="Parser">解析器</a>』，因为它能够从 `T` 的序列里，提取出数据 `R`，比如从一串符号 `"123"` 里阅读出数值 `123`。
 
 ```kotlin
+interface Parser<T, out R> {
+  fun read(s: Feed<T>): R?
+}
 val notParsed: Nothing? = null
 ```
-<div class="literateEnd"></div>
+
+~~`out` 在作为类型参数修饰符的时候表示此类型仅用于方法或属性的输出，`in` 在相同位置的时候则表示仅用于输入~~
+
+~~一般而言不加好像也没什么问题，但 `in`/`out` 提供了类型系统的类型兼容性(子类型)上的一些约束，从而允许更多样的使用方式，相关知识太多这里不能说清。~~
+
+而有的时候，我们只是想让 `Parser` 对输入的 `Feed` 进行一些操作如跳过空格，并不希望获得一个输出值，正如 Java 里 `void` 函数一样。
+
+使用 `Parser<Char,Unit>` 的话，其中的 `read(Feed<T>):R` 就是 `read(Feed<Char>):Unit?` 了，刚刚好。（`kotlin.Unit` 这里类似 Java 的 `void`）
 
 `Boolean?` 的意思是除了原 `Boolean` 的 `true`、`false` 外还可以是 `null`，`Nothing?` 以此类推。
 
@@ -729,7 +724,7 @@ fun readWords(input: Feed<Char>) {
 
 来瓶香槟庆祝一下，🐮🍺 啊，虽然这还只是开始…… 其实连开始都算不算，但别灰心——万物都是从无到有的，什么时候开始都不晚。
 
-<div class="literateBegin" id="TalkIsCheapBut" depend="WTFCanUDo notParsed"></div>
+<div class="literateBegin" id="TalkIsCheapBut" depend="WTFCanUDo"></div>
 
 当然，许多编程语言的语法，都是可以被拆成『通用模式』和『通用模式的特化』而解析提取的，这样利用子程序<sub>sub-procedure</sub> 抽象出它们的读取方式，就能极大地方便解析器的编写过程。
 
