@@ -143,13 +143,13 @@ Block = "TODO"
 
 ## 那么你还能干什么呢
 
-<div class="literateBegin" id="WTFCanUDo"></div>
+<div class="literateBegin" id="FeedAbstraction"></div>
 
 读它们啊？而且是要能以子程序方式组合的。比如读 `"hello world"` 其实可以分成三部分：读 `"hello"`、读空格、读 `"world"`，这样输入中间再多几个空格都没问题了，代码也好看好改。
 
 可是…… 总有些东西好像不对劲，该怎么把『读』的过程分布到几个子程序里去做呢？
 
-> 下文算是一些行内的笑话，能用，但也没多大思考和实际运行价值，不喜欢<a href="#WTFCanUDo-Truth">跳过</a>就好了。
+> 下文算是一些行内的笑话，能用，但也没多大思考和实际运行价值，不喜欢<a href="#FeedAbstraction-Truth">跳过</a>就好了。
 
 一些稍有常识的工程师或学生会提出，我们用 `text.search("hello")` 找这样的文本，算出它的结尾索引，再 `text.slice(helloEnd+1..text.lastIndex)` 一个，把取到的文本的一部分，交给 `readWhitespace` 再检查。
 
@@ -177,7 +177,7 @@ n=0,i=-1; while(s[++i]) {n*=10;n+=s[i]-'0'}
 
 旁边的一位数学家看了看，不屑，开始写什么 Sigma、Pi、max、i^10*k……
 
-<a id="WTFCanUDo-Truth">🙈</a>……请无视上面这些魔法师的说法，我们用的可是很正经、很工程的解决方案。
+<a id="FeedAbstraction-Truth">🙈</a>……请无视上面这些魔法师的说法，我们用的可是很正经、很工程的解决方案。
 
 我们最关心的是，文本 `"abc"` 里有三个位置 `[0, 1, 2]`，要『读取』先得知道从哪读，这是解析过程可以在子程序里完成的基础。
 
@@ -191,7 +191,7 @@ n=0,i=-1; while(s[++i]) {n*=10;n+=s[i]-'0'}
 
 我们用 `CharIterator` 吧，上面有 `hasNext():Boolean` 和 `next():Char`。
 
-<div class="literateBegin" id="WTFCanUDo-CharStream"></div>
+<div class="literateBegin" id="FeedAbstraction-WhatIsCharStream"></div>
 
 ```kotlin
 fun main() {
@@ -250,7 +250,7 @@ typealias Predicate<T> = (T) -> Boolean
 
 ——不过是它的简化版，我们称之为『谓词』或者说『条件』，比如 `我(主)爱(谓)你(宾)`，那是一个可以照变量 _你、我_ 判断真假的「爱」命题。
 
-<div class="literateBegin" id="PeekWhile-1" depend="WTFCanUDo"></div>
+<div class="literateBegin" id="PeekWhile-1" depend="FeedAbstraction"></div>
 
 ```kotlin
 fun <T> Feed<T>.peekWhile_1(predicate: Predicate<T>): List<T> {
@@ -266,7 +266,7 @@ fun <T> Feed<T>.peekWhile_1(predicate: Predicate<T>): List<T> {
 
 ### 读几个单词吧
 
-<div class="literateBegin" id="TryIteratorFeed" depend="WTFCanUDo PeekWhile-1"></div>
+<div class="literateBegin" id="TryIteratorFeed" depend="FeedAbstraction PeekWhile-1"></div>
 
 我们给一个例子：苹果、蓝莓、黄瓜。
 
@@ -375,7 +375,7 @@ fun readName(feed: Feed<Char>): List<Char> = feed.peekWhile_2 { it in 'a'..'z' }
 ```
 <div class="literateEnd"></div>
 
-<div class="literateBegin" id="PeekWhile-2" depend="WTFCanUDo"></div>
+<div class="literateBegin" id="PeekWhile-2" depend="FeedAbstraction"></div>
 
 ```kotlin
 fun <T> Feed<T>.peekWhile_2(predicate: Predicate<T>): List<T> {
@@ -542,7 +542,7 @@ class SliceFeed<E>(private val slice: Slice<E>): Feed<E> {
 
 ## Talk is cheap, show me the code
 
-<div class="literateBegin" id="TalkIsCheap" depend="WTFCanUDo PeekWhile-2"></div>
+<div class="literateBegin" id="TalkIsCheap" depend="FeedAbstraction PeekWhile-2"></div>
 
 > + 上面我们早就知道要读取 3 个单词，可如果我们不知道，要怎么动态判断何时停止呢？
 > + 为了实现一个解析器，要写许多比这复杂许多倍的子程序，我们怎么解决那时代码的繁复性？
@@ -724,7 +724,7 @@ fun readWords(input: Feed<Char>) {
 
 来瓶香槟庆祝一下，🐮🍺 啊，虽然这还只是开始…… 其实连开始都算不算，但别灰心——万物都是从无到有的，什么时候开始都不晚。
 
-<div class="literateBegin" id="TalkIsCheapBut" depend="WTFCanUDo"></div>
+<div class="literateBegin" id="TalkIsCheapBut" depend="FeedAbstraction"></div>
 
 当然，许多编程语言的语法，都是可以被拆成『通用模式』和『通用模式的特化』而解析提取的，这样利用子程序<sub>sub-procedure</sub> 抽象出它们的读取方式，就能极大地方便解析器的编写过程。
 
