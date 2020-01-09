@@ -934,7 +934,7 @@ interface FunctionType<in T, out R>
 fun <T, R> FunctionType(_op: (T) -> R) = object: FunctionType<T, R> {}
 
 // "*" 在 out 的位置代表 Any?，任何类型的亲类型
-fun acceptCharSeq(someFunc: FunctionType<String, *>) {}
+fun acceptString(someFunc: FunctionType<String, *>) {}
 // "*" 在 in 的位置代表 Nothing，任何类型的子类型
 fun resultNumber(someFunc: FunctionType<*, Number>) {}
 
@@ -949,7 +949,7 @@ fun typeIsOkHere() {
 
   // 如果一个函数连 CharSequence 都能接受，那它自然能接受值属从 CharSequence 的 String
   // 所以，任何需要 (String) -> * 的地方反而都可以给一个 (CharSequence) -> *
-  acceptCharSeq(FunctionType<CharSequence, Unit> { _: CharSequence -> println() })
+  acceptString(FunctionType<CharSequence, Unit> { _: CharSequence -> println() })
 }
 ```
 <div class="literateEnd"></div>
