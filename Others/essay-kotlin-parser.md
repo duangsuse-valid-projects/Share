@@ -829,16 +829,17 @@ Kotlin 里，我们把所有 `Boolean`<sub>真假值</sub>、`Int`、`Float`<sub
 ```kotlin
 println(1+1) //2
 println(1.plus(1)) //2
-println(1 is Int) //true
+check(1 is Int)
 ```
 
-对 `String` 也一样，大部分『静态类型』的编程语言都有一个重要特性——
-多态重载<sub>overloading</sub>，其本质是<a href="#AboutPolymorphism">多态</a>，意味着一些不同的操作（计算）可以用相同的名字引用。
+对 `String` 也一样，大部分『静态类型』的编程语言都有一个重要特性——重载<sub>overloading</sub>，其本质是多态，意味着一些不同的操作（计算）可以用相同的名字引用。
 
 ```kotlin
 val name = "Alice"
 println("Hello " + name + ".") //Hello Alice.
 ```
+
+想了解更多关于多态的知识，<a href="#AboutPolymorphism">下面有</a>。
 
 一般我们会把类型<sub>type</sub> 视为属从它们值的集合，如 `Boolean` 包含 `true`、`false`，`Int` 包含 `1`、`42`、`(-3)` 等等。
 
@@ -938,7 +939,13 @@ fun main() {
 ```kotlin
 println("hello " + "world") //hello world
 println(1 + 2) //3
+```
 
+下面这个是 `String.plus` 和 `Int.plus`（加号操作实现）的方法签名，或者说是不同版本（具体算法逻辑）的，都叫此名的函数的区分标识。
+
+方法<sub>method</sub>，是有 `this` 的函数，或者说某个对象<sub>object</sub> 上的操作。如在任何 `狗` 的实例上的方法 `吠叫()`。
+
+```kotlin
 //println(String::plus) //fun kotlin.String.plus(kotlin.Any?): kotlin.String
 //val intPlus: (Int, Int) -> Int = Int::plus
 //println(intPlus) //fun kotlin.Int.plus(kotlin.Int): kotlin.Int
@@ -952,13 +959,13 @@ println(1 + 2) //3
 // (∪) Union of sets
 println(setOf(1) + setOf(2)) //[1, 2]
 // (∩) Intersection of sets
-println(setOf("cat").intersect(setOf("mouse"))) //[]
+println(setOf("cat", "war").intersect(setOf("mouse", "peace"))) //[]
 // ∁(A,B) Complement of A,B
 println(setOf("monkey", "apple", "banana") - setOf("monkey")) //[apple, banana]
 
-println('?' in "How are you Alice?") //true
-println(1 in 0..9) //true
-println(1 in setOf(6, 7)) //false
+check('?' in "How are you Alice?")
+check(1 in 0..9)
+check(1 !in setOf(6, 7))
 ```
 
 还有逻辑上的 且、或、非：
