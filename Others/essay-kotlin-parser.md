@@ -738,7 +738,7 @@ fun readWords(input: Feed<Char>) {
 
 比如，<a href="#SampleCode">开头的示例</a>用到了三种括号：`<a>`、`(a)`、`{a}`。
 
-括号的区分往往是为了语言的易读性，或是为了区分使用的子语法种类，我们在读取子语法本身过程中的目标其实是括号里的 `a`。
+括号的区分往往是为了语言的易读性，或是为了区分使用的子语法种类，但不管怎么样，我们在读取子语法本身过程中的目标其实是括号里的 `a`。
 
 这种『被包围』的文法，其实就是一种模式，我们可以为它创建一个子解析器：
 
@@ -761,20 +761,35 @@ fun <T, R> Parser<T, R>.surroundBy(prefix: Parser<T, *>, suffix: Parser<T, *>): 
 ```kotlin
 typealias Matcher<T> = Parser<T, *>
 ```
+
+此外，对于上面的 `WhitespaceMay`，它属于不可能 `notParsed` 的解析器，我们也引入一个别名。
+
+但如何限定 `Parser<T, R> { fun read...: R? }` 里的 `R` 不是空呢…… 所以不应该是别名，是子类型。
+
+因为，类型 `R` 是类型 `R?` 的子集，它不能是 `null`，我们要定义的 `PositiveParser<T, R>` 是完全兼容 `Parser<T, R>` 的，所以是子类型。
+
+```kotlin
+interface PositiveParser<T, out R>: Parser<T, R> {
+  override fun read(s: Feed<T>): R
+}
+```
 <div class="literateEnd"></div>
 
 ```kotlin
 TODO("jonBy")
 TODO("Hello world 关键字读取、Or 解析器")
-TODO("汉字数字读取")
 TODO("引入基本组合 then, contextual, toDefault")
 TODO("引入 Reducer 的设计")
 TODO("引入 Tuple 的设计")
 ```
 
 ```kotlin
+
+TODO("汉字数字读取")
 TODO("中缀链解析")
 TODO("Trie 动态关键字解析")
+
+TODO("引入 Input 架构")
 TODO("引入 SourceLocation 和 MarkReset")
 TODO("引入 ErrorHandler 和 clamUntil")
 ```
