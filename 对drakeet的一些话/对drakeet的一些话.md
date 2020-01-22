@@ -849,16 +849,16 @@ distance](https://en.wikipedia.org/wiki/Edit_distance)
 
 <a id="fn-5">5</a> （站长）网络流量统计分析的术语，UV（独立访客） 为某日访问总人数、PV（访问量） 为用户点击量、IP（客户主机数） 为访问过网站的总人数
 
-<a id="fn-6">6</a> 对于很多最[优化算法](https://zhuanlan.zhihu.com/p/42689565)而言（比如知名的[梯度下降](https://www.cnblogs.com/conmajia/p/annt-feed-forward-fully-connected-neural-networks.html#%E9%9A%8F%E6%9C%BA%E6%A2%AF%E5%BA%A6%E4%B8%8B%E9%99%8D%E7%AE%97%E6%B3%95)法，这个方法要求
+<a id="fn-6">6</a> Telegram 虽然没有直接支持评论，但它支持 Inline bot 啊，你可以为机器人设置消息内联按钮，然后 handle callbacks，存
+K/V
+数据库。实际上现在已经有人[这么做](https://t.me/jogle_channel_bot)了。你知道有机器人这一回事，可是却没有想到它可以做这样的功能。
+
+<a id="fn-7">7</a> 对于很多最[优化算法](https://zhuanlan.zhihu.com/p/42689565)而言（比如知名的[梯度下降](https://www.cnblogs.com/conmajia/p/annt-feed-forward-fully-connected-neural-networks.html#%E9%9A%8F%E6%9C%BA%E6%A2%AF%E5%BA%A6%E4%B8%8B%E9%99%8D%E7%AE%97%E6%B3%95)法，这个方法要求
 _目标函数_ 在它的 _值域_ 上是 _可导_
 的）决策条件并不是一个相关名词，[决策树](https://zh.wikipedia.org/wiki/%E5%86%B3%E7%AD%96%E6%A0%91)方法则涉及这个名词，最优化领域类似的名词是
 **目标函数** ，实际上最优化往往涉及线性代数的内容，这也就和数学函数论、统计、微积分分不开了。
 
 这里，此文的作者对相关领域暂时不熟悉，如果有不准确或者可以增添的<abbr title="即得易见平凡（划掉）">直白简要</abbr>解释欢迎提出
-
-<a id="fn-7">7</a> Telegram 虽然没有直接支持评论，但它支持 Inline bot 啊，你可以为机器人设置消息内联按钮，然后 handle callbacks，存
-K/V
-数据库。实际上现在已经有人[这么做](https://t.me/jogle_channel_bot)了。你知道有机器人这一回事，可是却没有想到它可以做这样的功能。
 
 <a id="fn-8">8</a> 为了避免 drakeet
 看到后再次发生误解，这里特作脚注：此句引用[无限猴子定理](https://zh.wikipedia.org/wiki/%E7%84%A1%E9%99%90%E7%8C%B4%E5%AD%90%E5%AE%9A%E7%90%86)。
