@@ -22,7 +22,9 @@ typealias Idx = Int
 
 typealias Producer<T> = () -> T
 typealias Consumer<T> = (T) -> Unit
+
 typealias ActionOn<T, A1> = T.(A1) -> Unit
+typealias FunctionOn<T, A1, R> = T.(A1) -> R
 
 typealias Predicate<T> = (T) -> Boolean
 operator fun <T> Predicate<T>.not(): Predicate<T> = { !this@not(it) }
@@ -213,9 +215,7 @@ open class Input<T>(private val feed: Feed<T>): Feed<T>, ErrorListener {
 }
 
 class ParseError(val input: Input<*>, message: String): Error(message)
-@Suppress("UNCHECKED_CAST")
-fun <IN> Feed<IN>.error(message: String)
-= (this as? ErrorListener)?.onError?.invoke(this, message) ?: kotlin.error(message)
+fun Feed<*>.error(message: String) = (this as? ErrorListener)?.onError?.invoke(this, message) ?: kotlin.error(message)
 
 open class CharInput(feed: Feed<Char>, file: String): Input<Char>(feed), SourceLocated {
   protected open val isCRLF = false
@@ -532,7 +532,7 @@ fun <IN> item(value: IN): SatisfyPattern<IN> {
 
 fun <IN> elementIn(vararg values: IN) = object: SatisfyPattern<IN>() {
   override fun test(value: IN) = value in values
-  override fun toString() = values.joinToString("|").surround("("-")")
+  override fun toString() = values.joinToString("|", transform = { it.rawString() }).surround("("-")")
 }
 fun elementIn(vararg ranges: CharRange) = object: SatisfyPattern<Char>() {
   override fun test(value: Char) = ranges.any { range -> value in range }
@@ -588,6 +588,15 @@ class Deferred<IN, T>(val item: Producer<Pattern<IN, T>>): Pattern<IN, T> {
   override fun read(s: Feed<IN>) = item().read(s)
   override fun show(s: Output<IN>, value: T?) = item().show(s, value)
   override fun toString() = item().toString()
+}
+
+class Peek<IN, T>(val placeholder: T, val operation: ActionOn<Feed<IN>, IN>): PositivePattern<IN, T> {
+  override fun read(s: Feed<IN>): T = placeholder.also {
+    try { s.operation(s.peek) }
+    catch (_: Feed.End) {}
+  }
+  override fun show(s: Output<IN>, value: T?) {}
+  override fun toString() = "Peek"
 }
 
 class Pipe<IN, T>(item: Pattern<IN, T>, val transform: (T) -> T): PatternWrapper<IN, T, T>(item) {
