@@ -227,16 +227,17 @@ open class CharInput(feed: Feed<Char>, file: String): Input<Char>(feed), SourceL
 // Input { onItem, onError }
 // CharInput (STDIN) { isCRLF, eol }
 
-typealias ClamError = Pair<SourceLocation, String>
-fun CharInput.clam(): Pair<CharInput, List<ClamError>> {
-  val errorList: MutableList<ClamError> = mutableListOf()
+typealias LocatedError = Pair<SourceLocation, String>
+fun CharInput.withErrorList(): Pair<List<LocatedError>, CharInput> {
+  val errorList: MutableList<LocatedError> = mutableListOf()
   onError = { message -> errorList.add(sourceLoc.clone() to message) }
-  return Pair(this, errorList)
+  return Pair(errorList, this)
 }
-fun <IN> Input<IN>.clam(): Pair<Input<IN>, List<String>> {
-  val errorList: MutableList<String> = mutableListOf()
-  onError = { message -> errorList.add(message) }
-  return Pair(this, errorList)
+typealias BoundError<IN> = Pair<IN, String>
+fun <IN> Input<IN>.withErrorList(): Pair<List<BoundError<IN>>, Input<IN>> {
+  val errorList: MutableList<BoundError<IN>> = mutableListOf()
+  onError = @Suppress("unchecked_cast") { message -> errorList.add((peek as IN) to message) }
+  return Pair(errorList, this)
 }
 
 // Basic usage: SliceFeed(Slice("abc")), InputStreamFeed.STDIN, CharInput.STDIN
@@ -391,6 +392,7 @@ fun <IN, T> Pattern<IN, T>.clamWhile(pat: Pattern<IN, *>, defaultValue: T, messa
     while (pat.read(s) != notParsed) {}; defaultValue
   }
 }
+fun <IN> SatisfyPattern<IN>.clam(defaultValue: IN, message: String) = clamWhile(!this, defaultValue, message)
 
 //// == Abstract ==
 fun <T> Pattern<Char, T>.read(text: String) = read(inputOf(text))
