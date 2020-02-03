@@ -392,7 +392,17 @@ fun <IN, T> Pattern<IN, T>.clamWhile(pat: Pattern<IN, *>, defaultValue: T, messa
     while (pat.read(s) != notParsed) {}; defaultValue
   }
 }
-fun <IN> SatisfyPattern<IN>.clam(defaultValue: IN, message: String) = clamWhile(!this, defaultValue, message)
+fun <IN> SatisfyPattern<IN>.clam(message: String)
+= object: Pattern<IN, IN> by this {
+  override fun read(s: Feed<IN>): IN? = this@clam.read(s) ?: run {
+    s.error(message); var parsed: IN? = null
+    while (parsed == notParsed) {
+      try { s.consume() } catch (_: Feed.End) { break }
+      parsed = this@clam.read(s)
+    }
+    return@run parsed
+  }
+}
 
 //// == Abstract ==
 fun <T> Pattern<Char, T>.read(text: String) = read(inputOf(text))
