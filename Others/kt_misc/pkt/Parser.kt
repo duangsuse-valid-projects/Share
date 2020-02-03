@@ -554,12 +554,12 @@ abstract class SatisfyPattern<IN>: Pattern<IN, IN> {
   override fun show(s: Output<IN>, value: IN?) { value?.let(s) }
   operator fun not(): SatisfyPattern<IN> = object: SatisfyPattern<IN>() {
     override fun test(value: IN) = !this@SatisfyPattern.test(value)
-    override fun toString() = "!${this@SatisfyPattern}"
+    override fun toString() = this@SatisfyPattern.let { "!" + if (it is LogicalConcat<*>) "($it)" else "$it" }
   }
   class LogicalConcat<IN>(val item: SatisfyPattern<IN>, val other: SatisfyPattern<IN>,
       val name: String, private val join: Join<Boolean>): SatisfyPattern<IN>() {
     override fun test(value: IN) = join(item.test(value), other.test(value))
-    override fun toString() = "$item${name}$other"
+    override fun toString() = "$item$name$other"
   }
   infix fun and(next: SatisfyPattern<IN>) = LogicalConcat(this, next, "&") { p, q -> p && q }
   infix fun or(next: SatisfyPattern<IN>) = LogicalConcat(this, next, "|") { p, q -> p || q }
@@ -703,7 +703,7 @@ class SurroundBy<IN, T>(val surround: Pair<IN?, IN?>, val item: Pattern<IN, T>):
     val (left, right) = surround
     value?.let { left?.let(s); item.show(s, value); right?.let(s) }
   }
-  override fun toString() = "${surround.first}$item${surround.second}"
+  override fun toString() = "${surround.first?:""}$item${surround.second?:""}"
 }
 
 typealias DoubleList<A, B> = Tuple2<MutableList<A>, MutableList<B>>
