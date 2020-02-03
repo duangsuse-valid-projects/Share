@@ -608,7 +608,7 @@ abstract class PatternWrapper<IN, T, T1>(val item: Pattern<IN, T>): Pattern<IN, 
   override fun toString() = item.toString()
 }
 abstract class MonoPatternWrapper<IN, T>(item: Pattern<IN, T>): PatternWrapper<IN, T, T>(item) {
-  override fun show(s: Output<IN>, value: T?) { item.show(s, value ?: return) }
+  override fun show(s: Output<IN>, value: T?) { if (value != null) item.show(s, value) }
 }
 inline operator fun <reified IN, T1> PatternWrapper<IN, IN, T1>.not() = wrap(!(item as SatisfyPattern<IN>))
 inline fun <reified IN, T1> PatternWrapper<IN, IN, T1>.clam(message: String) = wrap((item as SatisfyPattern<IN>).clam(message))
@@ -616,7 +616,7 @@ inline fun <reified IN, T1> PatternWrapper<IN, IN, T1>.clam(message: String) = w
 //// == Abstract ==
 // Convert, Contextual, Deferred, Pipe
 
-class Convert<IN, T, T1>(item: Pattern<IN, T>, val from: (T) -> T1, val to: (T1) -> T): PatternWrapper<IN, T, T1>(item) {
+class Convert<IN, T, T1>(item: Pattern<IN, T>, val from: (T) -> T1, val to: (T1) -> T = {unsupported("convert back")}): PatternWrapper<IN, T, T1>(item) {
   override fun read(s: Feed<IN>) = item.read(s)?.let(from)
   override fun show(s: Output<IN>, value: T1?) {
     if (value == null) return
@@ -677,7 +677,8 @@ class Deferred<IN, T>(val item: Producer<Pattern<IN, T>>): Pattern<IN, T> {
 }
 
 class Peek<IN, T>(item: Pattern<IN, T>, val placeholder: T?): MonoPatternWrapper<IN, T>(item) {
-  override fun read(s: Feed<IN>) = placeholder.also { item.read(inputOf(s.peek)) }
+  override fun read(s: Feed<IN>) = placeholder.also { item.read(singleInput(s)) }
+  private fun singleInput(s: Feed<IN>) = inputOf(s.peek).apply { onError = (s as? Input<*>)?.onError ?: onError  }
   override fun wrap(item: Pattern<IN, T>) = Peek(item, placeholder)
   override fun toString() = "(peek:$item)"
 }
@@ -780,6 +781,11 @@ open class EnumMap<V, K>(private val map: Map<K, V>): Map<K, V> by map {
   constructor(values: Iterable<V>, key: (V) -> K): this(values.toMap { key(it) to it })
   constructor(values: Array<V>, key: (V) -> K): this(values.asIterable(), key)
 }
+class MapPattern<K, V>(val map: Map<K, V>): Pattern<K, V> {
+  override fun read(s: Feed<K>) = map[s.peek]?.also { s.consume() }
+  override fun show(s: Output<K>, value: V?) { if (value != null) map.reversedMap()[value]?.let(s) }
+  override fun toString() = "map($map)"
+}
 
 open class Trie<K, V>(var value: V?) {
   constructor(): this(null)
@@ -839,7 +845,7 @@ open class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
     while (true)
       try { point = point.routes[s.peek]?.also { onItem(s.consume()) } ?: break }
       catch (_: Feed.End) { break }
-    return point.value?.also(::onSuccess) ?: onFail()
+    return point.value?.also(::onSuccess) ?: onFail(s)
   }
   override fun show(s: Output<K>, value: V?) {
     if (value == null) return
@@ -847,7 +853,7 @@ open class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
   }
   protected open fun onItem(value: K) {}
   protected open fun onSuccess(value: V) {}
-  protected open fun onFail(): V? = notParsed
+  protected open fun onFail(s: Feed<K>): V? = notParsed
 }
 
 abstract class TrieReplace<V>: TriePattern<Char, V>() {
@@ -856,5 +862,5 @@ abstract class TrieReplace<V>: TriePattern<Char, V>() {
   private fun clear() { stringBuf.clear() }
   override fun onItem(value: Char) { stringBuf.append(value) }
   override fun onSuccess(value: V) { clear() }
-  override fun onFail() = stringBuf.toString().let(::from).also { clear() }
+  override fun onFail(s: Feed<Char>) = stringBuf.toString().let(::from).also { clear() }
 }
