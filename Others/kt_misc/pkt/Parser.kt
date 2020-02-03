@@ -23,8 +23,8 @@ typealias Idx = Int
 typealias Producer<T> = () -> T
 typealias Consumer<T> = (T) -> Unit
 
-typealias ActionOn<T, A1> = T.(A1) -> Unit
-typealias FunctionOn<T, A1, R> = T.(A1) -> R
+typealias ActionOn<T> = T.() -> Unit
+typealias ConsumerOn<T, A1> = T.(A1) -> Unit
 
 typealias Predicate<T> = (T) -> Boolean
 operator fun <T> Predicate<T>.not(): Predicate<T> = { !this@not(it) }
@@ -69,21 +69,6 @@ fun <T> T.rawString() = toString().prefixTranslate(KOTLIN_ESCAPE, "\\").let {
   else it.surround("\""-"\"")
 }
 
-internal val TYPE_STRING = Regex("""(.*\.)?(\S+)""")
-internal val FUNCTION_STRING = Regex("""^\((.*?)\) -> (.*)$""")
-fun <T, R> ((T) -> R).functionTypeString(): String {
-  fun translateType(shown: String): String {
-    val (_, namespace, name) = TYPE_STRING.find(shown)?.groupValues ?: return shown
-    val prefix = namespace.takeUnless { it.startsWith("kotlin") } ?: ""
-    return prefix+name
-  }
-  fun functionTypeStringRec(shown: String): String {
-    val (_, q, r) = FUNCTION_STRING.find(shown)?.groupValues ?: return translateType(shown)
-    return "${translateType(q)}→${functionTypeStringRec(r)}"
-  }
-  return functionTypeStringRec(this.toString())
-}
-
 /** Transparent delegate for [Any] */
 abstract class AnyBy(val obj: Any) {
   override fun equals(other: Any?) =
@@ -124,7 +109,7 @@ interface Feed<out T> {
   class End: NoSuchElementException("no more")
 }
 interface ErrorListener {
-  var onError: ActionOn<Feed<*>, String>
+  var onError: ConsumerOn<Feed<*>, String>
 }
 
 interface SourceLocated { val sourceLoc: SourceLocation }
@@ -205,7 +190,7 @@ class InputStreamFeed(reader: Reader): StreamFeed<Char, Int, Reader>(reader) {
 // File: Input
 open class Input<T>(private val feed: Feed<T>): Feed<T>, ErrorListener {
   protected open fun onItem(item: T) {}
-  override var onError: ActionOn<Feed<*>, String> = { message ->
+  override var onError: ConsumerOn<Feed<*>, String> = { message ->
     val inputDesc = (this as? SourceLocated)?.sourceLoc?.tag ?: "parse fail near `$peek'"
     throw ParseError(this as Input<*>, "$inputDesc: $message")
   }
@@ -241,6 +226,18 @@ open class CharInput(feed: Feed<Char>, file: String): Input<Char>(feed), SourceL
 //// == Abstract ==
 // Input { onItem, onError }
 // CharInput (STDIN) { isCRLF, eol }
+
+typealias ClamError = Pair<SourceLocation, String>
+fun CharInput.clam(): Pair<CharInput, List<ClamError>> {
+  val errorList: MutableList<ClamError> = mutableListOf()
+  onError = { message -> errorList.add(sourceLoc.clone() to message) }
+  return Pair(this, errorList)
+}
+fun <IN> Input<IN>.clam(): Pair<Input<IN>, List<String>> {
+  val errorList: MutableList<String> = mutableListOf()
+  onError = { message -> errorList.add(message) }
+  return Pair(this, errorList)
+}
 
 // Basic usage: SliceFeed(Slice("abc")), InputStreamFeed.STDIN, CharInput.STDIN
 fun inputOf(text: String, file: String = "<string>") = CharInput(SliceFeed(Slice(text)), file)
@@ -383,6 +380,7 @@ abstract class OptionalPattern<IN, T>(val item: Pattern<IN, T>, val defaultValue
   override fun toString() = "$item?:${defaultValue.rawString()}"
 }
 
+//// == Error Handling ==
 fun <IN, T> Pattern<IN, T>.toDefault(defaultValue: T) = object: OptionalPattern<IN, T>(this, defaultValue) {
   override fun read(s: Feed<IN>) = item.read(s) ?: defaultValue
 }
@@ -394,18 +392,6 @@ fun <IN, T> Pattern<IN, T>.clamWhile(pat: Pattern<IN, *>, defaultValue: T, messa
   }
 }
 
-typealias ClamError = Pair<SourceLocation, String>
-fun CharInput.clam(): Pair<CharInput, List<ClamError>> {
-  val errorList: MutableList<ClamError> = mutableListOf()
-  onError = { message -> errorList.add(sourceLoc.clone() to message) }
-  return Pair(this, errorList)
-}
-fun <IN> Input<IN>.clam(): Pair<Input<IN>, List<String>> {
-  val errorList: MutableList<String> = mutableListOf()
-  onError = { message -> errorList.add(message) }
-  return Pair(this, errorList)
-}
-
 //// == Abstract ==
 fun <T> Pattern<Char, T>.read(text: String) = read(inputOf(text))
 fun <T> Pattern<Char, T>.show(value: T?): String? {
@@ -415,6 +401,17 @@ fun <T> Pattern<Char, T>.show(value: T?): String? {
   return sb.toString()
 }
 fun <T> Pattern<Char, T>.rebuild(text: String) = show(read(text))
+fun <T> Pattern<Char, T>.rebuild(text: String, operation: ActionOn<T>) = show(read(text)?.apply(operation))
+
+fun <IN, T> Pattern<IN, T>.read(vararg items: IN) = read(inputOf(*items))
+fun <IN, T> Pattern<IN, T>.show(value: T?): List<IN>? {
+  if (value == null) return null
+  val list: MutableList<IN> = mutableListOf()
+  show({ list.add(it) }, value)
+  return list
+}
+fun <IN, T> Pattern<IN, T>.rebuild(vararg items: IN) = show(read(*items))
+fun <IN, T> Pattern<IN, T>.rebuild(vararg items: IN, operation: ActionOn<T>) = show(read(*items)?.apply(operation))
 
 // Pattern { read(Feed), show(Output, value), toString() }
 // val notParsed: Nothing?
@@ -427,7 +424,8 @@ fun <T> Pattern<Char, T>.rebuild(text: String) = show(read(text))
 // item(), item(value), elementIn(vararg values), elementIn(vararg ranges: CharRange), satisfy(predicate), stay()
 
 // "CCDP"
-// Convert(item, from, to), Contextual(head, body), Deferred(item: Producer<Pattern<IN, R>>), Pipe(item, transform)
+// Convert(item, from, to), Contextual(head, body), Deferred(item: Producer<Pattern<IN, R>>)
+//   Peek(placeholder, operation), Pipe(item, transform)
 
 // "SJ"
 // SurroundBy(surround: Pair<IN?, IN?>, item), JoinBy(join, item) { onItem, onSep }
@@ -449,6 +447,7 @@ class Seq<IN, T, TUPLE: Tuple<T>>(val type: (Cnt) -> TUPLE, vararg val items: Pa
   }
   override fun toString() = items.joinToString(" ").surround("("-")")
 }
+
 
 abstract class FoldPattern<IN, T, R>(val fold: Fold<T, R>): Pattern<IN, R> {
   protected open fun unfold(value: R): Iterable<T> = defaultUnfold(value)
@@ -507,6 +506,12 @@ open class Decide<IN, T>(vararg val cases: Pattern<IN, out T>): Pattern<IN, T> {
   override fun toString() = cases.joinToString("|").surround("("-")")
 }
 
+//// == Abstract ==
+
+// Seq(::StringTuple, item('"').asStringPat(), *(item<Char>()-'"'))
+fun Pattern<Char, Char>.asStringPat() = Convert(this, Char::toString, String::first)
+operator fun Pattern<Char, Char>.minus(terminate: Char) = arrayOf(Until(asString(), terminate, this), item(terminate).asStringPat())
+
 // File: pat/IES
 abstract class SatisfyPattern<IN>: Pattern<IN, IN> {
   protected abstract fun test(value: IN): Boolean
@@ -550,9 +555,17 @@ fun <IN> stay() = object: PositivePattern<IN, Unit> {
   override fun toString() = "()"
 }
 
+//// == Abstract ==
+
+// elementIn(' ', '\t', *('0'..'9').items())
+fun CharRange.items() = toList().toCharArray().toTypedArray()
+// Seq(::IntTuple, item(1), *Contextual(item<Int>()) { i -> satisfy<Int> {it>i} }.flatten().items() )
+inline fun <reified T, A: T, B: T> Pair<A, B>.items() = arrayOf<T>(first, second)
+
 // File: pat/MiscPattern
 abstract class PatternWrapper<IN, T, T1>(val item: Pattern<IN, T>): Pattern<IN, T1> {
   abstract fun wrap(item: Pattern<IN, T>): PatternWrapper<IN, T, T1>
+  override fun toString() = item.toString()
 }
 inline operator fun <reified IN, T1> PatternWrapper<IN, IN, T1>.not() = wrap(!(item as SatisfyPattern<IN>))
 
@@ -566,7 +579,6 @@ class Convert<IN, T, T1>(item: Pattern<IN, T>, val from: (T) -> T1, val to: (T1)
     item.show(s, value.let(to))
   }
   override fun wrap(item: Pattern<IN, T>) = Convert(item, from, to)
-  override fun toString() = item.toString()
 }
 
 class Contextual<IN, HEAD, BODY>(val head: Pattern<IN, HEAD>, val body: (HEAD) -> Pattern<IN, BODY>): Pattern<IN, Tuple2<HEAD, BODY>> {
@@ -581,7 +593,37 @@ class Contextual<IN, HEAD, BODY>(val head: Pattern<IN, HEAD>, val body: (HEAD) -
     head.show(s, context)
     body(context).show(s, parsed)
   }
-  override fun toString() = "$head:${body.functionTypeString()}"
+  override fun toString() = "$head:${showFunctionType(body)}"
+}
+
+fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.flatten(): Pair<Pattern<IN, A>, Pattern<IN, B>> {
+  val item = this; var parsed: Tuple2<A, B>? = null
+  val part1 = object: Pattern<IN, A> {
+    override fun read(s: Feed<IN>) = item.read(s).also { parsed = it }?.first
+    override fun show(s: Output<IN>, value: A?) {}
+    override fun toString() = item.toString()
+  }
+  val part2 = object: Pattern<IN, B> {
+    override fun read(s: Feed<IN>) = parsed?.second
+    override fun show(s: Output<IN>, value: B?) = item.show(s, parsed)
+    override fun toString() = "#2"
+  }
+  return Pair(part1, part2)
+}
+
+internal val TYPE_STRING = Regex("""(.*\.)?(\S+)""")
+internal val FUNCTION_STRING = Regex("""^\((.*?)\) -> (.*)$""")
+fun <T, R> showFunctionType(fn: ((T) -> R)): String {
+  fun translateType(shown: String): String {
+    val (_, namespace, name) = TYPE_STRING.find(shown)?.groupValues ?: return shown
+    val prefix = namespace.takeUnless { it.startsWith("kotlin") } ?: ""
+    return prefix+name
+  }
+  fun showFunctionTypeRec(shown: String): String {
+    val (_, q, r) = FUNCTION_STRING.find(shown)?.groupValues ?: return translateType(shown)
+    return "${translateType(q)}→${showFunctionTypeRec(r)}"
+  }
+  return showFunctionTypeRec(fn.toString())
 }
 
 class Deferred<IN, T>(val item: Producer<Pattern<IN, T>>): Pattern<IN, T> {
@@ -590,13 +632,13 @@ class Deferred<IN, T>(val item: Producer<Pattern<IN, T>>): Pattern<IN, T> {
   override fun toString() = item().toString()
 }
 
-class Peek<IN, T>(val placeholder: T, val operation: ActionOn<Feed<IN>, IN>): PositivePattern<IN, T> {
+class Peek<IN, T>(val placeholder: T, val operation: ConsumerOn<Feed<IN>, IN>): PositivePattern<IN, T> {
   override fun read(s: Feed<IN>): T = placeholder.also {
     try { s.operation(s.peek) }
     catch (_: Feed.End) {}
   }
   override fun show(s: Output<IN>, value: T?) {}
-  override fun toString() = "Peek"
+  override fun toString() = "(peek)"
 }
 
 class Pipe<IN, T>(item: Pattern<IN, T>, val transform: (T) -> T): PatternWrapper<IN, T, T>(item) {
@@ -606,18 +648,17 @@ class Pipe<IN, T>(item: Pattern<IN, T>, val transform: (T) -> T): PatternWrapper
     item.show(s, value)
   }
   override fun wrap(item: Pattern<IN, T>) = Pipe(item, transform)
-  override fun toString() = item.toString()
 }
 
 // File: pat/SurroundJoin
 class SurroundBy<IN, T>(val surround: Pair<IN?, IN?>, val item: Pattern<IN, T>): Pattern<IN, T> {
   override fun read(s: Feed<IN>): T? {
     val (left, right) = surround
-    fun single(value: IN?) = if (value == null) true else s.consumeIf { it == value } != null
+    fun single(value: IN?) = if (value == null) true else (s.consumeIf { it == value } != null)
     single(left) || return notParsed
-    val parse = item.read(s)
+    val parsed = item.read(s)
     single(right) || return notParsed
-    return parse
+    return parsed
   }
   override fun show(s: Output<IN>, value: T?) {
     val (left, right) = surround
@@ -626,13 +667,14 @@ class SurroundBy<IN, T>(val surround: Pair<IN?, IN?>, val item: Pattern<IN, T>):
   override fun toString() = "${surround.first}$item${surround.second}"
 }
 
-typealias DoubleList<A, B> = Tuple2<List<A>, List<B>>
-open class JoinBy<IN, SEP, ITEM>(val join: Pattern<IN, SEP>, val item: Pattern<IN, ITEM>): Pattern<IN, DoubleList<ITEM, SEP>> {
+typealias DoubleList<A, B> = Tuple2<MutableList<A>, MutableList<B>>
+open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN, ITEM>): Pattern<IN, DoubleList<ITEM, SEP>> {
   override fun read(s: Feed<IN>): DoubleList<ITEM, SEP>? {
     val items: MutableList<ITEM> = mutableListOf()
     val seprators: MutableList<SEP> = mutableListOf()
     fun readItem() = item.read(s)?.also { items.add(it); onItem(it) }
-    fun readSep() = join.read(s)?.also { seprators.add(it); onSep(it) }
+    fun readSep() = sep.read(s)?.also { seprators.add(it); onSep(it) }
+
     readItem() ?: return notParsed
     var seprator = readSep()
     while (seprator != notParsed) {
@@ -646,11 +688,12 @@ open class JoinBy<IN, SEP, ITEM>(val join: Pattern<IN, SEP>, val item: Pattern<I
     val (values, sepratorList) = value
     val seprators = sepratorList.iterator()
     item.show(s, values.first())
-    values.drop(1).forEach { join.show(s, seprators.next()); item.show(s, it) }
+    try { values.drop(1).forEach { sep.show(s, seprators.next()); item.show(s, it) } }
+    catch (_: NoSuchElementException) { error("Missing seprator: ${sepratorList.size} vs. ${values.size}") }
   }
   protected open fun onItem(value: ITEM) {}
   protected open fun onSep(value: SEP) {}
-  override fun toString() = "{$item}$join"
+  override fun toString() = "{$item...$sep}"
 }
 
 // File: pat/InfixPattern
@@ -688,10 +731,10 @@ interface InfixOpEnum<T> {
   val name: String; val ordinal: Int; val join: Join<T>
   fun toPair(replaceName: String? = null) = Pair(replaceName ?: name, InfixOp(ordinal, join, name))
 }
-inline fun <reified ENUM, T> ENUM.toInfixOps(replaceName: Map<String, String> = emptyMap()): Pattern<Char, InfixOp<T>>
+inline fun <reified ENUM, T> ENUM.toInfixOps(replaceNames: Map<String, String> = emptyMap()): Pattern<Char, InfixOp<T>>
 where ENUM: Enum<ENUM>, ENUM: InfixOpEnum<T> {
   val tree = TriePattern<Char, InfixOp<T>>()
-  tree.mergeStrings(*enumValues<ENUM>().toList().mapToArray { replaceName[it.name].let(it::toPair) })
+  tree.mergeStrings(*enumValues<ENUM>().toList().mapToArray { replaceNames[it.name].let(it::toPair) })
   return tree
 }
 
@@ -729,9 +772,11 @@ open class Trie<K, V>(var value: V?) {
     val msg = "${key.joinToString("/")} @$k"
     throw NoSuchElementException(msg)
   }
-  override fun toString(): String {
-    return if (value == null) "Path${routes}"
-    else "Bin[$value]${routes}"
+  override fun toString(): String = when {
+    value == null -> "Path${routes}"
+    value != null && routes.isNotEmpty() -> "Bin[$value]${routes}"
+    value != null && routes.isEmpty() -> "Term($value)"
+    else -> impossible()
   }
   override fun equals(other: Any?): Boolean {
     if (this === other) return true
@@ -742,13 +787,13 @@ open class Trie<K, V>(var value: V?) {
 }
 
 //// == Abstract ==
-fun <K, V> Trie<K, V>.merge(vararg pairs: Pair<Iterable<K>, V>) {
-  for ((k, v) in pairs) this[k] = v
+fun <K, V> Trie<K, V>.merge(vararg kvs: Pair<Iterable<K>, V>) {
+  for ((k, v) in kvs) this[k] = v
 }
-fun <V> Trie<Char, V>.mergeStrings(vararg pairs: Pair<CharSequence, V>) {
-  for ((k, v) in pairs) this[k.asIterable()] = v
+fun <V> Trie<Char, V>.mergeStrings(vararg kvs: Pair<CharSequence, V>) {
+  for ((k, v) in kvs) this[k.asIterable()] = v
 }
-fun <K, V> trieOf(vararg pairs: Pair<Iterable<K>, V>) = Trie<K, V>().apply { merge(*pairs) }
+fun <K, V> trieOf(vararg kvs: Pair<Iterable<K>, V>) = Trie<K, V>().apply { merge(*kvs) }
 
 //// == Pattern ==
 class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
