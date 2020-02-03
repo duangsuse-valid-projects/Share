@@ -35,18 +35,22 @@ abstract class JsonLexical {
     if (head == 0) Peek(oneNine.not().clam("bad octal notation"), 0)
     else Repeat(asInt(10, head), zeroNine)
   }
-  val hexDigit = object: Decide<Char, Int>(zeroNine, Convert(elementIn('a'..'f'), {it-'a'+10}), Convert(elementIn('A'..'f'), {it-'A'+10}, {'A'+it-10})) {
-    override fun undecide(value: Int) = when (value) { in 0..9 -> 0; else -> 2 }
+  val hexPart = Convert(elementIn('a'..'f'), {it-'a'+10})
+  val hexPartCaps = Convert(elementIn('A'..'f'), {it-'A'+10}, {'A'+it-10})
+  val hexDigit = DecideUn(zeroNine, hexPart, hexPartCaps) {
+    when (it) { in 0..9 -> 0; else -> 2 }
   }
   val escape = MapPattern(translateMap)
   val unicodeEscape = Convert(object: Repeat<Char, Int, Int>(asInt(16), hexDigit) {
-    override fun testCount(n: Cnt) = n == 4
+    override val bound = 4..4
     override fun unfold(value: Int) = value.toString(16).padStart(4, '0').map { it-'0' }
-  }, Int::toChar, Char::toInt)
+  }, Int::toChar, Char::toInt).clamWhile(!item<Char>(), '?', "bad escape")
   val string = SurroundBy(dquote to dquote, Until(asString(), dquote, Decide(
-    object: Decide<Char, Char>(unicodeEscape prefix 'u', escape) {
-      override fun undecide(value: Char) = if (value in translateMap.reversedMap()) 1 else 0
-    } prefix '\\', item<Char>().and(!item('\n')).clam("unterminated string") ) ))
+    DecideUn(unicodeEscape prefix 'u', escape) {
+      if (it in translateMap.reversedMap()) 1 else 0
+    } prefix '\\',
+    item<Char>().and(!item('\n')).clam("unterminated string")
+  )))
 }
 
 fun zeroPad(item: SatisfyPattern<Char>) = Convert(item, {it-'0'}, {'0'+it})

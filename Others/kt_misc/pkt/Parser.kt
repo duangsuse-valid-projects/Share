@@ -455,7 +455,7 @@ fun <IN, T> Pattern<IN, T>.mustRead(vararg items: IN): T {
 
 // "SURDIES"
 // Seq(type: TUPLE, vararg items), Until(fold, terminate: IN, item),
-//   Repeat(fold, item) { testCount }, Decide(vararg cases) { undecide, onDoneRead }
+//   Repeat(fold, item) { bound }, Decide(vararg cases) { undecide, onDoneRead }
 // item(), item(value), elementIn(vararg values), elementIn(vararg ranges: CharRange), satisfy(predicate), stay()
 
 // "CCDP"
@@ -517,17 +517,18 @@ open class Repeat<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern
     var count = 0
     while (true) {
       reducer.accept(item.read(s) ?: break)
-      ++count
+      ++count; if (!greedy && count.inc() !in bound) break
     }
-    return if (testCount(count)) reducer.finish() else notParsed
+    return if (count in bound) reducer.finish() else notParsed
   }
   override fun show(s: Output<IN>, value: R?) {
     if (value == null) return
     var count = 0
     unfold(value).forEach { item.show(s, it); ++count }
-    check(testCount(count)) {"bad wrote count: $count"}
+    check(count in bound) {"bad wrote count: $count"}
   }
-  protected open fun testCount(n: Cnt) = (n > 0)
+  protected open val greedy = true
+  protected open val bound = 1..Cnt.MAX_VALUE
   override fun toString() = "{$item}"
 }
 class RepeatUn<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R) -> Iterable<T>): Repeat<IN, T, R>(fold, item) {
