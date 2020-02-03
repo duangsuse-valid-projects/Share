@@ -483,9 +483,13 @@ class Seq<IN, T, TUPLE: Tuple<T>>(val type: (Cnt) -> TUPLE, vararg val items: Pa
   override fun toString() = items.joinToString(" ").surround("("-")")
 }
 
-
-abstract class FoldPattern<IN, T, R>(val fold: Fold<T, R>): Pattern<IN, R> {
+/** Pattern of [Iterable.fold] items, like [Until], [Repeat] */
+abstract class FoldPattern<IN, T, R>(val fold: Fold<T, R>, val item: Pattern<IN, T>): Pattern<IN, R> {
   protected open fun unfold(value: R): Iterable<T> = defaultUnfold(value)
+  override fun show(s: Output<IN>, value: R?) {
+    if (value == null) return
+    unfold(value).forEach { item.show(s, it) }
+  }
 }
 internal fun <R, T> defaultUnfold(value: R): Iterable<T> = @Suppress("unchecked_cast") when (value) {
   is Iterable<*> -> value as Iterable<T>
@@ -493,21 +497,17 @@ internal fun <R, T> defaultUnfold(value: R): Iterable<T> = @Suppress("unchecked_
   else -> unsupported("unfold")
 }
 
-open class Until<IN, T, R>(fold: Fold<T, R>, val terminate: IN, val item: Pattern<IN, T>): FoldPattern<IN, T, R>(fold) {
+open class Until<IN, T, R>(fold: Fold<T, R>, val terminate: IN, item: Pattern<IN, T>): FoldPattern<IN, T, R>(fold, item) {
   override fun read(s: Feed<IN>): R? {
     val reducer = fold.reducer()
     while (s.peek != terminate)
       reducer.accept(item.read(s) ?: return notParsed)
     return reducer.finish()
   }
-  override fun show(s: Output<IN>, value: R?) {
-    if (value == null) return
-    unfold(value).forEach { item.show(s, it) }
-  }
   override fun toString() = "($item)~${terminate.rawString()}"
 }
 
-open class Repeat<IN, T, R>(fold: Fold<T, R>, val item: Pattern<IN, T>): FoldPattern<IN, T, R>(fold) {
+open class Repeat<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern<IN, T, R>(fold, item) {
   override fun read(s: Feed<IN>): R? {
     val reducer = fold.reducer()
     var count = 0
@@ -526,6 +526,9 @@ open class Repeat<IN, T, R>(fold: Fold<T, R>, val item: Pattern<IN, T>): FoldPat
   protected open fun testCount(n: Cnt) = (n > 0)
   override fun toString() = "{$item}"
 }
+class RepeatUnfold<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R) -> Iterable<T>): Repeat<IN, T, R>(fold, item) {
+  override fun unfold(value: R) = unfold.invoke(value)
+}
 
 open class Decide<IN, T>(vararg val cases: Pattern<IN, out T>): Pattern<IN, T> {
   override fun read(s: Feed<IN>): T? {
@@ -540,6 +543,9 @@ open class Decide<IN, T>(vararg val cases: Pattern<IN, out T>): Pattern<IN, T> {
   protected open fun undecide(value: T): Idx = 0
   override fun toString() = cases.joinToString("|").surround("("-")")
 }
+class DecideUnfold<IN, T>(vararg cases: Pattern<IN, out T>, val undecide: (T) -> Idx): Decide<IN, T>(*cases) {
+  override fun undecide(value: T) = undecide.invoke(value)
+}
 
 //// == Abstract ==
 typealias MonoPattern<IN> = Pattern<IN, IN>
@@ -547,6 +553,9 @@ typealias MonoPattern<IN> = Pattern<IN, IN>
 // Seq(::StringTuple, item('"').asStringPat(), *(item<Char>()-'"'))
 fun MonoPattern<Char>.asStringPat() = Convert(this, Char::toString, String::first)
 operator fun MonoPattern<Char>.minus(terminate: Char) = arrayOf(Until(asString(), terminate, this), item(terminate).asStringPat())
+
+infix fun <IN, T> Pattern<IN, T>.prefix(value: IN) = SurroundBy(value to null, this)
+infix fun <IN, T> Pattern<IN, T>.suffix(value: IN) = SurroundBy(null to value, this)
 
 // File: pat/IES
 abstract class SatisfyPattern<IN>: MonoPattern<IN> {
