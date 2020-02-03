@@ -497,6 +497,7 @@ internal fun <R, T> defaultUnfold(value: R): Iterable<T> = @Suppress("unchecked_
   else -> unsupported("unfold")
 }
 
+
 open class Until<IN, T, R>(fold: Fold<T, R>, val terminate: IN, item: Pattern<IN, T>): FoldPattern<IN, T, R>(fold, item) {
   override fun read(s: Feed<IN>): R? {
     val reducer = fold.reducer()
@@ -505,6 +506,9 @@ open class Until<IN, T, R>(fold: Fold<T, R>, val terminate: IN, item: Pattern<IN
     return reducer.finish()
   }
   override fun toString() = "($item)~${terminate.rawString()}"
+}
+class UntilUn<IN, T, R>(fold: Fold<T, R>, terminate: IN, item: Pattern<IN, T>, val unfold: (R) -> Iterable<T>): Until<IN, T, R>(fold, terminate, item) {
+  override fun unfold(value: R) = unfold.invoke(value)
 }
 
 open class Repeat<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern<IN, T, R>(fold, item) {
@@ -526,7 +530,7 @@ open class Repeat<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern
   protected open fun testCount(n: Cnt) = (n > 0)
   override fun toString() = "{$item}"
 }
-class RepeatUnfold<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R) -> Iterable<T>): Repeat<IN, T, R>(fold, item) {
+class RepeatUn<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R) -> Iterable<T>): Repeat<IN, T, R>(fold, item) {
   override fun unfold(value: R) = unfold.invoke(value)
 }
 
@@ -543,7 +547,7 @@ open class Decide<IN, T>(vararg val cases: Pattern<IN, out T>): Pattern<IN, T> {
   protected open fun undecide(value: T): Idx = 0
   override fun toString() = cases.joinToString("|").surround("("-")")
 }
-class DecideUnfold<IN, T>(vararg cases: Pattern<IN, out T>, val undecide: (T) -> Idx): Decide<IN, T>(*cases) {
+class DecideUn<IN, T>(vararg cases: Pattern<IN, out T>, val undecide: (T) -> Idx): Decide<IN, T>(*cases) {
   override fun undecide(value: T) = undecide.invoke(value)
 }
 
