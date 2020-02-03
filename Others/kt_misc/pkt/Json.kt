@@ -9,7 +9,7 @@ sealed class Json {
 
 abstract class JsonLexical {
   val brace = '{' to '}'; val square = '[' to ']'
-  val colon = ':'; val comma = ',';
+  val colon = ':'; val comma = ','
   val dquote = '"'
   val constLiteral = TriePattern<Char, Json>().apply {
     mergeStrings("true" to Json.Boolean(true), "false" to Json.Boolean(false))
@@ -18,14 +18,14 @@ abstract class JsonLexical {
   val white = elementIn(' ', '\n', '\r', '\t')
   val ws = Repeat(asString(), white)
 
-  fun asIntegral(radix: Int, initial: Int = 0) = JoinFold(initial, {this*radix+ it})
+  fun asIntegral(radix: Int, initial: Int) = JoinFold(initial, {this*radix+ it})
+  fun digitsOf(item: Pattern<Char, Int>, initial: Int = 0) = Repeat(asIntegral(10, initial), item)
   fun zeroPad(item: SatisfyPattern<Char>) = Convert(item, {it-'0'}, {'0'+it})
   val zeroNine = zeroPad(elementIn('0'..'9'))
   val oneNine = zeroPad(elementIn('1'..'9'))
-  fun digitsOf(item: Pattern<Char, Int>) = Repeat(asIntegral(10), item)
-  val digits = Decide(digitsOf(oneNine), Convert(Contextual<Char, Int, Int>(zeroNine) { h ->
-      if (h == 0) Peek(0) { if (it in '0'..'9') error("bad octal notation ${consume()}") }
-      else Repeat(asIntegral(10, h), zeroNine)
+  val digits = Decide(digitsOf(oneNine), Convert(Contextual<Char, Int, Int>(zeroNine) { head ->
+      if (head== 0) Peek(oneNine.not().clam("bad octal notation"), 0)
+      else digitsOf(zeroNine, head)
   }, {it.second}, {Tuple2(0, it)}) )
   val sign = elementIn('+', '-').toDefault('+')
 }

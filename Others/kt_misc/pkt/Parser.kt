@@ -460,7 +460,7 @@ fun <IN, T> Pattern<IN, T>.mustRead(vararg items: IN): T {
 
 // "CCDP"
 // Convert(item, from, to), Contextual(head, body), Deferred(item: Producer<Pattern<IN, R>>)
-//   Peek(placeholder, operation), Pipe(item, transform)
+//   Peek(item, placeholder), Pipe(item, transform)
 
 // "SJ"
 // SurroundBy(surround: Pair<IN?, IN?>, item), JoinBy(join, item) { onItem, onSep }
@@ -542,13 +542,14 @@ open class Decide<IN, T>(vararg val cases: Pattern<IN, out T>): Pattern<IN, T> {
 }
 
 //// == Abstract ==
+typealias MonoPattern<IN> = Pattern<IN, IN>
 
 // Seq(::StringTuple, item('"').asStringPat(), *(item<Char>()-'"'))
-fun Pattern<Char, Char>.asStringPat() = Convert(this, Char::toString, String::first)
-operator fun Pattern<Char, Char>.minus(terminate: Char) = arrayOf(Until(asString(), terminate, this), item(terminate).asStringPat())
+fun MonoPattern<Char>.asStringPat() = Convert(this, Char::toString, String::first)
+operator fun MonoPattern<Char>.minus(terminate: Char) = arrayOf(Until(asString(), terminate, this), item(terminate).asStringPat())
 
 // File: pat/IES
-abstract class SatisfyPattern<IN>: Pattern<IN, IN> {
+abstract class SatisfyPattern<IN>: MonoPattern<IN> {
   protected abstract fun test(value: IN): Boolean
   override fun read(s: Feed<IN>) = s.consumeIf(::test)
   override fun show(s: Output<IN>, value: IN?) { value?.let(s) }
@@ -606,7 +607,11 @@ abstract class PatternWrapper<IN, T, T1>(val item: Pattern<IN, T>): Pattern<IN, 
   abstract fun wrap(item: Pattern<IN, T>): PatternWrapper<IN, T, T1>
   override fun toString() = item.toString()
 }
+abstract class MonoPatternWrapper<IN, T>(item: Pattern<IN, T>): PatternWrapper<IN, T, T>(item) {
+  override fun show(s: Output<IN>, value: T?) { item.show(s, value ?: return) }
+}
 inline operator fun <reified IN, T1> PatternWrapper<IN, IN, T1>.not() = wrap(!(item as SatisfyPattern<IN>))
+inline fun <reified IN, T1> PatternWrapper<IN, IN, T1>.clam(message: String) = wrap((item as SatisfyPattern<IN>).clam(message))
 
 //// == Abstract ==
 // Convert, Contextual, Deferred, Pipe
@@ -671,21 +676,14 @@ class Deferred<IN, T>(val item: Producer<Pattern<IN, T>>): Pattern<IN, T> {
   override fun toString() = item().toString()
 }
 
-class Peek<IN, T>(val placeholder: T, val operation: ConsumerOn<Feed<IN>, IN>): PositivePattern<IN, T> {
-  override fun read(s: Feed<IN>): T = placeholder.also {
-    try { s.operation(s.peek) }
-    catch (_: Feed.End) {}
-  }
-  override fun show(s: Output<IN>, value: T?) {}
-  override fun toString() = "(peek)"
+class Peek<IN, T>(item: Pattern<IN, T>, val placeholder: T?): MonoPatternWrapper<IN, T>(item) {
+  override fun read(s: Feed<IN>) = placeholder.also { item.read(inputOf(s.peek)) }
+  override fun wrap(item: Pattern<IN, T>) = Peek(item, placeholder)
+  override fun toString() = "(peek:$item)"
 }
 
-class Pipe<IN, T>(item: Pattern<IN, T>, val transform: (T) -> T): PatternWrapper<IN, T, T>(item) {
+class Pipe<IN, T>(item: Pattern<IN, T>, val transform: (T) -> T): MonoPatternWrapper<IN, T>(item) {
   override fun read(s: Feed<IN>) = item.read(s)?.let(transform)
-  override fun show(s: Output<IN>, value: T?) {
-    if (value == null) return
-    item.show(s, value)
-  }
   override fun wrap(item: Pattern<IN, T>) = Pipe(item, transform)
 }
 
@@ -835,16 +833,28 @@ fun <V> Trie<Char, V>.mergeStrings(vararg kvs: Pair<CharSequence, V>) {
 fun <K, V> trieOf(vararg kvs: Pair<Iterable<K>, V>) = Trie<K, V>().apply { merge(*kvs) }
 
 //// == Pattern ==
-class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
+open class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
   override fun read(s: Feed<K>): V? {
     var point: Trie<K, V> = this
     while (true)
-      try { point = point.routes[s.peek]?.also { s.consume() } ?: break }
+      try { point = point.routes[s.peek]?.also { onItem(s.consume()) } ?: break }
       catch (_: Feed.End) { break }
-    return point.value
+    return point.value?.also(::onSuccess) ?: onFail()
   }
   override fun show(s: Output<K>, value: V?) {
     if (value == null) return
     toMap().reversedMap()[value]?.let { it.forEach(s) }
   }
+  protected open fun onItem(value: K) {}
+  protected open fun onSuccess(value: V) {}
+  protected open fun onFail(): V? = notParsed
+}
+
+abstract class TrieReplace<V>: TriePattern<Char, V>() {
+  abstract fun from(path: String): V
+  private val stringBuf = StringBuilder()
+  private fun clear() { stringBuf.clear() }
+  override fun onItem(value: Char) { stringBuf.append(value) }
+  override fun onSuccess(value: V) { clear() }
+  override fun onFail() = stringBuf.toString().let(::from).also { clear() }
 }
