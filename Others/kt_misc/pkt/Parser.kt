@@ -42,6 +42,9 @@ inline fun <T, reified R> List<T>.mapToArray(transform: (T) -> R): Array<R> {
 inline fun <T, R> Pair<T, T>.map(transform: (T) -> R): Pair<R, R> = Pair(transform(first), transform(second))
 inline fun IntRange.map(transform: (Int) -> Int) = transform(first)..transform(last)
 
+fun CharRange.items() = toList().toCharArray().toTypedArray()
+inline fun <reified T, A: T, B: T> Pair<A, B>.items() = arrayOf<T>(first, second)
+
 fun <E, K, V> Iterable<E>.toMap(kv: (E) -> Pair<K, V>): Map<K, V> {
   val map: MutableMap<K, V> = mutableMapOf()
   forEach { val (k, v) = kv(it); map[k] = v }
@@ -199,7 +202,7 @@ open class Input<T>(private val feed: Feed<T>): Feed<T>, ErrorListener {
   override fun toString() = "Input:$feed"
 }
 
-class ParseError(val input: Input<*>, message: String): Error(message)
+open class ParseError(val input: Input<*>, message: String): Error(message)
 fun Feed<*>.error(message: String) = (this as? ErrorListener)?.onError?.invoke(this, message) ?: kotlin.error(message)
 
 open class CharInput(feed: Feed<Char>, file: String): Input<Char>(feed), SourceLocated {
@@ -239,6 +242,9 @@ fun <IN> Input<IN>.withErrorList(): Pair<List<BoundError<IN>>, Input<IN>> {
   onError = @Suppress("unchecked_cast") { message -> errorList.add((peek as IN) to message) }
   return Pair(errorList, this)
 }
+
+class LocatedParseErrors(input: Input<*>, val errors: List<LocatedError>): ParseError(input, "${errors.size} errors")
+class BoundParseErrors(input: Input<*>, val errors: List<BoundError<*>>): ParseError(input, "${errors.size} errors")
 
 // Basic usage: SliceFeed(Slice("abc")), InputStreamFeed.STDIN, CharInput.STDIN
 fun inputOf(text: String, file: String = "<string>") = CharInput(SliceFeed(Slice(text)), file)
@@ -385,6 +391,8 @@ abstract class OptionalPattern<IN, T>(val item: Pattern<IN, T>, val defaultValue
 fun <IN, T> Pattern<IN, T>.toDefault(defaultValue: T) = object: OptionalPattern<IN, T>(this, defaultValue) {
   override fun read(s: Feed<IN>) = item.read(s) ?: defaultValue
 }
+
+/** Add error, __skip unacceptable__ [pat], yield [defaultValue], continue read process */
 fun <IN, T> Pattern<IN, T>.clamWhile(pat: Pattern<IN, *>, defaultValue: T, message: String)
 = object: OptionalPattern<IN, T>(this, defaultValue) {
   override fun read(s: Feed<IN>) = this@clamWhile.read(s) ?: run {
@@ -392,6 +400,7 @@ fun <IN, T> Pattern<IN, T>.clamWhile(pat: Pattern<IN, *>, defaultValue: T, messa
     while (pat.read(s) != notParsed) {}; defaultValue
   }
 }
+/** Add error, consume item until __pattern parses__ or feed end */
 fun <IN> SatisfyPattern<IN>.clam(message: String)
 = object: Pattern<IN, IN> by this {
   override fun read(s: Feed<IN>): IN? = this@clam.read(s) ?: run {
@@ -424,6 +433,20 @@ fun <IN, T> Pattern<IN, T>.show(value: T?): List<IN>? {
 }
 fun <IN, T> Pattern<IN, T>.rebuild(vararg items: IN) = show(read(*items))
 fun <IN, T> Pattern<IN, T>.rebuild(vararg items: IN, operation: ActionOn<T>) = show(read(*items)?.apply(operation))
+
+////
+fun <T> Pattern<Char, T>.mustRead(text: String): T {
+  val (es, input) = inputOf(text).withErrorList()
+  val parsed = read(input)
+  if (es.isEmpty() && parsed != notParsed) return parsed
+  else throw LocatedParseErrors(input, es)
+}
+fun <IN, T> Pattern<IN, T>.mustRead(vararg items: IN): T {
+  val (es, input) = inputOf(*items).withErrorList()
+  val parsed = read(input)
+  if (es.isEmpty() && parsed != notParsed) return parsed
+  else throw BoundParseErrors(input, es)
+}
 
 // Pattern { read(Feed), show(Output, value), toString() }
 // val notParsed: Nothing?
@@ -533,6 +556,13 @@ abstract class SatisfyPattern<IN>: Pattern<IN, IN> {
     override fun test(value: IN) = !this@SatisfyPattern.test(value)
     override fun toString() = "!${this@SatisfyPattern}"
   }
+  class LogicalConcat<IN>(val item: SatisfyPattern<IN>, val other: SatisfyPattern<IN>,
+      val name: String, private val join: Join<Boolean>): SatisfyPattern<IN>() {
+    override fun test(value: IN) = join(item.test(value), other.test(value))
+    override fun toString() = "$item${name}$other"
+  }
+  infix fun and(next: SatisfyPattern<IN>) = LogicalConcat(this, next, "&") { p, q -> p && q }
+  infix fun or(next: SatisfyPattern<IN>) = LogicalConcat(this, next, "|") { p, q -> p || q }
 }
 
 fun <IN> item() = object: SatisfyPattern<IN>() {
@@ -551,6 +581,10 @@ fun <IN> elementIn(vararg values: IN) = object: SatisfyPattern<IN>() {
   override fun test(value: IN) = value in values
   override fun toString() = values.joinToString("|", transform = { it.rawString() }).surround("("-")")
 }
+fun <IN: Comparable<IN>> elementIn(range: ClosedRange<IN>) = object: SatisfyPattern<IN>() {
+  override fun test(value: IN) = value in range
+  override fun toString() = range.toString().surround("("-")")
+}
 fun elementIn(vararg ranges: CharRange) = object: SatisfyPattern<Char>() {
   override fun test(value: Char) = ranges.any { range -> value in range }
   override fun toString() = ranges.joinToString("", transform = ::toDashString).surround("["-"]")
@@ -566,13 +600,6 @@ fun <IN> stay() = object: PositivePattern<IN, Unit> {
   override fun show(s: Output<IN>, value: Unit?) {}
   override fun toString() = "()"
 }
-
-//// == Abstract ==
-
-// elementIn(' ', '\t', *('0'..'9').items())
-fun CharRange.items() = toList().toCharArray().toTypedArray()
-// Seq(::IntTuple, item(1), *Contextual(item<Int>()) { i -> satisfy<Int> {it>i} }.flatten().items() )
-inline fun <reified T, A: T, B: T> Pair<A, B>.items() = arrayOf<T>(first, second)
 
 // File: pat/MiscPattern
 abstract class PatternWrapper<IN, T, T1>(val item: Pattern<IN, T>): Pattern<IN, T1> {
