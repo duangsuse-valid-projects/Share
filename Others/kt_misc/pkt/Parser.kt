@@ -585,6 +585,12 @@ infix fun <IN, T> Pattern<IN, T>.suffix(item: MonoConstantPattern<IN>) = Surroun
 inline operator fun <reified IN, T> PatternWrapper<IN, IN, T>.not() = wrap(!(item as SatisfyPattern<IN>))
 inline fun <reified IN, T> PatternWrapper<IN, IN, T>.clam(message: String) = wrap((item as SatisfyPattern<IN>).clam(message))
 
+// Losing type information for T in PatternWrapper, required for fun show
+@Suppress("UNCHECKED_CAST")
+inline operator fun <reified IN, reified T> NoConvertPatternWrapper<IN, T>.not() = wrap(!(item as PatternWrapper<IN, IN, T>))
+@Suppress("UNCHECKED_CAST")
+inline fun <reified IN, reified T> NoConvertPatternWrapper<IN, T>.clam(message: String) = wrap((item as PatternWrapper<IN, IN, T>).clam(message))
+
 // File: pat/IES
 abstract class SatisfyPattern<IN>: MonoPattern<IN> {
   protected abstract fun test(value: IN): Boolean
@@ -648,7 +654,7 @@ fun never(): Pattern<*, Nothing> = object: Pattern<Nothing, Nothing> {
 //// == Abstract ==
 // Convert, Contextual, Deferred, Peek, Pipe
 
-class Convert<IN, T, T1>(item: Pattern<IN, T>, val from: (T) -> T1, val to: (T1) -> T): PatternWrapper<IN, T, T1>(item) {
+class Convert<IN, T, T1>(item: Pattern<IN, T>, val from: (T) -> T1, val to: (T1) -> T = {unsupported("convert back")}): PatternWrapper<IN, T, T1>(item) {
   override fun read(s: Feed<IN>) = item.read(s)?.let(from)
   override fun show(s: Output<IN>, value: T1?) {
     if (value == null) return
