@@ -582,9 +582,6 @@ infix fun MonoPattern<Char>.until(terminate: MonoConstantPattern<Char>)
 infix fun <IN, T> Pattern<IN, T>.prefix(item: MonoConstantPattern<IN>) = SurroundBy(item to null, this)
 infix fun <IN, T> Pattern<IN, T>.suffix(item: MonoConstantPattern<IN>) = SurroundBy(null to item, this)
 
-abstract class MonoPatternWrapper<IN, T>(item: Pattern<IN, T>): PatternWrapper<IN, T, T>(item) {
-  override fun show(s: Output<IN>, value: T?) { if (value != null) item.show(s, value) }
-}
 inline operator fun <reified IN, T> PatternWrapper<IN, IN, T>.not() = wrap(!(item as SatisfyPattern<IN>))
 inline fun <reified IN, T> PatternWrapper<IN, IN, T>.clam(message: String) = wrap((item as SatisfyPattern<IN>).clam(message))
 
@@ -705,15 +702,18 @@ fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.flatten(): Pair<Pattern<IN, A>, Pattern
   return Pair(part1, part2)
 }
 
-class Deferred<IN, T>(val item: Producer<Pattern<IN, T>>): Pattern<IN, T> {
-  override fun read(s: Feed<IN>) = item().read(s)
-  override fun show(s: Output<IN>, value: T?) = item().show(s, value)
-  override fun toString() = item().toString()
+abstract class NoConvertPatternWrapper<IN, T>(item: Pattern<IN, T>): PatternWrapper<IN, T, T>(item) {
+  override fun show(s: Output<IN>, value: T?) = item.show(s, value)
 }
 
-class Peek<IN, T>(item: Pattern<IN, T>, val placeholder: (T?) -> T?): MonoPatternWrapper<IN, T>(item) {
+class Deferred<IN, T>(val lazyItem: Producer<Pattern<IN, T>>): Pattern<IN, T> {
+  override fun read(s: Feed<IN>) = lazyItem().read(s)
+  override fun show(s: Output<IN>, value: T?) = lazyItem().show(s, value)
+  override fun toString() = lazyItem().toString()
+}
+
+class Peek<IN, T>(item: Pattern<IN, T>, val placeholder: (T?) -> T?): NoConvertPatternWrapper<IN, T>(item) {
   override fun read(s: Feed<IN>) = item.read(singleInput(s)).let(placeholder)
-  override fun show(s: Output<IN>, value: T?) = item.show(s, value)
   private fun singleInput(s: Feed<IN>) = Input(SingleFeed(s.peek)).apply { onError = (s as? Input<*>)?.onError ?: onError  }
   override fun wrap(item: Pattern<IN, T>) = Peek(item, placeholder)
   override fun toString() = "peek:$item".surround(parens)
@@ -727,7 +727,7 @@ internal class SingleFeed<T>(val value: T): Feed<T> {
 }
 
 /** "Gentle" version of [Convert] */
-class Pipe<IN, T>(item: Pattern<IN, T>, val transform: (T) -> T): MonoPatternWrapper<IN, T>(item) {
+class Pipe<IN, T>(item: Pattern<IN, T>, val transform: (T) -> T): NoConvertPatternWrapper<IN, T>(item) {
   override fun read(s: Feed<IN>) = item.read(s)?.let(transform)
   override fun wrap(item: Pattern<IN, T>) = Pipe(item, transform)
 }
