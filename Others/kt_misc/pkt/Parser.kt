@@ -499,6 +499,8 @@ fun <IN, T> Pattern<IN, T>.mustRead(vararg items: IN): T {
 // JoinBy(join, item) { onItem, onSep, AddListeners(onItem, onSep) }
 // InfixChain(atom, infix), TriePattern<K, V>()
 
+// Tuple2 patterns: flatten(), onlyFirst(second), onlySecond(first)
+
 // File: pat/SURD
 class Seq<IN, T, TUPLE: Tuple<T>>(val type: (Cnt) -> TUPLE, vararg val items: Pattern<IN, out T>): Pattern<IN, TUPLE> {
   constructor(type: Producer<TUPLE>, vararg items: Pattern<IN, T>): this({ _ -> type() }, *items)
@@ -619,7 +621,7 @@ abstract class SatisfyPattern<IN>: MonoPattern<IN> {
   override fun show(s: Output<IN>, value: IN?) { value?.let(s) }
   /** Apply logical relation like (&&) (||) with 2 satisfy patterns */
   class LogicalConcat<IN>(val item: SatisfyPattern<IN>, val other: SatisfyPattern<IN>,
-      val name: String, private val join: Join<Boolean>): SatisfyPattern<IN>() {
+      val name: String, private val join: InfixJoin<Boolean>): SatisfyPattern<IN>() {
     override fun test(value: IN) = join(item.test(value), other.test(value))
     override fun toString() = "$item$name$other"
   }
@@ -714,21 +716,6 @@ fun <T, R> showFunctionType(fn: ((T) -> R)): String {
     return "${translateType(q)}→${showFunctionTypeRec(r)}"
   }
   return showFunctionTypeRec(fn.toString())
-}
-
-fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.flatten(): Pair<Pattern<IN, A>, Pattern<IN, B>> {
-  val item = this; var parsed: Tuple2<A, B>? = null
-  val part1 = object: Pattern<IN, A> {
-    override fun read(s: Feed<IN>) = item.read(s).also { parsed = it }?.first
-    override fun show(s: Output<IN>, value: A?) {}
-    override fun toString() = item.toString()
-  }
-  val part2 = object: Pattern<IN, B> {
-    override fun read(s: Feed<IN>) = parsed?.second
-    override fun show(s: Output<IN>, value: B?) = item.show(s, parsed)
-    override fun toString() = "#2"
-  }
-  return Pair(part1, part2)
 }
 
 //// Deferred, Peek, Pipe
@@ -826,13 +813,29 @@ open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN
   }
 }
 
-fun <IN, A, B> Pattern<IN, DoubleList<A, B>>.ignoreSecond() = Convert(this, { it.first }, { Tuple2(it, emptyList<B>()) })
+fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.flatten(): Pair<Pattern<IN, A>, Pattern<IN, B>> {
+  val item = this; var parsed: Tuple2<A, B>? = null
+  val part1 = object: Pattern<IN, A> {
+    override fun read(s: Feed<IN>) = item.read(s).also { parsed = it }?.first
+    override fun show(s: Output<IN>, value: A?) {}
+    override fun toString() = item.toString()
+  }
+  val part2 = object: Pattern<IN, B> {
+    override fun read(s: Feed<IN>) = parsed?.second
+    override fun show(s: Output<IN>, value: B?) = item.show(s, parsed)
+    override fun toString() = "#2"
+  }
+  return Pair(part1, part2)
+}
+
+fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.onlyFirst(second: (A) -> B) = Convert(this, { it.first }, { Tuple2(it, second(it)) })
+fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.onlySecond(first: (B) -> A) = Convert(this, { it.second }, { Tuple2(first(it), it) })
 
 // File: pat/InfixPattern
-typealias Join<T> = (T, T) -> T
+typealias InfixJoin<T> = (T, T) -> T
 
 /** Comparable infix operator, lower (assoc first) by [ordinal] */
-class InfixOp<T>(val name: String, val assoc: Precedence, val join: Join<T>): Comparable<InfixOp<T>> {
+class InfixOp<T>(val name: String, val assoc: Precedence, val join: InfixJoin<T>): Comparable<InfixOp<T>> {
   override fun compareTo(other: InfixOp<T>) = assoc.ordinal.compareTo(other.assoc.ordinal)
   override fun toString() = name
 }
@@ -841,18 +844,18 @@ data class Precedence(val ordinal: Int, val isRAssoc: Boolean)
 infix fun String.infixl(prec: Int) = this to Precedence(prec, false)
 infix fun String.infixr(prec: Int) = this to Precedence(prec, true)
 
-infix fun <T> Pair<String, Precedence>.join(op: Join<T>) = InfixOp(first, second, op)
+infix fun <T> Pair<String, Precedence>.join(op: InfixJoin<T>) = InfixOp(first, second, op)
 
 open class InfixPattern<IN, ATOM>(val atom: Pattern<IN, ATOM>, val op: Pattern<IN, InfixOp<ATOM>>): Pattern<IN, ATOM> {
-  protected open fun onError(s: Feed<IN>, base: ATOM, op1: InfixOp<ATOM>) = s.error("infix $base parse failed at $op1")
+  protected open fun onError(s: Feed<IN>, base: ATOM, op1: InfixOp<ATOM>): ATOM? = s.error("infix $base parse failed at $op1").let { notParsed }
   override fun read(s: Feed<IN>): ATOM? {
     val base = atom.read(s) ?: return notParsed
     return infixChain(s, base)
   }
   fun infixChain(s: Feed<IN>, base: ATOM, op_left: InfixOp<ATOM>? = null): ATOM? {
     val op1 = op_left ?: op.read(s) ?: return base  //'+' in 1+(2*3)... || return atom "1"
-    val rhs1 = atom.read(s) ?: onError(s, base, op1).let { return notParsed } //"2"
-    val op2 = op.read(s) ?: return op1.join(base, rhs1) //(a⦁b) "terminated"
+    val rhs1 = atom.read(s) ?: onError(s, base, op1) ?: return notParsed //"2"
+    val op2 = op.read(s) ?: return op1.join(base, rhs1) //'*' //(a⦁b) "terminated"
 
     fun leftAssociate() = infixChain(s, op1.join(base, rhs1), op2) //(a ⦁ b) ⦁ ...
     fun rightAssociate() = infixChain(s, rhs1, op2)?.let { op1.join(base, it) } //a ⦁ (b ⦁ ...)
@@ -949,7 +952,7 @@ open class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
 }
 
 /** Lazy version of char trie */
-class TrieReplace<V>(val fromPath: (String) -> V): TriePattern<Char, V>() {
+class LazyKeywordPattern<V>(val fromPath: (String) -> V): TriePattern<Char, V>() {
   private val stringBuf = StringBuilder()
   private fun clear() { stringBuf.clear() }
   fun mergeAll(path: Iterable<String>) { for (s in path) getOrCreatePath(s.asIterable()) }

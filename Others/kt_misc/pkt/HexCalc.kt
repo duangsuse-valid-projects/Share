@@ -20,7 +20,7 @@ val sign = Convert(elementIn('+', '-').toDefault('+'), {it=='-'}, {if(!it) '+' e
 val zeroNotation = Decide(
   hexPart prefix item('x'),
   binPart prefix item('b'),
-  Peek(!digit) { if (peek == '0') takeIfStickyEnd(-1) else 0 }.clamWhile(digit, 0, "no octal notations")
+  Peek(!digit) { if (peek == '0') takeIfStickyEnd(-1) else 0 }.clamWhile(digit, -1, "no octal notations")
 )
 
 val numPart = Convert(Contextual(digit) {
@@ -42,7 +42,9 @@ val ops = KeywordPattern<InfixOp<Int>>().apply {
 fun stringFor(char: SatisfyPattern<Char>) = Repeat(asString(), char).Maybe()
 val ws = stringFor(elementIn(' ', '\t'))
 val atom = Convert(Seq(::AnyTuple, ws, int, ws), { it.getAs<Int>(1) }, { anyTupleOf("", it, "") })
-val expr = InfixPattern(atom, ops)
+val expr = object: InfixPattern<Char, Int>(atom, ops) {
+  override fun onError(s: Feed<Char>, base: Int, op1: InfixOp<Int>) = (int prefix item('\n')).read(s) ?: notParsed.also { s.error("expecting rhs for $base $op1") }
+}
 
 object HexCalc {
   @JvmStatic fun main(vararg args: String) {
