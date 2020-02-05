@@ -20,12 +20,12 @@ val sign = Convert(elementIn('+', '-').toDefault('+'), {it=='-'}, {if(!it) '+' e
 val zeroNotation = Decide(
   hexPart prefix item('x'),
   binPart prefix item('b'),
-  Peek(!digit) {0}.clam("no octal notations")
+  Peek(!digit) { takeIfStickyEnd(0) ?: it }.clamWhile(digit, 0, "no octal notations")
 )
 
 val numPart = Convert(Contextual(digit) {
   if (it == 0) zeroNotation
-  else Repeat(asInt(10, it), digit)
+  else Repeat(asInt(10, it), digit).Maybe()
 }, { it.second })
 
 val int = Convert(Contextual(sign) { sign ->

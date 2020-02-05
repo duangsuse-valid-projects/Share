@@ -132,8 +132,9 @@ data class SourceLocation(val file: String, var line: Cnt, var column: Cnt, var 
   public override fun clone() = copy(file = file, line = line, column = column, position = position)
 }
 
+fun <IN> Feed<IN>.consumeOrNull() = runCatching(::consume).getOrNull()
 fun <IN> Feed<IN>.consumeIf(predicate: Predicate<IN>): IN?
-  = peek.takeIf(predicate)?.let { runCatching(::consume).getOrNull() }
+  = peek.takeIf(predicate)?.let { consumeOrNull() }
 fun <IN> Feed<IN>.takeWhile(predicate: Predicate<IN>): Sequence<IN>
   = sequence { while (true) yield(consumeIf(predicate) ?: break) }
 
@@ -547,9 +548,11 @@ open class Repeat<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern
   protected open val greedy = true
   protected open val bound = 1..Cnt.MAX_VALUE
   override fun toString() = "{$item}"
+  inner class Maybe: Repeat<IN, T, R>(fold, item) { override val bound = 0..Cnt.MAX_VALUE }
 }
-class RepeatUn<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R) -> Iterable<T>): Repeat<IN, T, R>(fold, item) {
+sealed class RepeatUn<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R) -> Iterable<T>): Repeat<IN, T, R>(fold, item) {
   override fun unfold(value: R) = unfold.invoke(value)
+  inner class Maybe: RepeatUn<IN, T, R>(fold, item, unfold) { override val bound = 0..Cnt.MAX_VALUE }
 }
 
 open class Decide<IN, T>(vararg val cases: Pattern<IN, out T>): Pattern<IN, T> {
@@ -718,8 +721,9 @@ class Deferred<IN, T>(val lazyItem: Producer<Pattern<IN, T>>): Pattern<IN, T> {
   override fun toString() = lazyItem().toString()
 }
 
-class Peek<IN, T>(item: Pattern<IN, T>, val placeholder: (T?) -> T?): NoConvertPatternWrapper<IN, T>(item) {
-  override fun read(s: Feed<IN>) = item.read(singleInput(s)).let(placeholder)
+class Peek<IN, T>(item: Pattern<IN, T>, val placeholder: Feed<IN>.(T?) -> T? = {it}): NoConvertPatternWrapper<IN, T>(item) {
+  override fun read(s: Feed<IN>): T? = item.read(singleInput(s)).let { s.placeholder(it) }
+  override fun show(s: Output<IN>, value: T?) {}
   private fun singleInput(s: Feed<IN>) = Input(SingleFeed(s.peek)).apply { onError = (s as? Input<*>)?.onError ?: onError  }
   override fun wrap(item: Pattern<IN, T>) = Peek(item, placeholder)
   override fun toString() = "peek:$item".surround(parens)
@@ -731,6 +735,8 @@ internal class SingleFeed<T>(val value: T): Feed<T> {
     { valueConsumed = true; value }
   else throw Feed.End()
 }
+
+fun <T> Feed<*>.takeIfStickyEnd(value: T) = value.takeIf { runCatching(::consume).isFailure }
 
 /** "Gentle" version of [Convert] */
 class Pipe<IN, T>(item: Pattern<IN, T>, val transform: (T) -> T): NoConvertPatternWrapper<IN, T>(item) {
