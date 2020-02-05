@@ -16,6 +16,13 @@ import java.nio.charset.StandardCharsets
 // Feed, Input, CharInput
 // Tuple, Fold
 
+// NOTES ABOUT Feed:
+// - Feed cannot be constructed using empty input
+// - Feed.peek will yield last item *again* when EOS reached
+//    to disambiguate, use Peek/Pipe with `if (peek == agained) takeIfStickyEnd(eosValue)`
+// - Patterns like `Until(elementIn(' '), asString(), anyChar)` will fail when EOS entercounted
+//    easiest workaround: append EOF or terminate char to end of *actual input*
+
 // File: Auxiliary
 typealias Cnt = Int
 typealias Idx = Int
@@ -729,10 +736,17 @@ abstract class NoConvertPatternWrapper<IN, T>(item: Pattern<IN, T>): PatternWrap
   override fun show(s: Output<IN>, value: T?) = item.show(s, value)
 }
 
-class Deferred<IN, T>(val lazyItem: Producer<Pattern<IN, T>>): Pattern<IN, T> {
+class Deferred<IN, T>(val lazyItem: Producer<Pattern<IN, T>>): Pattern<IN, T>, RecursionDetector() {
   override fun read(s: Feed<IN>) = lazyItem().read(s)
   override fun show(s: Output<IN>, value: T?) = lazyItem().show(s, value)
-  override fun toString() = lazyItem().toString()
+  override fun toString(): String = detectRecursion { if (isActive) "(recursive)" else lazyItem().toString() }
+}
+abstract class RecursionDetector {
+  protected var recursion = 0
+  protected fun <R> detectRecursion(op: Producer<R>): R {
+    ++recursion; return op().also { --recursion }
+  }
+  protected val isActive get() = recursion > 1
 }
 
 class Peek<IN, T>(item: Pattern<IN, T>, val placeholder: Feed<IN>.(T?) -> T? = {it}): NoConvertPatternWrapper<IN, T>(item) {
@@ -811,6 +825,8 @@ open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN
     override fun onSep(value: SEP) = onSep.invoke(value)
   }
 }
+
+fun <IN, A, B> Pattern<IN, DoubleList<A, B>>.ignoreSecond() = Convert(this, { it.first }, { Tuple2(it, emptyList<B>()) })
 
 // File: pat/InfixPattern
 typealias Join<T> = (T, T) -> T
