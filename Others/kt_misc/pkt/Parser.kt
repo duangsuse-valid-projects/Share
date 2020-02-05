@@ -323,6 +323,12 @@ class IndexAs<T>(private val idx: Idx) {
   operator fun setValue(self: Tuple<in T>, _p: KProperty<*>, value: T) { self[idx] = value }
 }
 
+inline fun <reified T> Tuple<*>.getAs(idx: Idx) = this[idx] as T
+
+fun anyTupleOf(vararg items: Any) = object: AnyTuple(items.size) {
+  override val items = arrayOf(*items)
+}
+
 // File: Fold
 interface Reducer<in T, out R> {
   fun accept(value: T)
@@ -472,7 +478,7 @@ fun <IN, T> Pattern<IN, T>.mustRead(vararg items: IN): T {
 //   Repeat(fold, item) { greedy, bound }, Decide(vararg cases) { undecide, onDoneRead }
 
 // "rebuild" - UntilUn(+unfold), RepeatUn(+unfold), DecideUn(+undecide)
-// "repeat many"(0..MAX) - Repeat(...).Many(), RepeatUn(...).Many()
+// "repeat many"(0..MAX) - Repeat(...).Maybe(), RepeatUn(...).Maybe()
 
 // item(), item(value), elementIn(vararg values), elementIn(ClosedRange), elementIn(vararg ranges: CharRange)
 // satisfy(predicate), always(value), never()
@@ -810,11 +816,16 @@ open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN
 typealias Join<T> = (T, T) -> T
 
 /** Comparable infix operator, lower (assoc first) by [ordinal] */
-class InfixOp<T>(val ordinal: Int, val name: String, val join: Join<T>): Comparable<InfixOp<T>> {
-  override fun compareTo(other: InfixOp<T>) = this.ordinal.compareTo(other.ordinal)
+class InfixOp<T>(val name: String, val assoc: Precedence, val join: Join<T>): Comparable<InfixOp<T>> {
+  override fun compareTo(other: InfixOp<T>) = assoc.ordinal.compareTo(other.assoc.ordinal)
   override fun toString() = name
 }
-infix fun <T> Pair<Int, String>.join(op: Join<T>) = InfixOp(first, second, op)
+
+data class Precedence(val ordinal: Int, val isRAssoc: Boolean)
+infix fun String.infixl(prec: Int) = this to Precedence(prec, false)
+infix fun String.infixr(prec: Int) = this to Precedence(prec, true)
+
+infix fun <T> Pair<String, Precedence>.join(op: Join<T>) = InfixOp(first, second, op)
 
 open class InfixPattern<IN, ATOM>(val atom: Pattern<IN, ATOM>, val op: Pattern<IN, InfixOp<ATOM>>): Pattern<IN, ATOM> {
   protected open fun onError(s: Feed<IN>, base: ATOM, op1: InfixOp<ATOM>) = s.error("infix $base parse failed at $op1")
@@ -826,10 +837,13 @@ open class InfixPattern<IN, ATOM>(val atom: Pattern<IN, ATOM>, val op: Pattern<I
     val op1 = op_left ?: op.read(s) ?: return base  //'+' in 1+(2*3)... || return atom "1"
     val rhs1 = atom.read(s) ?: onError(s, base, op1).let { return notParsed } //"2"
     val op2 = op.read(s) ?: return op1.join(base, rhs1) //(a⦁b) "terminated"
+
+    fun leftAssociate() = infixChain(s, op1.join(base, rhs1), op2) //(a ⦁ b) ⦁ ...
+    fun rightAssociate() = infixChain(s, rhs1, op2)?.let { op1.join(base, it) } //a ⦁ (b ⦁ ...)
     return when { // lessThan b => first
-      op1 <= op2 -> infixChain(s, op1.join(base, rhs1), op2) //(a ⦁ b) ⦁ ...
-      op1  > op2 -> infixChain(s, rhs1, op2)?.let { op1.join(base, it) } //a ⦁ (b ⦁ ...)
-      else -> impossible() // default: left assoc
+      op1 < op2 -> leftAssociate()
+      op1  > op2 -> rightAssociate()
+      else -> if (op1.assoc.isRAssoc) rightAssociate() else leftAssociate()
     }
   }
   override open fun show(s: Output<IN>, value: ATOM?) { unsupported("infix show") }
@@ -837,25 +851,10 @@ open class InfixPattern<IN, ATOM>(val atom: Pattern<IN, ATOM>, val op: Pattern<I
 }
 
 //// == Abstract ==
-interface InfixOpEnum<T> {
-  val ordinal: Int; val name: String; val join: Join<T>
-  fun toPair(replaceName: String? = null) = Pair(replaceName ?: name, InfixOp(ordinal, name, join))
-}
-inline fun <reified ENUM, T> infixOpsLike(@Suppress("unused_parameter") value: ENUM, replaceNames: Map<String, String> = emptyMap())
-: TriePattern<Char, InfixOp<T>> where ENUM: Enum<ENUM>, ENUM: InfixOpEnum<T> {
-  val tree = TriePattern<Char, InfixOp<T>>()
-  tree.mergeStrings(*enumValues<ENUM>().toList().mapToArray { replaceNames[it.name].let(it::toPair) })
-  return tree
-}
-fun <T> TriePattern<Char, InfixOp<T>>.register(op: InfixOp<T>) {
-  this[op.name] = op
-}
+class KeywordPattern<V>: TriePattern<Char, V>()
+fun <T> TriePattern<Char, InfixOp<T>>.register(op: InfixOp<T>) { this[op.name] = op }
 
 // File: pat/TriePattern
-open class EnumMap<V, K>(private val map: Map<K, V>): Map<K, V> by map {
-  constructor(values: Iterable<V>, key: (V) -> K): this(values.toMap { key(it) to it })
-  constructor(values: Array<V>, key: (V) -> K): this(values.asIterable(), key)
-}
 class MapPattern<K, V>(val map: Map<K, V>): Pattern<K, V> {
   override fun read(s: Feed<K>) = map[s.peek]?.also { s.consume() }
   override fun show(s: Output<K>, value: V?) { if (value != null) map.reversedMap()[value]?.let(s) }

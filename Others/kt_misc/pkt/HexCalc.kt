@@ -20,7 +20,7 @@ val sign = Convert(elementIn('+', '-').toDefault('+'), {it=='-'}, {if(!it) '+' e
 val zeroNotation = Decide(
   hexPart prefix item('x'),
   binPart prefix item('b'),
-  Peek(!digit) { takeIfStickyEnd(0) ?: it }.clamWhile(digit, 0, "no octal notations")
+  Peek(!digit) { if (peek == '0') takeIfStickyEnd(-1) else 0 }.clamWhile(digit, 0, "no octal notations")
 )
 
 val numPart = Convert(Contextual(digit) {
@@ -32,14 +32,24 @@ val int = Convert(Contextual(sign) { sign ->
   Pipe(numPart) { if (!sign) it else -it }
 }, { it.second }, { Tuple2(it<0, abs(it)) })
 
-enum class Op(override val join: Join<Int>): InfixOpEnum<Int> {
-  `*`(Int::times), `+`(Int::plus);
+val ops = KeywordPattern<InfixOp<Int>>().apply {
+  register("*" infixl 0 join Int::times)
+  register("/" infixl 0 join Int::div)
+  register("+" infixl 1 join Int::plus)
+  register("-" infixl 1 join Int::minus)
 }
 
-val ops = infixOpsLike(Op.`+`).apply {
-  register(0 to "/" join Int::div)
-  register(1 to "-" join Int::minus)
-}
+fun stringFor(char: SatisfyPattern<Char>) = Repeat(asString(), char).Maybe()
+val ws = stringFor(elementIn(' ', '\t'))
+val atom = Convert(Seq(::AnyTuple, ws, int, ws), { it.getAs<Int>(1) }, { anyTupleOf("", it, "") })
+val expr = InfixPattern(atom, ops)
 
-val ws = Repeat(asString(), elementIn(' ', '\t', '\n', '\r'))
-val expr = InfixPattern(int, ops)
+object HexCalc {
+  @JvmStatic fun main(vararg args: String) {
+    fun ps1() { print("> "); System.`out`.flush() }
+    ps1()
+    val repl = JoinBy(item('\n'), expr).AddListeners({ println("= $it"); ps1() }, { /*on-seprator*/ })
+    val calcLogs = repl.read(CharInput.STDIN)
+    println(calcLogs)
+  }
+}
