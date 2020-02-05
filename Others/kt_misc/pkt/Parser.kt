@@ -557,7 +557,7 @@ open class Repeat<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern
   override fun toString() = "{$item}"
   inner class Maybe: Repeat<IN, T, R>(fold, item) { override val bound = 0..Cnt.MAX_VALUE }
 }
-sealed class RepeatUn<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R) -> Iterable<T>): Repeat<IN, T, R>(fold, item) {
+open class RepeatUn<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R) -> Iterable<T>): Repeat<IN, T, R>(fold, item) {
   override fun unfold(value: R) = unfold.invoke(value)
   inner class Maybe: RepeatUn<IN, T, R>(fold, item, unfold) { override val bound = 0..Cnt.MAX_VALUE }
 }
@@ -744,7 +744,7 @@ class Peek<IN, T>(item: Pattern<IN, T>, val placeholder: Feed<IN>.(T?) -> T? = {
 internal class PeekInput<IN>(feed: Feed<IN>): Input<IN>(SingleFeed(feed.peek)) {
   init { onError = (feed as? Input<*>)?.onError ?: onError }
 }
-internal class SingleFeed<T>(val value: T): Feed<T> {
+class SingleFeed<T>(val value: T): Feed<T> {
   private var valueConsumed = false
   override val peek = value
   override fun consume() = if (!valueConsumed)
@@ -755,8 +755,8 @@ internal class SingleFeed<T>(val value: T): Feed<T> {
 fun <T> Feed<*>.takeIfStickyEnd(value: T) = value.takeIf { consumeOrNull() == null }
 
 /** "Gentle" version of [Convert] */
-class Pipe<IN, T>(item: Pattern<IN, T>, val transform: (T) -> T): NoConvertPatternWrapper<IN, T>(item) {
-  override fun read(s: Feed<IN>) = item.read(s)?.let(transform)
+class Pipe<IN, T>(item: Pattern<IN, T>, val transform: Feed<IN>.(T) -> T): NoConvertPatternWrapper<IN, T>(item) {
+  override fun read(s: Feed<IN>) = item.read(s)?.let { s.transform(it) }
   override fun wrap(item: Pattern<IN, T>) = Pipe(item, transform)
 }
 
