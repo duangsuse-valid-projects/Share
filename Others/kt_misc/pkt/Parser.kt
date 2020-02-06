@@ -538,20 +538,13 @@ internal fun <R, T> defaultUnfold(value: R): Iterable<T> = @Suppress("unchecked_
   else -> unsupported("unfold")
 }
 
-/** Patterns denots constant values like [item] */
-interface ConstantPattern<IN, T>: Pattern<IN, T> { val constant: T }
-
-open class Until<IN, T, R>(val terminate: ConstantPattern<IN, T>, fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern<IN, T, R>(fold, item) {
-  private val terminatePeek = Peek(terminate) {it}
+open class Until<IN, T, R>(val terminate: Pattern<IN, *>, fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern<IN, T, R>(fold, item) {
+  private val terminatePeek = Peek(terminate)
   override fun read(s: Feed<IN>): R? {
     val reducer = fold.reducer()
     while (terminatePeek.read(s) == notParsed)
       reducer.accept(item.read(s) ?: return notParsed)
     return reducer.finish()
-  }
-  override fun show(s: Output<IN>, value: R?) {
-    if (value == null) return
-    super.show(s, value); terminate.show(s, terminate.constant)
   }
   override fun toString() = "$item~$terminate"
 }
@@ -605,6 +598,10 @@ class Decide<IN, T>(vararg val cases: Pattern<IN, out T>): Pattern<IN, Tuple2<Id
 }
 
 //// == Abstract ==
+
+/** Patterns denots constant values like [item] */
+interface ConstantPattern<IN, T>: Pattern<IN, T> { val constant: T }
+
 typealias MonoPattern<IN> = Pattern<IN, IN>
 typealias MonoConstantPattern<IN> = ConstantPattern<IN, IN>
 
@@ -738,7 +735,7 @@ abstract class NoConvertPatternWrapper<IN, T>(item: Pattern<IN, T>): PatternWrap
 class Deferred<IN, T>(val lazyItem: Producer<Pattern<IN, T>>): Pattern<IN, T>, AbortRecursion<String>() {
   override fun read(s: Feed<IN>) = lazyItem().read(s)
   override fun show(s: Output<IN>, value: T?) = lazyItem().show(s, value)
-  override fun toString(): String = recurse { if (isActive) fall(1, "(recurse)") else lazyItem().toString() }
+  override fun toString(): String = recurse { if (isActive) "(recurse)" else lazyItem().toString() }
 }
 abstract class AbortRecursion<R: Any> {
   protected var recursion = 0
