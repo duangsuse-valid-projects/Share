@@ -127,8 +127,9 @@ interface Feed<out T> {
   class End: NoSuchElementException("no more")
 }
 interface ErrorListener {
-  var onError: ConsumerOn<Feed<*>, ErrorMessage>
+  var onError: ConsumerOn<SomeFeed, ErrorMessage>
 }
+typealias SomeFeed = Feed<*>
 typealias ErrorMessage = String
 
 interface SourceLocated { val sourceLoc: SourceLocation }
@@ -207,17 +208,23 @@ class InputStreamFeed(reader: Reader): StreamFeed<Char, Int, Reader>(reader) {
 // File: Input
 open class Input<T>(private val feed: Feed<T>): Feed<T>, ErrorListener {
   protected open fun onItem(item: T) {}
-  override var onError: ConsumerOn<Feed<*>, ErrorMessage> = { message ->
-    val inputDesc = (this as? SourceLocated)?.sourceLoc?.tag ?: "parse fail near `$peek'"
-    throw ParseError(this as Input<*>, "$inputDesc: $message")
+  override var onError: ConsumerOn<SomeFeed, ErrorMessage> = { message ->
+    val inputDesc = this.tag ?: (this as? Extends<*>)?.parent?.tag ?: "parse fail near `$peek'"
+    throw ParseError(this, "$inputDesc: $message")
   }
   override val peek get() = feed.peek
   override fun consume() = feed.consume().also(::onItem)
   override fun toString() = "Input:$feed"
+  open class Extends<T>(val parent: SomeFeed, feed: Feed<T>): Input<T>(feed) {
+    init { onError = (parent as? ErrorListener)?.onError ?: onError }
+    override fun toString() = parent.toString()
+  }
 }
 
-open class ParseError(val input: Input<*>, message: ErrorMessage): Error(message.toString())
-fun Feed<*>.error(message: ErrorMessage) = (this as? ErrorListener)?.onError?.invoke(this, message) ?: kotlin.error(message.toString())
+open class ParseError(val feed: SomeFeed, message: ErrorMessage): Error(message.toString())
+
+val SomeFeed.tag: String? get() = (this as? SourceLocated)?.sourceLoc?.tag
+fun SomeFeed.error(message: ErrorMessage) = (this as? ErrorListener)?.onError?.invoke(this, message) ?: kotlin.error(message)
 
 open class CharInput(feed: Feed<Char>, file: String): Input<Char>(feed), SourceLocated {
   protected open val isCRLF = false
@@ -481,11 +488,11 @@ fun <IN, T> Pattern<IN, T>.mustRead(vararg items: IN): T {
 // CharInput.clam(): Pair<CharInput, List<ClamError>>
 
 // "SURDIES"
-// Seq(type: TUPLE, vararg items), Until(fold, terminate, item),
-//   Repeat(fold, item) { greedy, bound }, Decide(vararg cases) { undecide, onDoneRead }
+// Seq(type: TUPLE, vararg items), Until(terminate, fold, item),
+//   Repeat(fold, item) { greedy, bound }, Decide(vararg cases)
 
-// "rebuild" - UntilUn(+unfold), RepeatUn(+unfold), DecideUn(+undecide)
-// "repeat many"(0..MAX) - Repeat(...).Maybe(), RepeatUn(...).Maybe()
+// "rebuild" - UntilUn(+unfold), RepeatUn(+unfold)
+// "repeat many" (0..MAX) - Repeat(...).Many(), RepeatUn(...).Many()
 
 // item(), item(value), elementIn(vararg values), elementIn(ClosedRange), elementIn(vararg ranges: CharRange)
 // satisfy(predicate), always(value), never()
@@ -531,7 +538,10 @@ internal fun <R, T> defaultUnfold(value: R): Iterable<T> = @Suppress("unchecked_
   else -> unsupported("unfold")
 }
 
-open class Until<IN, T, R>(val terminate: Pattern<IN, T>, fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern<IN, T, R>(fold, item) {
+/** Patterns denots constant values like [item] */
+interface ConstantPattern<IN, T>: Pattern<IN, T> { val constant: T }
+
+open class Until<IN, T, R>(val terminate: ConstantPattern<IN, T>, fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern<IN, T, R>(fold, item) {
   private val terminatePeek = Peek(terminate) {it}
   override fun read(s: Feed<IN>): R? {
     val reducer = fold.reducer()
@@ -539,9 +549,13 @@ open class Until<IN, T, R>(val terminate: Pattern<IN, T>, fold: Fold<T, R>, item
       reducer.accept(item.read(s) ?: return notParsed)
     return reducer.finish()
   }
-  override fun toString() = "($item)~$terminate"
+  override fun show(s: Output<IN>, value: R?) {
+    if (value == null) return
+    super.show(s, value); terminate.show(s, terminate.constant)
+  }
+  override fun toString() = "$item~$terminate"
 }
-class UntilUn<IN, T, R>(terminate: Pattern<IN, T>, fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R) -> Iterable<T>): Until<IN, T, R>(terminate, fold, item) {
+class UntilUn<IN, T, R>(terminate: ConstantPattern<IN, T>, fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R) -> Iterable<T>): Until<IN, T, R>(terminate, fold, item) {
   override fun unfold(value: R) = unfold.invoke(value)
 }
 
@@ -564,35 +578,33 @@ open class Repeat<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern
   protected open val greedy = true
   protected open val bound = 1..Cnt.MAX_VALUE
   override fun toString() = "{$item}"
-  inner class Maybe: Repeat<IN, T, R>(fold, item) { override val bound = 0..Cnt.MAX_VALUE }
+  open inner class InBound(bound: IntRange, greedy: Boolean = true): Repeat<IN, T, R>(fold, item) {
+    override val greedy = greedy
+    override val bound = bound
+    override fun toString() = super.toString()+"${if(greedy) "g" else ""}($bound)"
+  }
+  inner class Many: InBound(0..Cnt.MAX_VALUE) {
+    override fun toString() = "{$item}?"
+  }
 }
-open class RepeatUn<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R) -> Iterable<T>): Repeat<IN, T, R>(fold, item) {
+class RepeatUn<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R) -> Iterable<T>): Repeat<IN, T, R>(fold, item) {
   override fun unfold(value: R) = unfold.invoke(value)
-  inner class Maybe: RepeatUn<IN, T, R>(fold, item, unfold) { override val bound = 0..Cnt.MAX_VALUE }
 }
 
-open class Decide<IN, T>(vararg val cases: Pattern<IN, out T>): Pattern<IN, T> {
-  override fun read(s: Feed<IN>): T? {
-    for ((i, case) in cases.withIndex()) case.read(s)?.let { onDoneRead(i, it); return it }
+class Decide<IN, T>(vararg val cases: Pattern<IN, out T>): Pattern<IN, Tuple2<Idx, T>> {
+  override fun read(s: Feed<IN>): Tuple2<Idx, T>? {
+    for ((i, case) in cases.withIndex()) case.read(s)?.let { return Tuple2(i, it) }
     return notParsed
   }
-  override fun show(s: Output<IN>, value: T?) {
+  override fun show(s: Output<IN>, value: Tuple2<Idx, T>?) {
     if (value == null) return
-    @Suppress("unchecked_cast") (cases[undecide(value)] as Pattern<IN, in @UnsafeVariance T>).show(s, value)
+    val (i, state) = value
+    @Suppress("unchecked_cast") (cases[i] as Pattern<IN, in @UnsafeVariance T>).show(s, state)
   }
-  protected open fun onDoneRead(case: Idx, value: T) {}
-  protected open fun undecide(value: T): Idx = 0
   override fun toString() = cases.joinToString("|").surround(parens)
-}
-class DecideUn<IN, T>(vararg cases: Pattern<IN, out T>, val undecide: (T) -> Idx): Decide<IN, T>(*cases) {
-  override fun undecide(value: T) = undecide.invoke(value)
 }
 
 //// == Abstract ==
-
-/** Patterns denots constant values like [item] */
-interface ConstantPattern<IN, T>: Pattern<IN, T> { val constant: T }
-
 typealias MonoPattern<IN> = Pattern<IN, IN>
 typealias MonoConstantPattern<IN> = ConstantPattern<IN, IN>
 
@@ -661,7 +673,7 @@ fun <IN> satisfy(name: String = "?", predicate: Predicate<IN>) = object: Satisfy
   override fun test(value: IN) = predicate(value)
   override fun toString() = name.surround(parens)
 }
-fun <T> always(value: T): Pattern<*, T> = object: ConstantPattern<Nothing, T> {
+fun <T> always(value: T): ConstantPattern<*, T> = object: ConstantPattern<Nothing, T> {
   override val constant = value
   override fun read(s: Feed<Nothing>) = constant
   override fun show(s: Output<Nothing>, value: T?) {}
@@ -723,28 +735,36 @@ abstract class NoConvertPatternWrapper<IN, T>(item: Pattern<IN, T>): PatternWrap
   override fun show(s: Output<IN>, value: T?) = item.show(s, value)
 }
 
-class Deferred<IN, T>(val lazyItem: Producer<Pattern<IN, T>>): Pattern<IN, T>, RecursionDetector() {
+class Deferred<IN, T>(val lazyItem: Producer<Pattern<IN, T>>): Pattern<IN, T>, AbortRecursion<String>() {
   override fun read(s: Feed<IN>) = lazyItem().read(s)
   override fun show(s: Output<IN>, value: T?) = lazyItem().show(s, value)
-  override fun toString(): String = detectRecursion { if (isActive) "(recursive)" else lazyItem().toString() }
+  override fun toString(): String = recurse { if (isActive) fall(1, "(recurse)") else lazyItem().toString() }
 }
-abstract class RecursionDetector {
+abstract class AbortRecursion<R: Any> {
   protected var recursion = 0
-  protected fun <R> detectRecursion(op: Producer<R>): R {
-    ++recursion; return op().also { --recursion }
-  }
   protected val isActive get() = recursion > 1
+  protected fun recurse(op: Producer<R>): R {
+    ++recursion; val thisLevel = recursion
+    lateinit var result: R
+    @Suppress("unchecked_cast") try { result = op() }
+    catch (fall: Fall) {
+      check (fall.level <= thisLevel) {"non-existing recursion"}
+      if (fall.level == thisLevel) result = fall.result as R else throw fall
+    } finally { --recursion }
+    return result
+  }
+  protected fun fall(level: Int, result: R): Nothing = throw Fall(level, result)
+  class Fall(val level: Int, val result: Any): Exception("fall to recursion $level with $result")
 }
 
 class Peek<IN, T>(item: Pattern<IN, T>, val placeholder: Feed<IN>.(T?) -> T? = {it}): NoConvertPatternWrapper<IN, T>(item) {
-  override fun read(s: Feed<IN>): T? = item.read(PeekInput(s)).let { s.placeholder(it) }
+  override fun read(s: Feed<IN>): T? = item.read(peekInput(s)).let { s.placeholder(it) }
+  private fun peekInput(feed: Feed<IN>) = Input.Extends(feed, SingleFeed(feed.peek))
   override fun show(s: Output<IN>, value: T?) {}
   override fun wrap(item: Pattern<IN, T>) = Peek(item, placeholder)
   override fun toString() = "peek:$item".surround(parens)
 }
-internal class PeekInput<IN>(feed: Feed<IN>): Input<IN>(SingleFeed(feed.peek)) {
-  init { onError = (feed as? Input<*>)?.onError ?: onError }
-}
+
 class SingleFeed<T>(val value: T): Feed<T> {
   private var valueConsumed = false
   override val peek = value
@@ -828,8 +848,8 @@ fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.flatten(): Pair<Pattern<IN, A>, Pattern
   return Pair(part1, part2)
 }
 
-fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.onlyFirst(second: (A) -> B) = Convert(this, { it.first }, { Tuple2(it, second(it)) })
-fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.onlySecond(first: (B) -> A) = Convert(this, { it.second }, { Tuple2(first(it), it) })
+fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.mergeFirst(first: (B) -> A) = Convert(this, { it.second }, { Tuple2(first(it), it) })
+fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.mergeSecond(second: (A) -> B) = Convert(this, { it.first }, { Tuple2(it, second(it)) })
 
 // File: pat/InfixPattern
 typealias InfixJoin<T> = (T, T) -> T
@@ -855,14 +875,14 @@ open class InfixPattern<IN, ATOM>(val atom: Pattern<IN, ATOM>, val op: Pattern<I
   fun infixChain(s: Feed<IN>, base: ATOM, op_left: InfixOp<ATOM>? = null): ATOM? {
     val op1 = op_left ?: op.read(s) ?: return base  //'+' in 1+(2*3)... || return atom "1"
     val rhs1 = atom.read(s) ?: onError(s, base, op1) ?: return notParsed //"2"
-    val op2 = op.read(s) ?: return op1.join(base, rhs1) //'*' //(a⦁b) "terminated"
+    val op2 = op.read(s) ?: return op1.join(base, rhs1) //'*' //(a⦁b) END: terminated
 
-    fun leftAssociate() = infixChain(s, op1.join(base, rhs1), op2) //(a ⦁ b) ⦁ ...
-    fun rightAssociate() = infixChain(s, rhs1, op2)?.let { op1.join(base, it) } //a ⦁ (b ⦁ ...)
+    fun associateLeft() = infixChain(s, op1.join(base, rhs1), op2) //(a ⦁ b) ⦁ ...
+    fun associateRight() = infixChain(s, rhs1, op2)?.let { op1.join(base, it) } //a ⦁ (b ⦁ ...)
     return when { // lessThan b => first
-      op1 < op2 -> leftAssociate()
-      op1  > op2 -> rightAssociate()
-      else -> if (op1.assoc.isRAssoc) rightAssociate() else leftAssociate()
+      op1 < op2 -> associateLeft()
+      op1  > op2 -> associateRight()
+      else -> if (op1.assoc.isRAssoc) associateRight() else associateLeft()
     }
   }
   override open fun show(s: Output<IN>, value: ATOM?) { unsupported("infix show") }
@@ -929,6 +949,8 @@ fun <K, V> Trie<K, V>.merge(vararg kvs: Pair<Iterable<K>, V>) {
 fun <V> Trie<Char, V>.mergeStrings(vararg kvs: Pair<CharSequence, V>) {
   for ((k, v) in kvs) this[k] = v
 }
+
+operator fun <V> Trie<Char, V>.get(index: CharSequence) = this[index.asIterable()]
 operator fun <V> Trie<Char, V>.set(index: CharSequence, value: V) {
   this[index.asIterable()] = value
 }
@@ -964,3 +986,6 @@ class LazyKeywordPattern<V>(val fromPath: (String) -> V): TriePattern<Char, V>()
     return lazyValue.also { this[path] = it }
   }
 }
+
+// (experimental) File: LayoutPattern
+
