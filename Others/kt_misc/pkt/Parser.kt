@@ -985,4 +985,22 @@ class LazyKeywordPattern<V>(val fromPath: (String) -> V): TriePattern<Char, V>()
 }
 
 // (experimental) File: LayoutPattern
+sealed class DeepList<T> {
+  data class Term<T>(val value: T): DeepList<T>()
+  data class Nest<T>(val list: List<DeepList<T>>): DeepList<T>()
+}
 
+abstract class LayoutPattern<IN, ITEM, TAIL>(
+  val item: Pattern<IN, ITEM>, val tail: Pattern<IN, TAIL>, val layout: (TAIL) -> Pattern<IN, Cnt>): Pattern<IN, DeepList<ITEM>> {
+  override fun read(s: Feed<IN>): DeepList<ITEM>? { TODO("this is a little complex") }
+  override fun show(s: Output<IN>, value: DeepList<ITEM>?) {}
+  override fun toString() = "(Layout)"
+}
+
+// (experimental) File: LexicalScoping
+interface Symbol { val name: String }
+sealed class Variable(override val name: String, val offset: Int): Symbol {
+  class Parameter(name: String, offset: Int): Variable(name, offset)
+  class Local(name: String, offset: Int): Variable(name, offset)
+}
+data class Global(override val name: String): Symbol
