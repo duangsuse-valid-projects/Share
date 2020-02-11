@@ -879,10 +879,11 @@ open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN
   protected open fun onSep(value: SEP) {}
   override fun toPreetyDoc() = listOf(item, sep).preety().joinText("...").surroundText(braces)
 
-  inner class AddListeners(private val onItem: Consumer<ITEM>, private val onSep: Consumer<SEP>): JoinBy<IN, SEP, ITEM>(sep, item) {
+  inner open class AddListeners(private val onItem: Consumer<ITEM>, private val onSep: Consumer<SEP>): JoinBy<IN, SEP, ITEM>(sep, item) {
     override fun onItem(value: ITEM) = onItem.invoke(value)
     override fun onSep(value: SEP) = onSep.invoke(value)
   }
+  inner class OnItem(onItem: Consumer<ITEM>): AddListeners(onItem, {})
 }
 
 // File: pattern/InfixPattern
