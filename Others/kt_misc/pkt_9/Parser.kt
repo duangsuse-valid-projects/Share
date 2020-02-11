@@ -133,12 +133,13 @@ fun String.rawString() = prefixTranslate(KOTLIN_ESCAPE, "\\").let {
 fun Any?.rawPreety() = if (this == null) Preety.Doc.Null else toString().rawString()
 
 // File: util/AnyValue&Rec
-interface Data {
+interface Eq {
   override fun equals(other: Any?): Boolean
   override fun hashCode(): Int
 }
 
-open class AnyBy(val obj: Any): Data {
+/** Transparent delegate for [Any] */
+open class AnyBy(val obj: Any): Eq {
   override fun equals(other: Any?)
     = if (other is AnyBy) obj == other.obj
     else obj == other
@@ -440,6 +441,13 @@ open class CharInput(feed: Feed<Char>, file: String): Input<Char>(feed), SourceL
   }
 }
 
+// NOTES ABOUT Feed:
+// - Feed cannot be constructed using empty input
+// - Feed.peek will yield last item *again* when EOS reached
+fun AllFeed.isStickyEnd() = consumeOrNull() == null
+// - Patterns like `Until(elementIn(' '), asString(), anyChar)` will fail when EOS entercounted
+//    easiest workaround: append EOF or terminate char to end of *actual input*
+
 //// == Abstract ==
 // slice, iterator, reader
 fun inputOf(text: String, file: String = "<string>") = CharInput(SliceFeed(Slice(text)), file)
@@ -486,12 +494,14 @@ abstract class PatternWrapper<IN, T, T1>(val item: Pattern<IN, T>): PreetyAny(),
   abstract fun wrap(item: Pattern<IN, T>): PatternWrapper<IN, T, T1>
   override fun toPreetyDoc() = item.toPreetyDoc()
 }
+
 abstract class NoConvertPatternWrapper<IN, T>(item: Pattern<IN, T>): PatternWrapper<IN, T, T>(item) {
   override fun show(s: Output<IN>, value: T?) = item.show(s, value)
 }
 
-typealias MonoPattern<IN> = Pattern<IN, IN>
 interface ConstantPattern<IN, T>: Pattern<IN, T> { val constant: T }
+
+typealias MonoPattern<IN> = Pattern<IN, IN>
 typealias MonoConstantPattern<IN> = ConstantPattern<IN, IN>
 typealias MonoPatternWrapper<IN, T> = PatternWrapper<IN, IN, T>
 
@@ -566,7 +576,7 @@ fun <IN, T> Pattern<IN, T>.rebuild(vararg items: IN, operation: ActionOn<T>) = s
 
 // File: pattern/AtomIES
 abstract class SatisfyPattern<IN>: PreetyAny(), MonoPattern<IN> {
-  protected abstract fun test(value: IN): Boolean
+  abstract fun test(value: IN): Boolean
   override fun read(s: Feed<IN>) = s.consumeIf(::test)
   override fun show(s: Output<IN>, value: IN?) { value?.let(s) }
   /** Apply logical relation like (&&) (||) with 2 satisfy patterns */
@@ -619,10 +629,10 @@ fun <IN> satisfy(name: String = "?", predicate: Predicate<IN>) = object: Satisfy
   override fun toPreetyDoc() = name.preety().surroundText(parens)
 }
 
-fun <T> always(value: T): ConstantPattern<*, T> = object: PreetyAny(), ConstantPattern<Nothing, T> {
+fun <IN, T> always(value: T): ConstantPattern<IN, T> = object: PreetyAny(), ConstantPattern<IN, T> {
   override val constant = value
-  override fun read(s: Feed<Nothing>) = constant
-  override fun show(s: Output<Nothing>, value: T?) {}
+  override fun read(s: Feed<IN>) = constant
+  override fun show(s: Output<IN>, value: T?) {}
   override fun toPreetyDoc() = listOf("always", value).preety().joinText(":").surroundText(parens)
 }
 fun never(): Pattern<*, Nothing> = object: PreetyAny(), Pattern<Nothing, Nothing> {
@@ -755,6 +765,8 @@ class RepeatUn<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R)
 // satisfy(predicate)
 // always(value), never()
 
+// val str = Seq(::StringTuple, item('"').asStringPat(), *anyChar until item('"'))
+
 fun MonoPattern<Char>.asStringPat() = Convert(this, Char::toString, String::first)
 infix fun MonoPattern<Char>.until(terminate: MonoConstantPattern<Char>)
   = arrayOf<Pattern<Char, String>>(Until(terminate, asString(), this), item(terminate.constant).asStringPat())
@@ -801,10 +813,11 @@ class Deferred<IN, T>(val lazyItem: Producer<Pattern<IN, T>>): Pattern<IN, T>, R
 class Check<IN, T>(item: Pattern<IN, T>, val check: Feed<IN>.(T?) -> T? = {it}): NoConvertPatternWrapper<IN, T>(item) {
   override fun read(s: Feed<IN>): T? = item.read(s).let { s.check(it) }
   override fun wrap(item: Pattern<IN, T>) = Check(item, check)
-  override fun toPreetyDoc() = listOf("peek", item).preety().joinText(":").surroundText(parens)
+  override fun toPreetyDoc() = listOf("check", item).preety().joinText(":").surroundText(parens)
 }
 
 // Tuple2: flatten(), mergeFirst(first: (B) -> A), mergeSecond(second: (A) -> B)
+// val i2 = Seq(::IntTuple, *Contextual(item<Int>()) { item(it) }.flatten().items())
 
 fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.flatten(): Pair<Pattern<IN, A>, Pattern<IN, B>> {
   val item = this; var parsed: Tuple2<A, B>? = null
@@ -824,7 +837,7 @@ fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.flatten(): Pair<Pattern<IN, A>, Pattern
 fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.mergeFirst(first: (B) -> A) = Convert(this, { it.second }, { Tuple2(first(it), it) })
 fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.mergeSecond(second: (A) -> B) = Convert(this, { it.first }, { Tuple2(it, second(it)) })
 
-// File: pattern/AuxiliarySJIT
+// File: pattern/AuxiliarySJ
 // "SJIT"
 // SurroundBy(surround: Pair<ConstantPattern?, ConstantPattern?>, item)
 // JoinBy(join, item) { onItem, onSep, AddListeners(onItem, onSep) }

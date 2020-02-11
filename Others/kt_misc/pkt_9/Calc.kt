@@ -17,10 +17,11 @@ val binPart = Repeat(asInt(2), binDigit)
 
 val sign = Convert(elementIn('+', '-').toDefault('+'), {it=='-'}, {if(it) '-' else '+'})
 // 0x / 0b / 123
+val octal = elementIn('0'..'8')
 val zeroNotation = Decide(
   hexPart prefix item('x'),
   binPart prefix item('b'),
-  Check(!digit) {0}.clamWhile(digit, -1, "no octal notations")
+  Check(always(0)) { if (octal.test(peek) && !isStickyEnd()) error("no octal notations") ; it }
 ).mergeFirst {0}
 
 val numPart = Contextual<Char, Int, Int>(digit) {
@@ -36,8 +37,8 @@ fun stringFor(char: SatisfyPattern<Char>) = Repeat(asString(), char).Many()
 val ws = stringFor(elementIn(' ', '\t'))
 
 lateinit var expr: Pattern<Char, Int>
-val atomInt = Convert(Seq(::AnyTuple, ws, int, ws), { it.getAs<Int>(1) }, { anyTupleOf("", it, "") })
 val atomParen = SurroundBy(('(' to ')').asPat(), Deferred {expr})
+val atomInt = Convert(Seq(::AnyTuple, ws, int, ws), { it.getAs<Int>(1) }, { anyTupleOf("", it, "") })
 val atom = Decide(atomInt, atomParen).mergeFirst {0}
 val ops = KeywordPattern<InfixOp<Int>>().apply {
   register("*" infixl 0 join Int::times)
