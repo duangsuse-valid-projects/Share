@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets
 
 import kotlin.reflect.KProperty
 
-// File: CommonDefs
+// File: util/CommonDefs
 typealias Cnt = Int
 typealias Idx = Int
 typealias IdxRange = IntRange
@@ -46,7 +46,7 @@ fun <T, K, V> Iterable<T>.toMap(entry: (T) -> Pair<K, V>): Map<K, V> {
 }
 fun <K, V> Map<K, V>.reversedMap(): Map<V, K> = entries.toMap { it.value to it.key }
 
-// File: TextPreety
+// File: util/TextPreety
 interface Preety {
   fun toPreetyDoc(): Doc
   sealed class Doc {
@@ -92,7 +92,9 @@ abstract class PreetyAny: Preety {
 
 typealias PP = Preety.Doc
 
-fun Any?.preety() = if (this == null) Preety.Doc.Null else Preety.Doc.Text(this)
+fun Any?.preetyOr(defaultValue: PP) = if (this == null) defaultValue else Preety.Doc.Text(this)
+fun Any?.preetyOrNone() = preetyOr(Preety.Doc.None)
+fun Any?.preety() = preetyOr(Preety.Doc.Null)
 fun Iterable<*>.preety() = map(Any?::preety)
 
 fun PP.surround(lr: MonoPair<PP>) = Preety.Doc.SurroundBy(lr, this)
@@ -130,7 +132,7 @@ fun String.rawString() = prefixTranslate(KOTLIN_ESCAPE, "\\").let {
 
 fun Any?.rawPreety() = if (this == null) Preety.Doc.Null else toString().rawString()
 
-// File: AnyValue&Rec
+// File: util/AnyValue&Rec
 interface Data {
   override fun equals(other: Any?): Boolean
   override fun hashCode(): Int
@@ -152,7 +154,7 @@ open class RecursionDetect {
   protected val isActive get() = recursion > 1
 }
 
-// File: ArrangeModel
+// File: util/ArrangeModel
 interface Sized { val size: Cnt }
 val Sized.lastIndex: Idx get() = size.dec()
 val Sized.indices: IdxRange get() = 0..lastIndex
@@ -245,7 +247,7 @@ class IndexAs<T>(private val idx: Idx) {
   operator fun setValue(self: Tuple<in T>, _p: KProperty<*>, value: T) { self[idx] = value }
 }
 
-// File: FoldModel
+// File: util/FoldModel
 interface Reducer<in T, out R> {
   fun accept(value: T)
   fun finish(): R
@@ -281,6 +283,8 @@ class JoinFold<T>(override val initial: T, private val append: T.(T) -> T): Conv
   override fun join(base: T, value: T) = base.append(value)
   override fun convert(base: T) = base
 }
+
+typealias InfixJoin<T> = (T, T) -> T
 
 //// == Abstract ==
 // EffectFold { makeBase, onAccept }
@@ -458,4 +462,548 @@ fun <IN> Input<IN>.withErrorList(): Pair<List<BoundError<IN>>, Input<IN>> {
   val errorList: MutableList<BoundError<IN>> = mutableListOf()
   onError = @Suppress("unchecked_cast") { message -> errorList.add((peek as IN) to message) }
   return Pair(errorList, this)
+}
+
+// File: pattern/PatternModel
+inline val notParsed: Nothing? get() = null
+typealias Output<T> = Consumer<T>
+
+//// "PPOP" (Pattern, Positive, Optional, PatternWrapper)
+
+interface Pattern<IN, T>: Preety {
+  fun read(s: Feed<IN>): T?
+  fun show(s: Output<IN>, value: T?)
+  override fun toString(): String
+}
+interface PositivePattern<IN, T>: Pattern<IN, T> {
+  override fun read(s: Feed<IN>): T
+}
+abstract class OptionalPattern<IN, T>(val item: Pattern<IN, T>, val defaultValue: T): PreetyAny(), PositivePattern<IN, T> {
+  override fun show(s: Output<IN>, value: T?) = item.show(s, value ?: defaultValue)
+  override fun toPreetyDoc() = listOf(item.preety(), defaultValue.rawPreety()).joinText("?:")
+}
+abstract class PatternWrapper<IN, T, T1>(val item: Pattern<IN, T>): PreetyAny(), Pattern<IN, T1> {
+  abstract fun wrap(item: Pattern<IN, T>): PatternWrapper<IN, T, T1>
+  override fun toPreetyDoc() = item.toPreetyDoc()
+}
+abstract class NoConvertPatternWrapper<IN, T>(item: Pattern<IN, T>): PatternWrapper<IN, T, T>(item) {
+  override fun show(s: Output<IN>, value: T?) = item.show(s, value)
+}
+
+typealias MonoPattern<IN> = Pattern<IN, IN>
+interface ConstantPattern<IN, T>: Pattern<IN, T> { val constant: T }
+typealias MonoConstantPattern<IN> = ConstantPattern<IN, IN>
+typealias MonoPatternWrapper<IN, T> = PatternWrapper<IN, IN, T>
+
+inline operator fun <reified IN, T> MonoPatternWrapper<IN, T>.not() = wrap(!(item as SatisfyPattern<IN>))
+inline fun <reified IN, T> MonoPatternWrapper<IN, T>.clam(message: ErrorMessage) = wrap((item as SatisfyPattern<IN>).clam(message))
+
+// Losing type information for T in PatternWrapper, required for fun show
+@Suppress("UNCHECKED_CAST")
+inline operator fun <reified IN, reified T> NoConvertPatternWrapper<IN, T>.not() = wrap(!(item as PatternWrapper<IN, IN, T>))
+@Suppress("UNCHECKED_CAST")
+inline fun <reified IN, reified T> NoConvertPatternWrapper<IN, T>.clam(message: ErrorMessage) = wrap((item as PatternWrapper<IN, IN, T>).clam(message))
+
+//// == Error Handling ==
+fun <IN, T> Pattern<IN, T>.toDefault(defaultValue: T) = object: OptionalPattern<IN, T>(this, defaultValue) {
+  override fun read(s: Feed<IN>) = item.read(s) ?: defaultValue
+}
+
+/** Add error, __skip unacceptable__ [pat], yield [defaultValue], continue read process */
+fun <IN, T> Pattern<IN, T>.clamWhile(pat: Pattern<IN, *>, defaultValue: T, message: ErrorMessage)
+= object: OptionalPattern<IN, T>(this, defaultValue) {
+  override fun read(s: Feed<IN>) = this@clamWhile.read(s) ?: run {
+    s.error(message)
+    while (pat.read(s) != notParsed) {}
+    return@run defaultValue
+  }
+}
+/** Add error, consume item until __pattern parses__ or feed end */
+fun <IN> SatisfyPattern<IN>.clam(message: ErrorMessage)
+= object: Pattern<IN, IN> by this {
+  override fun read(s: Feed<IN>): IN? = this@clam.read(s) ?: run {
+    s.error(message)
+    var parsed: IN? = null
+    while (parsed == notParsed) {
+      s.consumeOrNull() ?: break
+      parsed = this@clam.read(s)
+    }
+    return@run parsed
+  }
+}
+
+//// == Abstract ==
+fun <T> Pattern<Char, T>.read(text: String) = read(inputOf(text))
+fun <T> Pattern<Char, T>.show(value: T?): String? {
+  if (value == null) return null
+  val sb = StringBuilder()
+  show({ sb.append(it) }, value)
+  return sb.toString()
+}
+fun <T> Pattern<Char, T>.rebuild(text: String) = show(read(text))
+fun <T> Pattern<Char, T>.rebuild(text: String, operation: ActionOn<T>) = show(read(text)?.apply(operation))
+
+
+fun <IN, T> Pattern<IN, T>.read(vararg items: IN) = read(inputOf(*items))
+fun <IN, T> Pattern<IN, T>.show(value: T?): List<IN>? {
+  if (value == null) return null
+  val list: MutableList<IN> = mutableListOf()
+  show({ list.add(it) }, value)
+  return list
+}
+fun <IN, T> Pattern<IN, T>.rebuild(vararg items: IN) = show(read(*items))
+fun <IN, T> Pattern<IN, T>.rebuild(vararg items: IN, operation: ActionOn<T>) = show(read(*items)?.apply(operation))
+
+// == Patterns ==
+// SURDIES (Seq, Until, Repeat, Decide) (item, elementIn, satisfy) (always, never)
+// CCDC (Convert, Contextual, Deferred, Check)
+// SJIT (SurroundBy, JoinBy) (InfixPattern, TriePattern)
+
+// == Extensions ==
+// ArrangeModel: Sized, Slice, Tuple
+// FoldModel: Fold
+// InputLayer: Feed, Input, CharInput
+
+// File: pattern/AtomIES
+abstract class SatisfyPattern<IN>: PreetyAny(), MonoPattern<IN> {
+  protected abstract fun test(value: IN): Boolean
+  override fun read(s: Feed<IN>) = s.consumeIf(::test)
+  override fun show(s: Output<IN>, value: IN?) { value?.let(s) }
+  /** Apply logical relation like (&&) (||) with 2 satisfy patterns */
+  class LogicalConcat<IN>(val item: SatisfyPattern<IN>, val other: SatisfyPattern<IN>,
+      val name: String, private val join: InfixJoin<Boolean>): SatisfyPattern<IN>() {
+    override fun test(value: IN) = join(item.test(value), other.test(value))
+    override fun toPreetyDoc() = listOf(item, other).preety().joinText(name)
+  }
+  infix fun and(next: SatisfyPattern<IN>) = LogicalConcat(this, next, "&", Boolean::and)
+  infix fun or(next: SatisfyPattern<IN>) = LogicalConcat(this, next, "|", Boolean::or)
+  operator fun not(): SatisfyPattern<IN> = object: SatisfyPattern<IN>() {
+    override fun test(value: IN) = !this@SatisfyPattern.test(value)
+    override fun toPreetyDoc(): PP{
+      val pat = this@SatisfyPattern
+      val showPat = pat.preety()
+      return "!".preety() + if (pat is LogicalConcat<*>) showPat.surroundText(parens) else showPat
+    }
+  }
+}
+class SatisfyEqualTo<IN>(override val constant: IN): SatisfyPattern<IN>(), MonoConstantPattern<IN> {
+  override fun test(value: IN) = value == constant
+  override fun toPreetyDoc() = constant.rawPreety()
+}
+
+// item(), item(value)
+fun <IN> item() = object: SatisfyPattern<IN>() {
+  override fun test(value: IN) = true
+  override fun toPreetyDoc() = "anyItem".preety()
+}
+fun <IN> item(value: IN) = SatisfyEqualTo(value)
+
+// elementIn(a, b, c), elementIn(1..100), elementIn('a'..'z', 'A'..'Z')
+fun <IN> elementIn(vararg values: IN) = object: SatisfyPattern<IN>() {
+  override fun test(value: IN) = value in values
+  override fun toPreetyDoc() = values.map { it.rawPreety() }.joinText("|").surroundText(parens)
+}
+fun <IN: Comparable<IN>> elementIn(range: ClosedRange<IN>) = object: SatisfyPattern<IN>() {
+  override fun test(value: IN) = value in range
+  override fun toPreetyDoc() = range.preety().surroundText(parens)
+}
+fun elementIn(vararg ranges: CharRange) = object: SatisfyPattern<Char>() {
+  override fun test(value: Char) = ranges.any { range -> value in range }
+  override fun toPreetyDoc() = ranges.map(::toDashPreety).join(Preety.Doc.None).surroundText(squares)
+  private fun toDashPreety(r: CharRange) = listOf(r.first, r.last).preety().joinText("-")
+}
+
+// satisfy<Int>("even") { it % 2 == 0 }
+fun <IN> satisfy(name: String = "?", predicate: Predicate<IN>) = object: SatisfyPattern<IN>() {
+  override fun test(value: IN) = predicate(value)
+  override fun toPreetyDoc() = name.preety().surroundText(parens)
+}
+
+fun <T> always(value: T): ConstantPattern<*, T> = object: PreetyAny(), ConstantPattern<Nothing, T> {
+  override val constant = value
+  override fun read(s: Feed<Nothing>) = constant
+  override fun show(s: Output<Nothing>, value: T?) {}
+  override fun toPreetyDoc() = listOf("always", value).preety().joinText(":").surroundText(parens)
+}
+fun never(): Pattern<*, Nothing> = object: PreetyAny(), Pattern<Nothing, Nothing> {
+  override fun read(s: Feed<Nothing>) = notParsed
+  override fun show(s: Output<Nothing>, value: Nothing?) {}
+  override fun toPreetyDoc() = "never".preety().surroundText(parens)
+}
+
+// anyChar
+val anyChar = object: SatisfyPattern<Char>() {
+  override fun test(value :Char) = true
+  override fun toPreetyDoc() = "anyChar".preety()
+}
+
+// File: pattern/CombSURD
+
+// Pattern { read(Feed), show(Output, value) }
+// val notParsed: Nothing? = null
+// toDefault(defaultValue); clamWhile(pat, defaultValue, message); SatisfyPattern.clam(message)
+// CharInput.withErrorList(): Pair<List<LocatedError>, CharInput>
+
+class SingleFeed<T>(val value: T): Feed<T> {
+  private var valueConsumed = false
+  override val peek = value
+  override fun consume() = if (!valueConsumed)
+    { valueConsumed = true; value }
+  else throw Feed.End()
+  override fun toPreetyDoc(): PP = "SingleFeed".preety() + value.preety().surroundText(parens) +
+    (if (valueConsumed) ".".preety() else Preety.Doc.None)
+}
+
+/** Pattern of [Iterable.fold] items, like [Until], [Repeat] */
+abstract class FoldPattern<IN, T, R>(val fold: Fold<T, R>, val item: Pattern<IN, T>): PreetyAny(), Pattern<IN, R> {
+  protected open fun unfold(value: R): Iterable<T> = defaultUnfold(value)
+  override fun show(s: Output<IN>, value: R?) {
+    if (value == null) return
+    unfold(value).forEach { item.show(s, it) }
+  }
+}
+internal fun <R, T> defaultUnfold(value: R): Iterable<T> = @Suppress("unchecked_cast") when (value) {
+  is Iterable<*> -> value as Iterable<T>
+  is String -> value.asIterable() as Iterable<T>
+  else -> unsupported("unfold")
+}
+
+// "SURDIES"
+// Seq(type: TUPLE, vararg items), Until(terminate, fold, item),
+//   Repeat(fold, item) { greedy, bound }, Decide(vararg cases)
+
+class Seq<IN, T, TUPLE: Tuple<T>>(val type: (Cnt) -> TUPLE, vararg val items: Pattern<IN, out T>): PreetyAny(), Pattern<IN, TUPLE> {
+  constructor(type: Producer<TUPLE>, vararg items: Pattern<IN, T>): this({ _ -> type() }, *items)
+  override fun read(s: Feed<IN>): TUPLE? {
+    val tuple = type(items.size)
+    for ((i, x) in items.withIndex()) tuple[i] = x.read(s) ?: return notParsed
+    return tuple
+  }
+  override fun show(s: Output<IN>, value: TUPLE?) {
+    if (value == null) return
+    for ((i, v) in value.toArray().withIndex())
+      @Suppress("unchecked_cast") (items[i] as Pattern<IN, in @UnsafeVariance T>).show(s, v)
+  }
+  override fun toPreetyDoc(): PP = items.asIterable().preety().joinText(" ").surroundText(parens)
+}
+
+open class Until<IN, T, R>(val terminate: Pattern<IN, *>, fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern<IN, T, R>(fold, item) {
+  override fun read(s: Feed<IN>): R? {
+    val reducer = fold.reducer()
+    fun singleFeed() = Input.Filters(s, SingleFeed(s.peek))
+    while (terminate.read(singleFeed()) == notParsed)
+      reducer.accept(item.read(s) ?: return notParsed)
+    return reducer.finish()
+  }
+  override fun toPreetyDoc(): PP = listOf(item, terminate).preety().joinText("~")
+}
+
+open class Repeat<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern<IN, T, R>(fold, item) {
+  override fun read(s: Feed<IN>): R? {
+    val reducer = fold.reducer()
+    var count = 0
+    while (true) {
+      reducer.accept(item.read(s) ?: break)
+      ++count; if (!greedy && count.inc() !in bounds) break
+    }
+    return if (count in bounds) reducer.finish() else notParsed
+  }
+  override fun show(s: Output<IN>, value: R?) {
+    if (value == null) return
+    var count = 0
+    unfold(value).forEach { item.show(s, it); ++count }
+    check(count in bounds) {"bad wrote count: $count"}
+  }
+  protected open val greedy = true
+  protected open val bounds = 1..Cnt.MAX_VALUE
+  override fun toPreetyDoc(): PP = item.preety().surroundText(braces)
+
+  open inner class InBounds(override val bounds: IntRange, override val greedy: Boolean = true): Repeat<IN, T, R>(fold, item) {
+    override fun toPreetyDoc() = listOf( super.toPreetyDoc(),
+      (bounds as Any).preety().surroundText(parens) ).join(if (greedy) "g".preety() else Preety.Doc.None)
+  }
+  inner class Many: InBounds(0..Cnt.MAX_VALUE) {
+    override fun toPreetyDoc() = item.preety().surroundText(braces) + "?"
+  }
+}
+
+class Decide<IN, T>(vararg val cases: Pattern<IN, out T>): PreetyAny(), Pattern<IN, Tuple2<Idx, T>> {
+  override fun read(s: Feed<IN>): Tuple2<Idx, T>? {
+    for ((i, case) in cases.withIndex()) case.read(s)?.let { return Tuple2(i, it) }
+    return notParsed
+  }
+  override fun show(s: Output<IN>, value: Tuple2<Idx, T>?) {
+    if (value == null) return
+    val (i, state) = value
+    @Suppress("unchecked_cast") (cases[i] as Pattern<IN, in @UnsafeVariance T>).show(s, state)
+  }
+  override fun toPreetyDoc() = cases.asIterable().preety().joinText("|").surroundText(parens)
+}
+
+// "rebuild" - UntilUn(+unfold), RepeatUn(+unfold)
+// "repeat many" (0..MAX) - Repeat(...).Many(), RepeatUn(...).Many()
+
+class UntilUn<IN, T, R>(terminate: ConstantPattern<IN, T>, fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R) -> Iterable<T>): Until<IN, T, R>(terminate, fold, item) {
+  override fun unfold(value: R) = unfold.invoke(value)
+}
+class RepeatUn<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R) -> Iterable<T>): Repeat<IN, T, R>(fold, item) {
+  override fun unfold(value: R) = unfold.invoke(value)
+}
+
+// item(), item(value)
+// elementIn(vararg values), elementIn(ClosedRange), elementIn(vararg ranges: CharRange)
+// satisfy(predicate)
+// always(value), never()
+
+fun MonoPattern<Char>.asStringPat() = Convert(this, Char::toString, String::first)
+infix fun MonoPattern<Char>.until(terminate: MonoConstantPattern<Char>)
+  = arrayOf(Until(terminate, asString(), this), item(terminate.constant).asStringPat())
+
+// File: pattern/WrapperCCDC
+// "CCDC"
+// Convert(item, from, to={unsupported})
+// Contextual(head, body)
+// Deferred(item: Producer<Pattern<IN, R>>)
+// Check(item, check)
+
+class Convert<IN, T, T1>(item: Pattern<IN, T>, val from: (T) -> T1, val to: (T1) -> T): PatternWrapper<IN, T, T1>(item) {
+  constructor(item: Pattern<IN, T>, from: (T) -> T1): this(item, from, { unsupported("convert back") })
+  override fun read(s: Feed<IN>) = item.read(s)?.let(from)
+  override fun show(s: Output<IN>, value: T1?) {
+    if (value == null) return
+    item.show(s, value.let(to))
+  }
+  override fun wrap(item: Pattern<IN, T>) = Convert(item, from, to)
+}
+
+class Contextual<IN, HEAD, BODY>(val head: Pattern<IN, HEAD>, val body: (HEAD) -> Pattern<IN, BODY>): PreetyAny(), Pattern<IN, Tuple2<HEAD, BODY>> {
+  override fun read(s: Feed<IN>): Tuple2<HEAD, BODY>? {
+    val context = head.read(s) ?: return notParsed
+    val parsed = body(context).read(s) ?: return notParsed
+    return Tuple2(context, parsed)
+  }
+  override fun show(s: Output<IN>, value: Tuple2<HEAD, BODY>?) {
+    if (value == null) return
+    val (context, parsed) = value
+    head.show(s, context)
+    body(context).show(s, parsed)
+  }
+  override fun toPreetyDoc() = head.preety() + "@"
+}
+
+class Deferred<IN, T>(val lazyItem: Producer<Pattern<IN, T>>): Pattern<IN, T>, RecursionDetect() {
+  override fun read(s: Feed<IN>) = lazyItem().read(s)
+  override fun show(s: Output<IN>, value: T?) = lazyItem().show(s, value)
+  override fun toPreetyDoc(): PP = recurse { if (isActive) "recurse".preety() else lazyItem().preety() }
+  override fun toString() = toPreetyDoc().toString()
+}
+
+class Check<IN, T>(item: Pattern<IN, T>, val check: Feed<IN>.(T?) -> T? = {it}): NoConvertPatternWrapper<IN, T>(item) {
+  override fun read(s: Feed<IN>): T? = item.read(s).let { s.check(it) }
+  override fun wrap(item: Pattern<IN, T>) = Check(item, check)
+  override fun toPreetyDoc() = listOf("peek", item).preety().joinText(":").surroundText(parens)
+}
+
+// Tuple2: flatten(), mergeFirst(first: (B) -> A), mergeSecond(second: (A) -> B)
+
+fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.flatten(): Pair<Pattern<IN, A>, Pattern<IN, B>> {
+  val item = this; var parsed: Tuple2<A, B>? = null
+  val part1: Pattern<IN, A> = object: PreetyAny(), Pattern<IN, A> {
+    override fun read(s: Feed<IN>) = item.read(s).also { parsed = it }?.first
+    override fun show(s: Output<IN>, value: A?) {}
+    override fun toPreetyDoc() = item.toPreetyDoc()
+  }
+  val part2: Pattern<IN, B> = object: PreetyAny(), Pattern<IN, B> {
+    override fun read(s: Feed<IN>) = parsed?.second
+    override fun show(s: Output<IN>, value: B?) = item.show(s, parsed)
+    override fun toPreetyDoc() = "#2".preety()
+  }
+  return Pair(part1, part2)
+}
+
+fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.mergeFirst(first: (B) -> A) = Convert(this, { it.second }, { Tuple2(first(it), it) })
+fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.mergeSecond(second: (A) -> B) = Convert(this, { it.first }, { Tuple2(it, second(it)) })
+
+// File: pattern/AuxiliarySJIT
+// "SJIT"
+// SurroundBy(surround: Pair<ConstantPattern?, ConstantPattern?>, item)
+// JoinBy(join, item) { onItem, onSep, AddListeners(onItem, onSep) }
+
+typealias SurroundPair<IN> = Pair<MonoConstantPattern<IN>?, MonoConstantPattern<IN>?>
+
+infix fun <IN, T> Pattern<IN, T>.prefix(item: MonoConstantPattern<IN>) = SurroundBy(item to null, this)
+infix fun <IN, T> Pattern<IN, T>.suffix(item: MonoConstantPattern<IN>) = SurroundBy(null to item, this)
+fun <T> MonoPair<T>.asPat(): SurroundPair<T> = map(::item)
+
+class SurroundBy<IN, T>(val surround: SurroundPair<IN>, val item: Pattern<IN, T>): PreetyAny(), Pattern<IN, T> {
+  override fun read(s: Feed<IN>): T? {
+    val (left, right) = surround
+    if (left != null) left.read(s) ?: return notParsed
+    val parsed = item.read(s)
+    if (right != null) right.read(s) ?: return notParsed
+    return parsed
+  }
+  override fun show(s: Output<IN>, value: T?) {
+    val (left, right) = surround.map { it?.constant }
+    value?.let { left?.let(s); item.show(s, value); right?.let(s) }
+  }
+  override fun toPreetyDoc() = item.preety().surround(surround.first.preetyOrNone() to surround.second.preetyOrNone())
+}
+
+typealias DoubleList<A, B> = Tuple2<List<A>, List<B>>
+open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN, ITEM>): PreetyAny(), Pattern<IN, DoubleList<ITEM, SEP>> {
+  override fun read(s: Feed<IN>): DoubleList<ITEM, SEP>? {
+    val items: MutableList<ITEM> = mutableListOf()
+    val seprators: MutableList<SEP> = mutableListOf()
+    fun readItem() = item.read(s)?.also { items.add(it); onItem(it) }
+    fun readSep() = sep.read(s)?.also { seprators.add(it); onSep(it) }
+
+    readItem() ?: return notParsed
+    var seprator = readSep()
+    while (seprator != notParsed) {
+      readItem() ?: return notParsed
+      seprator = readSep()
+    }
+    return Tuple2(items, seprators)
+  }
+
+  override fun show(s: Output<IN>, value: DoubleList<ITEM, SEP>?) {
+    if (value == null) return
+    val (values, sepratorList) = value
+    val seprators = sepratorList.iterator()
+    item.show(s, values.first())
+    try { values.drop(1).forEach { sep.show(s, seprators.next()); item.show(s, it) } }
+    catch (_: NoSuchElementException) { error("Missing seprator: ${sepratorList.size} vs. ${values.size}") }
+  }
+  protected open fun onItem(value: ITEM) {}
+  protected open fun onSep(value: SEP) {}
+  override fun toPreetyDoc() = listOf(item, sep).preety().joinText("...").surroundText(braces)
+
+  inner class AddListeners(private val onItem: Consumer<ITEM>, private val onSep: Consumer<SEP>): JoinBy<IN, SEP, ITEM>(sep, item) {
+    override fun onItem(value: ITEM) = onItem.invoke(value)
+    override fun onSep(value: SEP) = onSep.invoke(value)
+  }
+}
+
+// File: pattern/InfixPattern
+// InfixChain(atom, infix)
+
+data class Precedence(val ordinal: Int, val isRAssoc: Boolean)
+infix fun String.infixl(prec: Int) = this to Precedence(prec, false)
+infix fun String.infixr(prec: Int) = this to Precedence(prec, true)
+
+class InfixOp<T>(val name: String, val assoc: Precedence, val join: InfixJoin<T>): Comparable<InfixOp<T>> {
+  override fun compareTo(other: InfixOp<T>) = assoc.ordinal.compareTo(other.assoc.ordinal)
+  override fun toString() = name
+}
+
+infix fun <T> Pair<String, Precedence>.join(op: InfixJoin<T>) = InfixOp(first, second, op)
+fun <T> TriePattern<Char, InfixOp<T>>.register(op: InfixOp<T>) { this[op.name] = op }
+
+open class InfixPattern<IN, ATOM>(val atom: Pattern<IN, ATOM>, val op: Pattern<IN, InfixOp<ATOM>>): PreetyAny(), Pattern<IN, ATOM> {
+  protected open fun rescue(s: Feed<IN>, base: ATOM, op1: InfixOp<ATOM>): ATOM? = s.error("infix $base parse failed at $op1").let { notParsed }
+  override fun read(s: Feed<IN>): ATOM? {
+    val base = atom.read(s) ?: return notParsed
+    return infixChain(s, base)
+  }
+  fun infixChain(s: Feed<IN>, base: ATOM, op_left: InfixOp<ATOM>? = null): ATOM? {
+    val op1 = op_left ?: op.read(s) ?: return base  //'+' in 1+(2*3)... || return atom "1"
+    val rhs1 = atom.read(s) ?: rescue(s, base, op1) ?: return notParsed //"2"
+    val op2 = op.read(s) ?: return op1.join(base, rhs1) //'*' //(a⦁b) END: terminated
+
+    fun associateLeft() = infixChain(s, op1.join(base, rhs1), op2) //(a ⦁ b) ⦁ ...
+    fun associateRight() = infixChain(s, rhs1, op2)?.let { op1.join(base, it) } //a ⦁ (b ⦁ ...)
+    return when { // lessThan b => first
+      op1 < op2 -> associateLeft()
+      op1  > op2 -> associateRight()
+      else -> if (op1.assoc.isRAssoc) associateRight() else associateLeft()
+    }
+  }
+  override open fun show(s: Output<IN>, value: ATOM?) { unsupported("infix show") }
+  override fun toPreetyDoc() = "InfixChain".preety().surroundText(parens)
+}
+
+// File: pattern/TriePattern
+
+// TriePattern<K, V>()
+class KeywordPattern<V>: TriePattern<Char, V>()
+
+class MapPattern<K, V>(val map: Map<K, V>): PreetyAny(), Pattern<K, V> {
+  override fun read(s: Feed<K>) = map[s.peek]?.also { s.consume() }
+  override fun show(s: Output<K>, value: V?) { if (value != null) map.reversedMap()[value]?.let(s) }
+  override fun toPreetyDoc() = listOf("map", map).preety().joinText(":").surroundText(parens)
+}
+
+open class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
+  override fun read(s: Feed<K>): V? {
+    var point: Trie<K, V> = this
+    while (true)
+      try { point = point.routes[s.peek]?.also { onItem(s.consume()) } ?: break }
+      catch (_: Feed.End) { break }
+    return point.value?.also(::onSuccess) ?: onFail()
+  }
+  override fun show(s: Output<K>, value: V?) {
+    if (value == null) return
+    toMap().reversedMap()[value]?.let { it.forEach(s) }
+  }
+  protected open fun onItem(value: K) {}
+  protected open fun onSuccess(value: V) {}
+  protected open fun onFail(): V? = notParsed
+  override fun toPreetyDoc() = super.toString().preety()
+}
+
+//// == Trie Tree ==
+open class Trie<K, V>(var value: V?) {
+  constructor(): this(null)
+  val routes: MutableMap<K, Trie<K, V>> by lazy(::mutableMapOf)
+
+  operator fun get(key: Iterable<K>): V? = getPath(key).value
+  operator fun set(key: Iterable<K>, value: V) { getOrCreatePath(key).value = value }
+  fun getPath(key: Iterable<K>): Trie<K, V> {
+    return key.fold(initial = this) { point, k -> point.routes[k] ?: errorNoPath(key, k) }
+  }
+  fun getOrCreatePath(key: Iterable<K>): Trie<K, V> {
+    return key.fold(initial = this) { point, k -> point.routes.getOrPut(k, ::Trie) }
+  }
+  fun collectKeys(): Set<List<K>> {
+    return if (routes.isEmpty()) setOf() //terminator (/a/b/[])
+    else routes.flatMapTo(mutableSetOf()) { kr ->
+      val (pathKey, nextRoute) = kr
+      val routeSet: MutableSet<List<K>> = mutableSetOf()
+      if (nextRoute.value != null) routeSet.add(listOf(pathKey))
+      nextRoute.collectKeys().mapTo(routeSet) { listOf(pathKey)+it }
+      return@flatMapTo routeSet
+    }
+  }
+  fun toMap() = collectKeys().toMap { k -> k to this[k] }
+
+  private fun errorNoPath(key: Iterable<K>, k: K): Nothing {
+    val msg = "${key.joinToString("/")} @$k"
+    throw NoSuchElementException(msg)
+  }
+  override fun toString(): String = when {
+    value == null -> "Path${routes}"
+    value != null && routes.isNotEmpty() -> "Bin[$value]${routes}"
+    value != null && routes.isEmpty() -> "Term($value)"
+    else -> impossible()
+  }
+  override fun equals(other: Any?): Boolean {
+    if (this === other) return true
+    return if (other !is Trie<*, *>) false
+    else (routes == other.routes) && value == other.value
+  }
+  override fun hashCode() = routes.hashCode() xor value.hashCode()
+}
+
+//// == Abstract ==
+fun <K, V> Trie<K, V>.merge(vararg kvs: Pair<Iterable<K>, V>) {
+  for ((k, v) in kvs) this[k] = v
+}
+fun <V> Trie<Char, V>.mergeStrings(vararg kvs: Pair<CharSequence, V>) {
+  for ((k, v) in kvs) this[k] = v
+}
+
+operator fun <V> Trie<Char, V>.get(index: CharSequence) = this[index.asIterable()]
+operator fun <V> Trie<Char, V>.set(index: CharSequence, value: V) {
+  this[index.asIterable()] = value
 }
