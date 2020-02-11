@@ -757,7 +757,7 @@ class RepeatUn<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R)
 
 fun MonoPattern<Char>.asStringPat() = Convert(this, Char::toString, String::first)
 infix fun MonoPattern<Char>.until(terminate: MonoConstantPattern<Char>)
-  = arrayOf(Until(terminate, asString(), this), item(terminate.constant).asStringPat())
+  = arrayOf<Pattern<Char, String>>(Until(terminate, asString(), this), item(terminate.constant).asStringPat())
 
 // File: pattern/WrapperCCDC
 // "CCDC"
