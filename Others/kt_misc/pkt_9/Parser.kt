@@ -229,6 +229,13 @@ open class DoubleTuple(size: Cnt): Tuple<Double>(size) { override val items = Ar
 open class CharTuple(size: Cnt): Tuple<Char>(size) { override val items = Array(size){'\u0000'} }
 open class StringTuple(size: Cnt): Tuple<String>(size) { override val items = Array(size){""} }
 
+fun <T, TUPLE: Tuple<T>> tupleOf(type: (Cnt) -> TUPLE, vararg items: T): TUPLE {
+  val tuple = type(items.size)
+  for ((i, x) in items.withIndex()) tuple[i] = x
+  return tuple
+}
+fun <T, TUPLE: Tuple<T>> tupleOf(type: Producer<TUPLE>, vararg items: T) = tupleOf({ _ -> type() }, *items)
+
 /// == Dynamic Tuples ==
 open class AnyTuple(size: Cnt): Tuple<Any>(size) {
   @Suppress("UNCHECKED_CAST")
