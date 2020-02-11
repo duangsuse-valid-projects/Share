@@ -1,6 +1,7 @@
 import java.io.InputStream
 import java.io.Reader
 import java.io.InputStreamReader
+
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 
@@ -57,31 +58,32 @@ interface Preety {
       { override fun toString() = super.toString() }
     data class JoinBy(val sep: Doc, override val subs: List<Doc>): Doc(), DocsWrapper
       { override fun toString() = super.toString() }
-    fun <R> visitBy(visitor: DocVisitor<R>): R = when (this) {
+    fun <R> visitBy(visitor: Visitor<R>): R = when (this) {
       is Null -> visitor.see(this)
       is None -> visitor.see(this)
       is Text -> visitor.see(this)
       is JoinBy -> visitor.see(this)
       is SurroundBy -> visitor.see(this)
     }
+    interface Visitor<out R> {
+        fun see(t: Doc.Null): R
+        fun see(t: Doc.None): R
+        fun see(t: Doc.Text): R
+        fun see(t: Doc.JoinBy): R
+        fun see(t: Doc.SurroundBy): R
+    }
     override fun toString() = visitBy(DocShow)
-    private object DocShow: DocVisitor<String> {
+    private object DocShow: Visitor<String> {
       override fun see(t: Doc.Null) = "null"
       override fun see(t: Doc.None) = ""
       override fun see(t: Doc.Text) = t.obj.toString()
-      override fun see(t: Doc.JoinBy) = t.subs.joinToString(t.sep.toString(), transform = Doc::toString)
-      override fun see(t: Doc.SurroundBy) = "${t.lr.first}${t.sub}${t.lr.second}"
+      override fun see(t: Doc.JoinBy) = t.subs.joinToString(t.sep.show(), transform = { it.show() })
+      override fun see(t: Doc.SurroundBy) = "${t.lr.first.show()}${t.sub.show()}${t.lr.second.show()}"
+      private fun Doc.show() = visitBy(DocShow)
     }
   }
   interface DocWrapper { val sub: Doc }
   interface DocsWrapper { val subs: List<Doc> }
-  interface DocVisitor<out R> {
-    fun see(t: Doc.Null): R
-    fun see(t: Doc.None): R
-    fun see(t: Doc.Text): R
-    fun see(t: Doc.JoinBy): R
-    fun see(t: Doc.SurroundBy): R
-  }
 }
 
 abstract class PreetyAny: Preety {
@@ -90,16 +92,16 @@ abstract class PreetyAny: Preety {
 
 typealias PP = Preety.Doc
 
-fun Any?.toPreety() = if (this == null) Preety.Doc.Null else Preety.Doc.Text(this)
-fun Iterable<*>.toPreety() = map(Any?::toPreety)
+fun Any?.preety() = if (this == null) Preety.Doc.Null else Preety.Doc.Text(this)
+fun Iterable<*>.preety() = map(Any?::preety)
 
 fun PP.surround(lr: MonoPair<PP>) = Preety.Doc.SurroundBy(lr, this)
 fun List<PP>.join(sep: PP) = Preety.Doc.JoinBy(sep, this)
 operator fun PP.plus(other: PP) = listOf(this, other).join(Preety.Doc.None)
 
-fun PP.surroundText(lr: MonoPair<String>) = toPreety().surround(lr.map(Any::toPreety))
-fun List<PP>.joinText(sep: String) = toPreety().join(sep.toPreety())
-operator fun PP.plus(other: Any?) = this + other.toPreety()
+fun PP.surroundText(lr: MonoPair<String>) = surround(lr.map(Any?::preety))
+fun List<PP>.joinText(sep: String) = join(sep.preety())
+operator fun PP.plus(other: Any?) = this + other.preety()
 
 infix fun String.paired(other: String) = MonoPair(this, other)
 val parens = "(" paired ")"
@@ -121,11 +123,12 @@ internal val KOTLIN_ESCAPE = mapOf(
 )
 
 internal val ESCAPED_CHAR = Regex("""^\\.$""")
-fun Any?.rawPreety() = if (this == null) Preety.Doc.Null
-else toString().prefixTranslate(KOTLIN_ESCAPE, "\\").let {
-  if (it.length == 1 || it.matches(ESCAPED_CHAR)) it.toPreety().surroundText(quotes)
-  else it.toPreety().surroundText(dquotes)
+fun String.rawString() = prefixTranslate(KOTLIN_ESCAPE, "\\").let {
+  if (it.length == 1 || it.matches(ESCAPED_CHAR)) it.preety().surroundText(quotes)
+  else it.preety().surroundText(dquotes)
 }
+
+fun Any?.rawPreety() = if (this == null) Preety.Doc.Null else toString().rawString()
 
 // File: AnyValue&Rec
 interface Data {
@@ -196,7 +199,7 @@ abstract class Tuple<E>(override val size: Cnt): Slice<E> {
     else items.contentEquals(other.items)
   }
   override fun hashCode() = items.contentHashCode()
-  override fun toString() = items.asIterable().toPreety().joinText(", ").surroundText(parens).toString()
+  override fun toString() = items.asIterable().preety().joinText(", ").surroundText(parens).toString()
 }
 
 operator fun <E> Tuple<E>.component1() = this[0]
@@ -280,6 +283,9 @@ class JoinFold<T>(override val initial: T, private val append: T.(T) -> T): Conv
 }
 
 //// == Abstract ==
+// EffectFold { makeBase, onAccept }
+// ConvertFold { initial, join, convert }
+// JoinFold(initial, append)
 fun <T> asList() = object: EffectFold<T, MutableList<T>>() {
   override fun makeBase(): MutableList<T> = mutableListOf()
   override fun onAccept(base: MutableList<T>, value: T) { base.add(value) }
@@ -297,7 +303,7 @@ fun <T, R> Iterable<T>.fold(fold: Fold<T, R>): R {
 }
 
 // File: FeedModel
-interface Feed<out T> {
+interface Feed<out T>: Preety {
   val peek: T; fun consume(): T
   class End: NoSuchElementException("no more")
 }
@@ -327,10 +333,10 @@ open class SliceFeed<T>(private val slice: Slice<T>): PreetyAny(), Feed<T> {
     catch (_: IndexOutOfBoundsException) { slice[slice.lastIndex] }
   override fun consume() = try { slice[position++] }
     catch (_: IndexOutOfBoundsException) { --position; throw Feed.End() }
-  override fun toPreetyDoc() = "Slice".toPreety() + listOf(peek.rawPreety(), viewport(slice)).joinText("...").surroundText(parens)
+  override fun toPreetyDoc(): PP = "Slice".preety() + listOf(peek.rawPreety(), viewport(slice)).joinText("...").surroundText(parens)
   protected open fun viewport(slice: Slice<T>): PP
     = (position..(position+10)).map { it.coerceIn(slice.indices) }
-      .map(slice::get).let { items -> items.toPreety().joinText(if (items.all { it is Char }) "" else ", ") }
+      .map(slice::get).let { items -> items.preety().joinText(if (items.all { it is Char }) "" else ", ") }
 }
 
 abstract class StreamFeed<T, BUF, STREAM>(private val stream: STREAM): PreetyAny(), Feed<T> {
@@ -346,7 +352,7 @@ abstract class StreamFeed<T, BUF, STREAM>(private val stream: STREAM): PreetyAny
     else if (!tailConsumed) tailConsumed = true
     else throw Feed.End()
   }
-  override fun toPreetyDoc() = "Stream".toPreety() + listOf(peek.rawPreety(), stream.toPreety()).joinText("...").surroundText(parens)
+  override fun toPreetyDoc(): PP = "Stream".preety() + listOf(peek.rawPreety(), stream.preety()).joinText("...").surroundText(parens)
 }
 
 //// == Stream Feeds ==
@@ -354,7 +360,7 @@ class IteratorFeed<T>(iterator: Iterator<T>): StreamFeed<T, T, Iterator<T>>(iter
   override fun bufferIterator(stream: Iterator<T>) = stream
   override fun convert(buffer: T) = buffer
 }
-class InputStreamFeed(reader: Reader): StreamFeed<Char, Int, Reader>(reader) {
+class ReaderFeed(reader: Reader): StreamFeed<Char, Int, Reader>(reader) {
   constructor(s: InputStream, charset: Charset = StandardCharsets.UTF_8): this(InputStreamReader(s, charset))
   override fun bufferIterator(stream: Reader) = object: Iterator<Int> {
     override fun hasNext() = nextOne != (-1) //impossible
@@ -373,19 +379,28 @@ interface ErrorListener {
 }
 typealias ErrorMessage = String
 
+//// == Abstract ==
+// SourceLocation <- SourceLocated { sourceLoc }
+// ParseError(feed, message)
+// Feed.tag: PP?; Feed.error(message)
 interface SourceLocated { val sourceLoc: SourceLocation }
-data class SourceLocation(val file: String, var line: Cnt, var column: Cnt, var position: Cnt): Cloneable {
+data class SourceLocation(val file: String, var line: Cnt, var column: Cnt, var position: Cnt): Preety, Cloneable {
   constructor(file: String): this(file,1,1, 0)
-  val tag get() = "$file:$line:$column"
-  override fun toString() = "$tag #$position"
+  val tag get() = listOf(file, line, column).preety().joinText(":")
+  override fun toPreetyDoc() = tag + ("#".preety() + position)
+  override fun toString() = toPreetyDoc().toString()
   public override fun clone() = copy(file = file, line = line, column = column, position = position)
 }
+
+open class ParseError(val feed: AllFeed, message: ErrorMessage): Error(message.toString())
+val AllFeed.tag: PP? get() = (this as? SourceLocated)?.sourceLoc?.tag
+fun AllFeed.error(message: ErrorMessage) = (this as? ErrorListener)?.onError?.invoke(this, message) ?: kotlin.error(message)
 
 //// == Input & CharInput ==
 // Input { onItem, onError }
 // CharInput (STDIN) { isCRLF, eol }
 
-open class Input<T>(private val feed: Feed<T>): Feed<T>, ErrorListener {
+open class Input<T>(private val feed: Feed<T>): PreetyAny(), Feed<T>, ErrorListener {
   protected open fun onItem(item: T) {}
   override var onError: ConsumerOn<AllFeed, ErrorMessage> = { message ->
     val inputDesc = this.tag ?: (this as? Filters<*>)?.parent?.tag ?: "parse fail near `$peek'"
@@ -393,16 +408,12 @@ open class Input<T>(private val feed: Feed<T>): Feed<T>, ErrorListener {
   }
   override val peek get() = feed.peek
   override fun consume() = feed.consume().also(::onItem)
-  override fun toString() = "Input:$feed"
+  override fun toPreetyDoc(): PP = "Input".preety() + ":" + feed.toPreetyDoc()
   open class Filters<T>(val parent: AllFeed, feed: Feed<T>): Input<T>(feed) {
     init { onError = (parent as? ErrorListener)?.onError ?: onError }
-    override fun toString() = parent.toString()
+    override fun toPreetyDoc() = parent.toPreetyDoc()
   }
 }
-
-open class ParseError(val feed: AllFeed, message: ErrorMessage): Error(message.toString())
-val AllFeed.tag: String? get() = (this as? SourceLocated)?.sourceLoc?.tag
-fun AllFeed.error(message: ErrorMessage) = (this as? ErrorListener)?.onError?.invoke(this, message) ?: kotlin.error(message)
 
 open class CharInput(feed: Feed<Char>, file: String): Input<Char>(feed), SourceLocated {
   protected open val isCRLF = false
@@ -419,20 +430,21 @@ open class CharInput(feed: Feed<Char>, file: String): Input<Char>(feed), SourceL
     ++sourceLoc.position
   }
   private fun newLine() { ++sourceLoc.line; sourceLoc.column = 1 }
-  override fun toString() = super.toString()+":$sourceLoc"
+  override fun toPreetyDoc(): PP = super.toPreetyDoc() + ":" + sourceLoc.preety()
   companion object {
-    val STDIN by lazy { CharInput(InputStreamFeed(System.`in`), "<stdin>") }
+    val STDIN by lazy { CharInput(ReaderFeed(System.`in`), "<stdin>") }
   }
 }
 
 //// == Abstract ==
+// slice, iterator, reader
 fun inputOf(text: String, file: String = "<string>") = CharInput(SliceFeed(Slice(text)), file)
 fun <IN> inputOf(vararg items: IN) = Input(SliceFeed(Slice(items)))
 
 fun <IN> inputOf(iterator: Iterator<IN>) = Input(IteratorFeed(iterator))
 fun <IN> inputOf(iterable: Iterable<IN>) = inputOf(iterable.iterator())
 
-fun inputOf(reader: Reader, file: String = "<read>") = CharInput(InputStreamFeed(reader), file)
+fun inputOf(reader: Reader, file: String = "<read>") = CharInput(ReaderFeed(reader), file)
 
 //// == Error clam list ==
 typealias LocatedError = Pair<SourceLocation, ErrorMessage>
