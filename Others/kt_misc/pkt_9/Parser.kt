@@ -489,7 +489,7 @@ fun <IN> Input<IN>.withErrorList(): Pair<List<BoundError<IN>>, Input<IN>> {
   return Pair(errorList, this)
 }
 
-// File: pattern/PatternModel
+// File: pat/PatternModel
 inline val notParsed: Nothing? get() = null
 typealias Output<T> = Consumer<T>
 
@@ -537,15 +537,18 @@ fun <IN, T> Pattern<IN, T>.toDefault(defaultValue: T) = object: OptionalPattern<
 }
 fun <IN, T> ConstantPattern<IN, T>.toDefault() = toDefault(constant)
 
-/** Add error, __skip unacceptable__ [pat], yield [defaultValue], continue read process */
+/** Add error and __skip unacceptable__ [pat], yield [defaultValue] */
+fun <IN, T> Feed<IN>.clamWhile(pat: Pattern<IN, *>, defaultValue: T, message: ErrorMessage): T {
+  this.error(message)
+  while (pat.read(this) != notParsed) {}
+  return defaultValue
+}
+
 fun <IN, T> Pattern<IN, T>.clamWhile(pat: Pattern<IN, *>, defaultValue: T, message: ErrorMessage)
 = object: OptionalPattern<IN, T>(this, defaultValue) {
-  override fun read(s: Feed<IN>) = this@clamWhile.read(s) ?: run {
-    s.error(message)
-    while (pat.read(s) != notParsed) {}
-    return@run defaultValue
-  }
+  override fun read(s: Feed<IN>) = this@clamWhile.read(s) ?: s.clamWhile(pat, defaultValue, message)
 }
+
 /** Add error, consume item until __pattern parses__ or feed end */
 fun <IN> SatisfyPattern<IN>.clam(message: ErrorMessage)
 = object: Pattern<IN, IN> by this {
@@ -592,7 +595,7 @@ fun <IN, T> Pattern<IN, T>.rebuild(vararg items: IN, operation: ActionOn<T>) = s
 // FoldModel: Fold
 // InputLayer: Feed, Input, CharInput
 
-// File: pattern/AtomIES
+// File: pat/AtomIES
 abstract class SatisfyPattern<IN>: PreetyAny(), MonoPattern<IN> {
   abstract fun test(value: IN): Boolean
   override fun read(s: Feed<IN>) = s.consumeIf(::test)
@@ -653,9 +656,9 @@ fun <IN, T> always(value: T): ConstantPattern<IN, T> = object: PreetyAny(), Cons
   override fun show(s: Output<IN>, value: T?) {}
   override fun toPreetyDoc() = listOf("always", value).preety().joinText(":").surroundText(parens)
 }
-fun never(): Pattern<*, Nothing> = object: PreetyAny(), Pattern<Nothing, Nothing> {
-  override fun read(s: Feed<Nothing>) = notParsed
-  override fun show(s: Output<Nothing>, value: Nothing?) {}
+fun <IN, T> never(): Pattern<IN, T> = object: PreetyAny(), Pattern<IN, T> {
+  override fun read(s: Feed<IN>) = notParsed
+  override fun show(s: Output<IN>, value: T?) {}
   override fun toPreetyDoc() = "never".preety().surroundText(parens)
 }
 
@@ -665,7 +668,7 @@ val anyChar = object: SatisfyPattern<Char>() {
   override fun toPreetyDoc() = "anyChar".preety()
 }
 
-// File: pattern/CombSURD
+// File: pat/CombSURD
 
 // Pattern { read(Feed), show(Output, value) }
 // val notParsed: Nothing? = null
@@ -794,7 +797,7 @@ fun Seq<Char, Char, CharTuple>.toStringPat() = Convert(this, { it.toArray().join
 infix fun MonoPattern<Char>.until(terminate: MonoConstantPattern<Char>)
   = arrayOf<Pattern<Char, String>>(Until(terminate, asString(), this), item(terminate.constant).toStringPat())
 
-// File: pattern/WrapperCCDC
+// File: pat/WrapperCCDC
 // "CCDC"
 // Convert(item, transform: ConvertAs<T1, T>) constructor(item, to={unsupported})
 // Contextual(head, body)
@@ -864,15 +867,7 @@ fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.flatten(): Pair<Pattern<IN, A>, Pattern
 fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.mergeFirst(first: (B) -> A) = Convert(this, { it.second }, { Tuple2(first(it), it) })
 fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.mergeSecond(second: (A) -> B) = Convert(this, { it.first }, { Tuple2(it, second(it)) })
 
-// File: pattern/AuxiliarySJ
-fun digitItem(digit: SatisfyPattern<Char>, base: Char = '0') = Convert(digit, { it - base }, { base +it })
-fun digitAsInt(c: Char, pad: Int): ConvertAs<Int, Char> = ConvertAs({ (it - c) +pad }, { c + (it - pad) })
-
-fun asInt(radix: Int = 10, initial: Int = 0) = JoinFold(initial) { this*radix + it }
-fun asLong(radix: Int = 10, initial: Long = 0L) = JoinFold(initial) { this*radix + it }
-
-fun stringFor(char: SatisfyPattern<Char>) = Repeat(asString(), char).Many()
-
+// File: pat/AuxiliarySJ
 // "SJIT"
 // SurroundBy(surround: Pair<ConstantPattern?, ConstantPattern?>, item)
 // JoinBy(join, item) { onItem, onSep, AddListeners(onItem, onSep) }
@@ -940,8 +935,13 @@ open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN
 fun <IN, SEP, ITEM> JoinBy<IN, SEP, ITEM>.mergeConstantJoin() = mergeSecond {
   (0 until it.size.dec()).asIterable().map { (sep as MonoConstantPattern<SEP>).constant }
 }
+fun <IN, ITEM> JoinBy<IN, Char, ITEM>.concatCharJoin() = Convert(this, {
+  Tuple2(it.first, it.second.joinToString(""))
+}, {
+  Tuple2(it.first, it.second.toList())
+})
 
-// File: pattern/InfixPattern
+// File: pat/InfixPattern
 // InfixChain(atom, infix)
 
 data class Precedence(val ordinal: Int, val isRAssoc: Boolean)
@@ -979,7 +979,7 @@ open class InfixPattern<IN, ATOM>(val atom: Pattern<IN, ATOM>, val op: Pattern<I
   override fun toPreetyDoc() = listOf("InfixChain", op).preety().joinText(":").surroundText(parens)
 }
 
-// File: pattern/TriePattern
+// File: pat/TriePattern
 
 class MapPattern<K, V>(val map: Map<K, V>): PreetyAny(), Pattern<K, V> {
   override fun read(s: Feed<K>) = map[s.peek]?.also { s.consume() }
@@ -1066,3 +1066,12 @@ operator fun <V> Trie<Char, V>.get(index: CharSequence) = this[index.asIterable(
 operator fun <V> Trie<Char, V>.set(index: CharSequence, value: V) {
   this[index.asIterable()] = value
 }
+
+// File: pat/MiscHelper
+fun digitItem(digit: SatisfyPattern<Char>, base: Char = '0') = Convert(digit, { it - base }, { base +it })
+fun digitAsInt(c: Char, pad: Int): ConvertAs<Int, Char> = ConvertAs({ (it - c) +pad }, { c + (it - pad) })
+
+fun asInt(radix: Int = 10, initial: Int = 0) = JoinFold(initial) { this*radix + it }
+fun asLong(radix: Int = 10, initial: Long = 0L) = JoinFold(initial) { this*radix + it }
+
+fun stringFor(char: SatisfyPattern<Char>) = Repeat(asString(), char).Many()
