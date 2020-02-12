@@ -1,17 +1,12 @@
 import kotlin.math.abs
 
-fun digitItem(digit: SatisfyPattern<Char>) = Convert(digit, {it-'0'}, {'0'+it})
-fun intFrom(c: Char): (Char) -> Int = { it-c+10 }
-fun charFrom(c: Char): (Int) -> Char = { c+(it-10) }
-
 val digit = digitItem(elementIn('0'..'9'))
 val binDigit = digitItem(elementIn('0'..'1'))
 
-val hexLower = Convert(elementIn('a'..'z'), intFrom('a'), charFrom('a'))
-val hexUpper = Convert(elementIn('A'..'Z'), intFrom('A'), charFrom('A'))
+val hexLower = Convert(elementIn('a'..'z'), digitAsInt('a', 10))
+val hexUpper = Convert(elementIn('A'..'Z'), digitAsInt('A', 10))
 val hexDigit = Decide(digit, hexLower, hexUpper).mergeFirst { if (it in 0..9) 0 else 2 }
 
-fun asInt(radix: Int = 10, initial: Int = 0) = JoinFold(initial, {this*radix+it})
 val hexPart = Repeat(asInt(16), hexDigit)
 val binPart = Repeat(asInt(2), binDigit)
 
@@ -33,11 +28,10 @@ val int = Convert(Contextual(sign) { sign ->
   Check(numPart) { if (sign && it!=notParsed) -it else it }
 }, { it.second }, { Tuple2(it<0, abs(it)) })
 
-fun stringFor(char: SatisfyPattern<Char>) = Repeat(asString(), char).Many()
 val ws = stringFor(elementIn(' ', '\t'))
 
 lateinit var expr: Pattern<Char, Int>
-val atomParen = SurroundBy(('(' to ')').asPat(), Deferred {expr})
+val atomParen = SurroundBy(Pair('(', ')').toPat(), Deferred {expr})
 val atomInt = Convert(Seq(::AnyTuple, ws, int, ws), { it.getAs<Int>(1) }, { anyTupleOf("", it, "") })
 val atom = Decide(atomInt, atomParen).mergeFirst {0}
 val ops = KeywordPattern<InfixOp<Int>>().apply {

@@ -1,18 +1,17 @@
 object Hosts {
 //comment: COMMENT;
-val nl = Convert(Seq(::CharTuple, item('\r').toDefault('\r'), item('\n')), { it.toList().joinToString("") }, { tupleOf(::CharTuple, it[0], it[1]) })
+val nl = Seq(::CharTuple, item('\r').toDefault(), item('\n')).toStringPat()
 val nlChar = elementIn('\r', '\n')
 //NL: ('\r\n'|'\n\r'|'\r'|'\n') ->skip;
 //BLANK: (' '|'\t') ->skip; 
 val ws = Repeat(asString(), elementIn(' ', '\t'))
 
 //HOSTNAME: [A-z0-9.]+;
-val hostname = Repeat(asString(), elementIn('A'..'z', '0'..'9', '.'..'.'))
+val hostname = Repeat(asString(), elementIn('A'..'z', '0'..'9') or item('.'))
 
 //NUM: [0-9] +;
-val decimal = JoinFold(0) { this*10 + it }
-val digit = Convert(elementIn('0'..'9'), {it-'0'}, {'0'+it})
-val number = Repeat(decimal, digit)
+val digit = digitItem(elementIn('0'..'9'))
+val number = Repeat(asInt(), digit)
 //IPADDRESS: NUM '.' NUM '.' NUM '.' NUM;
 val ipAddressPart = JoinBy(item('.'), number).mergeSecond { (0 until it.size).asIterable().map { '.' } }
 val ipAddress = Convert(ipAddressPart, {it.joinToString("")}, {it.split(".").map(String::toInt)})
