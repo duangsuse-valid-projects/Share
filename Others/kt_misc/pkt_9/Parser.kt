@@ -701,7 +701,7 @@ internal fun <R, T> defaultUnfold(value: R): Iterable<T> = @Suppress("unchecked_
 //   Repeat(fold, item) { greedy, bound }, Decide(vararg cases)
 
 class Seq<IN, T, TUPLE: Tuple<T>>(val type: (Cnt) -> TUPLE, vararg val items: Pattern<IN, out T>): PreetyAny(), Pattern<IN, TUPLE> {
-  constructor(type: Producer<TUPLE>, vararg items: Pattern<IN, T>): this({ _ -> type() }, *items)
+  constructor(type: Producer<TUPLE>, vararg items: Pattern<IN, out T>): this({ _ -> type() }, *items)
   override fun read(s: Feed<IN>): TUPLE? {
     val tuple = type(items.size)
     for ((i, x) in items.withIndex()) tuple[i] = x.read(s) ?: return notParsed
@@ -936,6 +936,11 @@ open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN
   inner class OnItem(onItem: Consumer<ITEM>): AddListeners(onItem, {})
 }
 
+@Suppress("UNCHECKED_CAST")
+fun <IN, SEP, ITEM> JoinBy<IN, SEP, ITEM>.mergeConstantJoin() = mergeSecond {
+  (0 until it.size.dec()).asIterable().map { (sep as MonoConstantPattern<SEP>).constant }
+}
+
 // File: pattern/InfixPattern
 // InfixChain(atom, infix)
 
@@ -971,7 +976,7 @@ open class InfixPattern<IN, ATOM>(val atom: Pattern<IN, ATOM>, val op: Pattern<I
     }
   }
   override open fun show(s: Output<IN>, value: ATOM?) { unsupported("infix show") }
-  override fun toPreetyDoc() = "InfixChain".preety().surroundText(parens)
+  override fun toPreetyDoc() = listOf("InfixChain", op).preety().joinText(":").surroundText(parens)
 }
 
 // File: pattern/TriePattern
