@@ -18,7 +18,7 @@ val ipAddress = JoinBy(item('.'), number).mergeConstantJoin()
 
 //item: IPADDRESS HOSTNAME ;
 val record = Seq<Char, Any, HostEntry>(::HostEntry, ws,
-  ipAddress.clamWhile(!white, emptyList(), "bad address"), ws,
+  ipAddress, ws,
   hostname.clamWhile(!nlChar, "?", "bad hostname"), ws, nl)
 class HostEntry: AnyTuple(6) {
   var ipAddress by indexAs<List<Int>>(1)
@@ -33,7 +33,7 @@ val line = Decide(
   Convert(comment, { Line.Comment(it) }, { it.t }),
   Convert(record, { Line.Record(it) }, { it.t }),
   Convert(nl, { Line.Comment(tupleOf(::StringTuple, "#", it)) }, { it.t[1] }),
-  Check(never()) { if (!isStickyEnd()) clamWhile(!nlChar, Line.Unknown, "unknown line") else it }
+  StickyEnd(nlChar or item(EOF), notParsed) { clamWhile(!nlChar, Line.Unknown, "unknown line") }
 ).mergeFirst { if (it is Line.Comment) 1 else 0 }
 //hostfile: line* EOF;
 val hosts = Repeat(asList(), line).Many()

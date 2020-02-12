@@ -18,6 +18,7 @@ typealias Predicate<T> = (T) -> Boolean
 
 typealias Pipe<T> = (T) -> T
 typealias ActionOn<T> = T.() -> Unit
+typealias ProducerOn<T, R> = T.() -> R
 typealias ConsumerOn<T, A1> = T.(A1) -> Unit
 
 fun unsupported(message: String): Nothing = throw UnsupportedOperationException(message)
@@ -507,7 +508,7 @@ abstract class OptionalPattern<IN, T>(val item: Pattern<IN, T>, val defaultValue
   override fun show(s: Output<IN>, value: T?) = item.show(s, value ?: defaultValue)
   override fun toPreetyDoc() = listOf(item.preety(), defaultValue.rawPreety()).joinText("?:")
 }
-abstract class PatternWrapper<IN, T, T1>(val item: Pattern<IN, T>): PreetyAny(), Pattern<IN, T1> {
+abstract class PatternWrapper<IN, T, T1>(open val item: Pattern<IN, T>): PreetyAny(), Pattern<IN, T1> {
   abstract fun wrap(item: Pattern<IN, T>): PatternWrapper<IN, T, T1>
   override fun toPreetyDoc() = item.toPreetyDoc()
 }
@@ -685,6 +686,9 @@ class SingleFeed<T>(val value: T): Feed<T> {
     (if (valueConsumed) ".".preety() else Preety.Doc.None)
 }
 
+fun <IN> Feed<IN>.singleFeed() = Input.Filters(this, SingleFeed(peek))
+fun <IN, T> Pattern<IN, T>.test(s: Feed<IN>) = read(s.singleFeed()) != notParsed
+
 /** Pattern of [Iterable.fold] items, like [Until], [Repeat] */
 abstract class FoldPattern<IN, T, R>(val fold: Fold<T, R>, val item: Pattern<IN, T>): PreetyAny(), Pattern<IN, R> {
   protected open fun unfold(value: R): Iterable<T> = defaultUnfold(value)
@@ -721,8 +725,7 @@ class Seq<IN, T, TUPLE: Tuple<T>>(val type: (Cnt) -> TUPLE, vararg val items: Pa
 open class Until<IN, T, R>(val terminate: Pattern<IN, *>, fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern<IN, T, R>(fold, item) {
   override fun read(s: Feed<IN>): R? {
     val reducer = fold.reducer()
-    fun singleFeed() = Input.Filters(s, SingleFeed(s.peek))
-    while (terminate.read(singleFeed()) == notParsed) {
+    while (!terminate.test(s)) {
       val parsed = item.read(s) ?: return notParsed
       s.catchError { reducer.accept(parsed) } ?: return notParsed
     }
@@ -1074,4 +1077,18 @@ fun digitAsInt(c: Char, pad: Int): ConvertAs<Int, Char> = ConvertAs({ (it - c) +
 fun asInt(radix: Int = 10, initial: Int = 0) = JoinFold(initial) { this*radix + it }
 fun asLong(radix: Int = 10, initial: Long = 0L) = JoinFold(initial) { this*radix + it }
 
-fun stringFor(char: SatisfyPattern<Char>) = Repeat(asString(), char).Many()
+fun stringFor(char: MonoPattern<Char>) = Repeat(asString(), char).Many()
+fun stringFor(char: MonoPattern<Char>, surround: MonoPair<String>) = stringSurroundBy(surround.map { it.single() }, char)
+
+fun stringSurroundBy(surround: MonoPair<Char>, char: MonoPattern<Char>)
+  = Seq(::StringTuple, item(surround.first).toStringPat(), *char until item(surround.second))
+
+class StickyEnd<IN, T>(override val item: MonoPattern<IN>, val value: T?, val onFail: ProducerOn<Feed<IN>, T?>): MonoPatternWrapper<IN, T>(item) {
+  override fun read(s: Feed<IN>) = if (item.test(s) && s.isStickyEnd()) value else s.onFail()
+  override fun show(s: Output<IN>, value: T?) {}
+  @Suppress("UNCHECKED_CAST")
+  override fun wrap(item: Pattern<IN, IN>) = StickyEnd(item, value, onFail)
+  override fun toPreetyDoc() = listOf("StickyEnd", item).preety().joinText(":").surroundText(parens)
+}
+
+const val EOF = '\uFFFF'
