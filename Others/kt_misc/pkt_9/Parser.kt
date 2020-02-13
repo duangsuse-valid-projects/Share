@@ -114,6 +114,9 @@ val braces = "{" paired "}"
 val quotes = "'" paired "'"
 val dquotes = "\"" paired "\""
 
+fun List<PP>.colonParens() = joinText(":").surroundText(parens)
+
+//// == Raw Strings ==
 fun CharSequence.prefixTranslate(map: Map<Char, Char>, prefix: String) = fold(StringBuilder()) { acc, char ->
   map[char]?.let { acc.append(prefix).append(it) } ?: acc.append(char)
 }.toString()
@@ -672,7 +675,7 @@ fun <IN, T> always(value: T): ConstantPattern<IN, T> = object: PreetyAny(), Cons
   override val constant = value
   override fun read(s: Feed<IN>) = constant
   override fun show(s: Output<IN>, value: T?) {}
-  override fun toPreetyDoc() = listOf("always", value).preety().joinText(":").surroundText(parens)
+  override fun toPreetyDoc() = listOf("always", value).preety().colonParens()
 }
 fun <IN, T> never(): Pattern<IN, T> = object: PreetyAny(), Pattern<IN, T> {
   override fun read(s: Feed<IN>) = notParsed
@@ -869,7 +872,7 @@ class Deferred<IN, T>(val lazyItem: Producer<Pattern<IN, T>>): Pattern<IN, T>, R
 class Check<IN, T>(item: Pattern<IN, T>, val check: Feed<IN>.(T?) -> T? = {it}): PatternWrapper<IN, T>(item) {
   override fun read(s: Feed<IN>): T? = item.read(s).let { s.check(it) }
   override fun wrap(item: Pattern<IN, T>) = Check(item, check)
-  override fun toPreetyDoc() = listOf("check", item).preety().joinText(":").surroundText(parens)
+  override fun toPreetyDoc() = listOf("check", item).preety().colonParens()
 }
 
 // Tuple2: flatten(), mergeFirst(first: (B) -> A), mergeSecond(second: (A) -> B)
@@ -1004,7 +1007,7 @@ open class InfixPattern<IN, ATOM>(val atom: Pattern<IN, ATOM>, val op: Pattern<I
     }
   }
   override open fun show(s: Output<IN>, value: ATOM?) { unsupported("infix show") }
-  override fun toPreetyDoc() = listOf("InfixChain", op).preety().joinText(":").surroundText(parens)
+  override fun toPreetyDoc() = listOf("InfixChain", op).preety().colonParens()
 }
 
 // File: pat/TriePattern
@@ -1012,7 +1015,7 @@ open class InfixPattern<IN, ATOM>(val atom: Pattern<IN, ATOM>, val op: Pattern<I
 class MapPattern<K, V>(val map: Map<K, V>): PreetyAny(), Pattern<K, V> {
   override fun read(s: Feed<K>) = map[s.peek]?.also { s.consume() }
   override fun show(s: Output<K>, value: V?) { if (value != null) map.reversedMap()[value]?.let(s) }
-  override fun toPreetyDoc() = listOf("map", map).preety().joinText(":").surroundText(parens)
+  override fun toPreetyDoc() = listOf("map", map).preety().colonParens()
 }
 
 // TriePattern<K=Char, V>() 
@@ -1037,6 +1040,7 @@ open class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
   protected open fun onSuccess(value: V) {}
   protected open fun onFail(): V? = notParsed
   override fun toPreetyDoc() = super.toString().preety()
+  override fun toString() = toPreetyDoc().toString()
 }
 
 //// == Trie Tree ==
@@ -1046,6 +1050,9 @@ open class Trie<K, V>(var value: V?) {
 
   operator fun get(key: Iterable<K>): V? = getPath(key).value
   operator fun set(key: Iterable<K>, value: V) { getOrCreatePath(key).value = value }
+  operator fun contains(key: Iterable<K>) = this[key] != null
+  fun toMap() = collectKeys().toMap { k -> k to this[k] }
+
   fun getPath(key: Iterable<K>): Trie<K, V> {
     return key.fold(initial = this) { point, k -> point.routes[k] ?: errorNoPath(key, k) }
   }
@@ -1062,7 +1069,6 @@ open class Trie<K, V>(var value: V?) {
       return@flatMapTo routeSet
     }
   }
-  fun toMap() = collectKeys().toMap { k -> k to this[k] }
 
   private fun errorNoPath(key: Iterable<K>, k: K): Nothing {
     val msg = "${key.joinToString("/")} @$k"
@@ -1091,9 +1097,8 @@ fun <V> Trie<Char, V>.mergeStrings(vararg kvs: Pair<CharSequence, V>) {
 }
 
 operator fun <V> Trie<Char, V>.get(index: CharSequence) = this[index.asIterable()]
-operator fun <V> Trie<Char, V>.set(index: CharSequence, value: V) {
-  this[index.asIterable()] = value
-}
+operator fun <V> Trie<Char, V>.set(index: CharSequence, value: V) { this[index.asIterable()] = value }
+operator fun <V> Trie<Char, V>.contains(index: CharSequence) = index.asIterable() in this
 
 // File: pat/MiscHelper
 fun digitFor(cs: CharRange, zero: Char = '0', pad: Int = 0): Pattern<Char, Int>
@@ -1114,7 +1119,7 @@ class StickyEnd<IN, T>(override val item: MonoPattern<IN>, val value: T?, val on
   override fun show(s: Output<IN>, value: T?) {}
   @Suppress("UNCHECKED_CAST")
   override fun wrap(item: Pattern<IN, IN>) = StickyEnd(item, value, onFail)
-  override fun toPreetyDoc() = listOf("StickyEnd", item, value).preety().joinText(":").surroundText(parens)
+  override fun toPreetyDoc() = listOf("StickyEnd", item, value).preety().colonParens()
 }
 
 val newlineChar = elementIn('\r', '\n')
@@ -1127,4 +1132,13 @@ open class TextPattern<T>(item: Pattern<Char, String>, val regex: Regex, val tra
   override open fun show(s: Output<Char>, value: T?) {}
   override fun wrap(item: Pattern<Char, String>) = TextPattern(item, regex, transform)
   override fun toPreetyDoc() = item.toPreetyDoc() + regex.preety().surroundText("/" to "/")
+}
+
+/** Pattern for 2hr1min14s */
+class NumUnitPattern<IN, NUM: Number>(val number: Pattern<IN, NUM>, val unit: Pattern<IN, NUM>): PreetyAny(), Pattern<IN, NUM> {
+  override fun read(s: Feed<IN>): NUM { TODO() }
+  override fun show(s: Output<IN>, value: NUM?) {
+    if (value == null) return
+  }
+  override fun toPreetyDoc() = listOf("NumUnit", number, unit).preety().colonParens()
 }
