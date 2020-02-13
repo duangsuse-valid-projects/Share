@@ -505,33 +505,35 @@ interface Pattern<IN, T>: Preety {
 interface PositivePattern<IN, T>: Pattern<IN, T> {
   override fun read(s: Feed<IN>): T
 }
-abstract class OptionalPattern<IN, T>(val item: Pattern<IN, T>, val defaultValue: T): PreetyAny(), PositivePattern<IN, T> {
-  override fun show(s: Output<IN>, value: T?) = item.show(s, value ?: defaultValue)
+abstract class ConvertOptionalPattern<IN, T, T1>(open val item: Pattern<IN, T>, val defaultValue: T1): PreetyAny(), PositivePattern<IN, T1> {
   override fun toPreetyDoc() = listOf(item.preety(), defaultValue.rawPreety()).joinText("?:")
 }
-abstract class PatternWrapper<IN, T, T1>(open val item: Pattern<IN, T>): PreetyAny(), Pattern<IN, T1> {
-  abstract fun wrap(item: Pattern<IN, T>): PatternWrapper<IN, T, T1>
+abstract class ConvertPatternWrapper<IN, T, T1>(open val item: Pattern<IN, T>): PreetyAny(), Pattern<IN, T1> {
+  abstract fun wrap(item: Pattern<IN, T>): ConvertPatternWrapper<IN, T, T1>
   override fun toPreetyDoc() = item.toPreetyDoc()
 }
 
-abstract class NoConvertPatternWrapper<IN, T>(item: Pattern<IN, T>): PatternWrapper<IN, T, T>(item) {
+abstract class OptionalPattern<IN, T>(item: Pattern<IN, T>, defaultValue: T): ConvertOptionalPattern<IN, T, T>(item, defaultValue) {
+  override fun show(s: Output<IN>, value: T?) = item.show(s, value ?: defaultValue)
+}
+abstract class PatternWrapper<IN, T>(item: Pattern<IN, T>): ConvertPatternWrapper<IN, T, T>(item) {
   override fun show(s: Output<IN>, value: T?) = item.show(s, value)
 }
 
-interface ConstantPattern<IN, T>: Pattern<IN, T> { val constant: T }
-
 typealias MonoPattern<IN> = Pattern<IN, IN>
+typealias MonoPatternWrapper<IN, T> = ConvertPatternWrapper<IN, IN, T>
+
+interface ConstantPattern<IN, T>: Pattern<IN, T> { val constant: T }
 typealias MonoConstantPattern<IN> = ConstantPattern<IN, IN>
-typealias MonoPatternWrapper<IN, T> = PatternWrapper<IN, IN, T>
 
 inline operator fun <reified IN, T> MonoPatternWrapper<IN, T>.not() = wrap(!(item as SatisfyPattern<IN>))
 inline fun <reified IN, T> MonoPatternWrapper<IN, T>.clam(message: ErrorMessage) = wrap((item as SatisfyPattern<IN>).clam(message))
 
-// Losing type information for T in PatternWrapper, required for fun show
+// Losing type information for T in ConvertPatternWrapper, required for fun show
 @Suppress("UNCHECKED_CAST")
-inline operator fun <reified IN, reified T> NoConvertPatternWrapper<IN, T>.not() = wrap(!(item as PatternWrapper<IN, IN, T>))
+inline operator fun <reified IN, reified T> PatternWrapper<IN, T>.not() = wrap(!(item as ConvertPatternWrapper<IN, IN, T>))
 @Suppress("UNCHECKED_CAST")
-inline fun <reified IN, reified T> NoConvertPatternWrapper<IN, T>.clam(message: ErrorMessage) = wrap((item as PatternWrapper<IN, IN, T>).clam(message))
+inline fun <reified IN, reified T> PatternWrapper<IN, T>.clam(message: ErrorMessage) = wrap((item as ConvertPatternWrapper<IN, IN, T>).clam(message))
 
 //// == Error Handling ==
 fun <IN, T> Pattern<IN, T>.toDefault(defaultValue: T) = object: OptionalPattern<IN, T>(this, defaultValue) {
@@ -810,7 +812,7 @@ infix fun MonoPattern<Char>.until(terminate: MonoConstantPattern<Char>)
 
 data class ConvertAs<T1, T>(val from: (T) -> T1, val to: (T1) -> T)
 
-class Convert<IN, T, T1>(item: Pattern<IN, T>, val transform: ConvertAs<T1, T>): PatternWrapper<IN, T, T1>(item) {
+class Convert<IN, T, T1>(item: Pattern<IN, T>, val transform: ConvertAs<T1, T>): ConvertPatternWrapper<IN, T, T1>(item) {
   constructor(item: Pattern<IN, T>, from: (T) -> T1, to: (T1) -> T): this(item, ConvertAs(from, to))
   constructor(item: Pattern<IN, T>, from: (T) -> T1): this(item, from, { unsupported("convert back") })
 
@@ -844,7 +846,7 @@ class Deferred<IN, T>(val lazyItem: Producer<Pattern<IN, T>>): Pattern<IN, T>, R
   override fun toString() = recurse { if (isActive) "recurse" else toPreetyDoc().toString() }
 }
 
-class Check<IN, T>(item: Pattern<IN, T>, val check: Feed<IN>.(T?) -> T? = {it}): NoConvertPatternWrapper<IN, T>(item) {
+class Check<IN, T>(item: Pattern<IN, T>, val check: Feed<IN>.(T?) -> T? = {it}): PatternWrapper<IN, T>(item) {
   override fun read(s: Feed<IN>): T? = item.read(s).let { s.check(it) }
   override fun wrap(item: Pattern<IN, T>) = Check(item, check)
   override fun toPreetyDoc() = listOf("check", item).preety().joinText(":").surroundText(parens)
@@ -935,10 +937,11 @@ open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN
   inner class OnItem(onItem: Consumer<ITEM>): AddListeners(onItem, {})
 }
 
-@Suppress("UNCHECKED_CAST")
-fun <IN, SEP, ITEM> JoinBy<IN, SEP, ITEM>.mergeConstantJoin() = mergeSecond {
-  (0 until it.size.dec()).asIterable().map { (sep as MonoConstantPattern<SEP>).constant }
+fun <IN, SEP, ITEM> JoinBy<IN, SEP, ITEM>.mergeConstantJoin(constant: SEP) = mergeSecond {
+  (0 until it.size.dec()).asIterable().map { constant }
 }
+@Suppress("UNCHECKED_CAST")
+fun <IN, SEP, ITEM> JoinBy<IN, SEP, ITEM>.mergeConstantJoin() = mergeConstantJoin((sep as MonoConstantPattern<SEP>).constant)
 fun <IN, ITEM> JoinBy<IN, Char, ITEM>.concatCharJoin() = Convert(this, {
   Tuple2(it.first, it.second.joinToString(""))
 }, {
@@ -1097,7 +1100,7 @@ val newlineChar = elementIn('\r', '\n')
 val singleLine = Convert(Seq(::StringTuple, Until(newlineChar, asString(), anyChar), newlineChar.toStringPat()),
   { it[0] + it[1] }, { it.run { tupleOf(::StringTuple, take(length -1), last().toString()) } })
 
-open class TextPattern<T>(item: Pattern<Char, String>, val regex: Regex, val transform: (MatchResult) -> T): PatternWrapper<Char, String, T>(item) {
+open class TextPattern<T>(item: Pattern<Char, String>, val regex: Regex, val transform: (MatchResult) -> T): ConvertPatternWrapper<Char, String, T>(item) {
   constructor(regex: Regex, transform: (MatchResult) -> T): this(singleLine, regex, transform)
   override fun read(s: Feed<Char>): T? = item.read(s)?.let { regex.find(it)?.let(transform) }
   override open fun show(s: Output<Char>, value: T?) {}
