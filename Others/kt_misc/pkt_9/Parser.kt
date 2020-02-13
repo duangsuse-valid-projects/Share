@@ -297,10 +297,11 @@ abstract class ConvertFold<T, A, R>: Fold<T, R> {
 }
 
 /** Shorthand for [ConvertFold], use like `JoinFold(initial = 0,  append = Int::plus)` */
-class JoinFold<T>(override val initial: T, private val append: T.(T) -> T): ConvertFold<T, T, T>() {
-  override fun join(base: T, value: T) = base.append(value)
-  override fun convert(base: T) = base
+open class ConvertJoinFold<T, R>(override val initial: R, private val append: R.(T) -> R): ConvertFold<T, R, R>() {
+  override fun join(base: R, value: T) = base.append(value)
+  override fun convert(base: R) = base
 }
+class JoinFold<T>(initial: T, append: T.(T) -> T): ConvertJoinFold<T, T>(initial, append)
 
 typealias InfixJoin<T> = (T, T) -> T
 
@@ -1071,11 +1072,11 @@ operator fun <V> Trie<Char, V>.set(index: CharSequence, value: V) {
 }
 
 // File: pat/MiscHelper
-fun digitItem(digit: SatisfyPattern<Char>, base: Char = '0') = Convert(digit, { it - base }, { base +it })
-fun digitAsInt(c: Char, pad: Int): ConvertAs<Int, Char> = ConvertAs({ (it - c) +pad }, { c + (it - pad) })
+fun digitFor(cs: CharRange, zero: Char = '0', pad: Int = 0): Pattern<Char, Int>
+  = Convert(elementIn(cs), { (it - zero) +pad }, { zero + (it -pad) })
 
 fun asInt(radix: Int = 10, initial: Int = 0) = JoinFold(initial) { this*radix + it }
-fun asLong(radix: Int = 10, initial: Long = 0L) = JoinFold(initial) { this*radix + it }
+fun asLong(radix: Int = 10, initial: Long = 0L): Fold<Int, Long> = ConvertJoinFold(initial) { this*radix + it }
 
 fun stringFor(char: MonoPattern<Char>) = Repeat(asString(), char).Many()
 fun stringFor(char: MonoPattern<Char>, surround: MonoPair<String>) = stringSurroundBy(surround.map { it.single() }, char)
@@ -1083,18 +1084,18 @@ fun stringFor(char: MonoPattern<Char>, surround: MonoPair<String>) = stringSurro
 fun stringSurroundBy(surround: MonoPair<Char>, char: MonoPattern<Char>)
   = Seq(::StringTuple, item(surround.first).toStringPat(), *char until item(surround.second))
 
-val newlineChar = elementIn('\r', '\n')
-val singleLine = Convert(Seq(::StringTuple, Until(newlineChar, asString(), anyChar), newlineChar.toStringPat()),
-  { it[0] + it[1] }, { it.run { tupleOf(::StringTuple, take(length -1), last().toString()) } })
-
-const val EOF = '\uFFFF'
+val EOF = item('\uFFFF')
 class StickyEnd<IN, T>(override val item: MonoPattern<IN>, val value: T?, val onFail: ProducerOn<Feed<IN>, T?>): MonoPatternWrapper<IN, T>(item) {
   override fun read(s: Feed<IN>) = if (item.testPeek(s) && s.isStickyEnd()) value else s.onFail()
   override fun show(s: Output<IN>, value: T?) {}
   @Suppress("UNCHECKED_CAST")
   override fun wrap(item: Pattern<IN, IN>) = StickyEnd(item, value, onFail)
-  override fun toPreetyDoc() = listOf("StickyEnd", item).preety().joinText(":").surroundText(parens)
+  override fun toPreetyDoc() = listOf("StickyEnd", item, value).preety().joinText(":").surroundText(parens)
 }
+
+val newlineChar = elementIn('\r', '\n')
+val singleLine = Convert(Seq(::StringTuple, Until(newlineChar, asString(), anyChar), newlineChar.toStringPat()),
+  { it[0] + it[1] }, { it.run { tupleOf(::StringTuple, take(length -1), last().toString()) } })
 
 open class TextPattern<T>(item: Pattern<Char, String>, val regex: Regex, val transform: (MatchResult) -> T): PatternWrapper<Char, String, T>(item) {
   constructor(regex: Regex, transform: (MatchResult) -> T): this(singleLine, regex, transform)

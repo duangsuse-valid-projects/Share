@@ -1,10 +1,10 @@
 import kotlin.math.abs
 
-val digit = digitItem(elementIn('0'..'9'))
-val binDigit = digitItem(elementIn('0'..'1'))
+val digit = digitFor('0'..'9')
+val binDigit = digitFor('0'..'1')
 
-val hexLower = Convert(elementIn('a'..'z'), digitAsInt('a', 10))
-val hexUpper = Convert(elementIn('A'..'Z'), digitAsInt('A', 10))
+val hexLower = digitFor('a'..'z', 'a', 10)
+val hexUpper = digitFor('A'..'Z', 'A', 10)
 val hexDigit = Decide(digit, hexLower, hexUpper).mergeFirst { if (it in 0..9) 0 else 2 }
 
 val hexPart = Repeat(asInt(16), hexDigit)
@@ -16,7 +16,7 @@ val octal = elementIn('0'..'8')
 val zeroNotation = Decide(
   hexPart prefix item('x'),
   binPart prefix item('b'),
-  Check(always(0)) { if (octal.test(peek) && !isStickyEnd()) error("no octal notations") ; it }
+  StickyEnd(item('0') or EOF, 0) { if (octal.test(peek)) error("no octal notations");  -1 }
 ).mergeFirst {0}
 
 val numPart = Contextual<Char, Int, Int>(digit) {
