@@ -505,7 +505,8 @@ interface Pattern<IN, T>: Preety {
 interface PositivePattern<IN, T>: Pattern<IN, T> {
   override fun read(s: Feed<IN>): T
 }
-abstract class ConvertOptionalPattern<IN, T, T1>(open val item: Pattern<IN, T>, val defaultValue: T1): PreetyAny(), PositivePattern<IN, T1> {
+interface OptionalPatternKind<T> { val defaultValue: T }
+abstract class ConvertOptionalPattern<IN, T, T1>(open val item: Pattern<IN, T>, override val defaultValue: T1): PreetyAny(), PositivePattern<IN, T1>, OptionalPatternKind<T1> {
   override fun toPreetyDoc() = listOf(item.preety(), defaultValue.rawPreety()).joinText("?:")
 }
 abstract class ConvertPatternWrapper<IN, T, T1>(open val item: Pattern<IN, T>): PreetyAny(), Pattern<IN, T1> {
@@ -521,6 +522,8 @@ abstract class PatternWrapper<IN, T>(item: Pattern<IN, T>): ConvertPatternWrappe
 }
 
 typealias MonoPattern<IN> = Pattern<IN, IN>
+typealias MonoPositivePattern<IN> = PositivePattern<IN, IN>
+typealias MonoOptionalPattern<IN, T> = ConvertOptionalPattern<IN, IN, T>
 typealias MonoPatternWrapper<IN, T> = ConvertPatternWrapper<IN, IN, T>
 
 interface ConstantPattern<IN, T>: Pattern<IN, T> { val constant: T }
@@ -547,7 +550,6 @@ fun <IN, T> Feed<IN>.clamWhile(pat: Pattern<IN, *>, defaultValue: T, message: Er
   while (pat.read(this) != notParsed) {}
   return defaultValue
 }
-
 fun <IN, T> Pattern<IN, T>.clamWhile(pat: Pattern<IN, *>, defaultValue: T, message: ErrorMessage)
 = object: OptionalPattern<IN, T>(this, defaultValue) {
   override fun read(s: Feed<IN>) = this@clamWhile.read(s) ?: s.clamWhile(pat, defaultValue, message)
@@ -679,6 +681,7 @@ val anyChar = object: SatisfyPattern<Char>() {
 // toDefault(defaultValue); clamWhile(pat, defaultValue, message); SatisfyPattern.clam(message)
 // CharInput.withErrorList(): Pair<List<LocatedError>, CharInput>
 
+/** Peek feed used in [Until], [StickyEnd], etc. */
 class SingleFeed<T>(val value: T): Feed<T> {
   private var valueConsumed = false
   override val peek = value
@@ -762,7 +765,8 @@ open class Repeat<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern
     override fun toPreetyDoc() = listOf( super.toPreetyDoc(),
       (bounds as Any).preety().surroundText(parens) ).join(if (greedy) "g".preety() else Preety.Doc.None)
   }
-  inner class Many: InBounds(0..Cnt.MAX_VALUE) {
+  inner class Many: InBounds(0..Cnt.MAX_VALUE), OptionalPatternKind<R> {
+    override val defaultValue = fold.reducer().finish()
     override fun toPreetyDoc() = item.preety().surroundText(braces) + "?"
   }
 }
@@ -912,7 +916,8 @@ open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN
     readItem() ?: return notParsed
     var seprator = readSep()
     while (seprator != notParsed) {
-      readItem() ?: rescue(s, doubleList) ?: return notParsed
+      readItem() ?: if (sep is OptionalPatternKind<*> && seprator == sep.defaultValue) return doubleList
+        else rescue(s, doubleList) ?: return notParsed
       seprator = readSep()
     }
     return doubleList
