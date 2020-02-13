@@ -554,22 +554,25 @@ fun <IN, T> Feed<IN>.clamWhile(pat: Pattern<IN, *>, defaultValue: T, message: Er
   while (pat.read(this) != notParsed) {}
   return defaultValue
 }
-fun <IN, T> Pattern<IN, T>.clamWhile(pat: Pattern<IN, *>, defaultValue: T, message: ErrorMessage)
-= object: OptionalPattern<IN, T>(this, defaultValue) {
+fun <IN, T> Pattern<IN, T>.clamWhile(pat: Pattern<IN, *>, defaultValue: T, message: ErrorMessage) = object: OptionalPattern<IN, T>(this, defaultValue) {
   override fun read(s: Feed<IN>) = this@clamWhile.read(s) ?: s.clamWhile(pat, defaultValue, message)
 }
 
+abstract class SatisfyPatternBy<IN>(protected open val self: SatisfyPattern<IN>): SatisfyPattern<IN>() {
+  override fun test(value: IN) = self.test(value)
+  override fun read(s: Feed<IN>) = self.read(s)
+  override fun show(s: Output<IN>, value: IN?) = self.show(s, value)
+  override fun toPreetyDoc() = self.toPreetyDoc()
+}
+
 /** Add error, consume item until __pattern parses__ or feed end */
-open class SatisfyClam<IN>(protected open val self: SatisfyPattern<IN>, val message: ErrorMessage): SatisfyPattern<IN>(), MonoPattern<IN> by self {
+open class SatisfyClam<IN>(self: SatisfyPattern<IN>, val message: ErrorMessage): SatisfyPatternBy<IN>(self) {
   override fun read(s: Feed<IN>): IN? = self.read(s) ?: run { s.error(message)
     var parsed: IN? = null
     while (parsed == notParsed) {
       s.consumeOrNull() ?: break
       parsed = self.read(s)
     }; return@run parsed }
-  override fun test(value: IN) = self.test(value)
-  override fun show(s: Output<IN>, value: IN?) = self.show(s, value)
-  override fun toString() = self.toString()
 }
 class SatisfyEqualToClam<IN>(override val self: SatisfyEqualTo<IN>, message: ErrorMessage): SatisfyClam<IN>(self, message), MonoConstantPattern<IN> {
   override val constant get() = self.constant
@@ -681,6 +684,10 @@ fun <IN, T> never(): Pattern<IN, T> = object: PreetyAny(), Pattern<IN, T> {
 val anyChar = object: SatisfyPattern<Char>() {
   override fun test(value :Char) = true
   override fun toPreetyDoc() = "anyChar".preety()
+}
+
+infix fun <IN> SatisfyPattern<IN>.named(name: String) = object: SatisfyPatternBy<IN>(this) {
+  override fun toPreetyDoc() = name.preety()
 }
 
 // File: pat/CombSURD
