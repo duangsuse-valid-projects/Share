@@ -687,7 +687,7 @@ class SingleFeed<T>(val value: T): Feed<T> {
 }
 
 fun <IN> Feed<IN>.singleFeed() = Input.Filters(this, SingleFeed(peek))
-fun <IN, T> Pattern<IN, T>.test(s: Feed<IN>) = read(s.singleFeed()) != notParsed
+fun <IN, T> Pattern<IN, T>.testPeek(s: Feed<IN>) = read(s.singleFeed()) != notParsed
 
 /** Pattern of [Iterable.fold] items, like [Until], [Repeat] */
 abstract class FoldPattern<IN, T, R>(val fold: Fold<T, R>, val item: Pattern<IN, T>): PreetyAny(), Pattern<IN, R> {
@@ -725,7 +725,7 @@ class Seq<IN, T, TUPLE: Tuple<T>>(val type: (Cnt) -> TUPLE, vararg val items: Pa
 open class Until<IN, T, R>(val terminate: Pattern<IN, *>, fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern<IN, T, R>(fold, item) {
   override fun read(s: Feed<IN>): R? {
     val reducer = fold.reducer()
-    while (!terminate.test(s)) {
+    while (!terminate.testPeek(s)) {
       val parsed = item.read(s) ?: return notParsed
       s.catchError { reducer.accept(parsed) } ?: return notParsed
     }
@@ -839,8 +839,8 @@ class Contextual<IN, HEAD, BODY>(val head: Pattern<IN, HEAD>, val body: (HEAD) -
 class Deferred<IN, T>(val lazyItem: Producer<Pattern<IN, T>>): Pattern<IN, T>, RecursionDetect() {
   override fun read(s: Feed<IN>) = lazyItem().read(s)
   override fun show(s: Output<IN>, value: T?) = lazyItem().show(s, value)
-  override fun toPreetyDoc(): PP = recurse { if (isActive) "recurse".preety() else lazyItem().preety() }
-  override fun toString() = toPreetyDoc().toString()
+  override fun toPreetyDoc(): PP = lazyItem().toPreetyDoc()
+  override fun toString() = recurse { if (isActive) "recurse" else toPreetyDoc().toString() }
 }
 
 class Check<IN, T>(item: Pattern<IN, T>, val check: Feed<IN>.(T?) -> T? = {it}): NoConvertPatternWrapper<IN, T>(item) {
@@ -1083,12 +1083,23 @@ fun stringFor(char: MonoPattern<Char>, surround: MonoPair<String>) = stringSurro
 fun stringSurroundBy(surround: MonoPair<Char>, char: MonoPattern<Char>)
   = Seq(::StringTuple, item(surround.first).toStringPat(), *char until item(surround.second))
 
+val newlineChar = elementIn('\r', '\n')
+val singleLine = Convert(Seq(::StringTuple, Until(newlineChar, asString(), anyChar), newlineChar.toStringPat()),
+  { it[0] + it[1] }, { it.run { tupleOf(::StringTuple, take(length -1), last().toString()) } })
+
+const val EOF = '\uFFFF'
 class StickyEnd<IN, T>(override val item: MonoPattern<IN>, val value: T?, val onFail: ProducerOn<Feed<IN>, T?>): MonoPatternWrapper<IN, T>(item) {
-  override fun read(s: Feed<IN>) = if (item.test(s) && s.isStickyEnd()) value else s.onFail()
+  override fun read(s: Feed<IN>) = if (item.testPeek(s) && s.isStickyEnd()) value else s.onFail()
   override fun show(s: Output<IN>, value: T?) {}
   @Suppress("UNCHECKED_CAST")
   override fun wrap(item: Pattern<IN, IN>) = StickyEnd(item, value, onFail)
   override fun toPreetyDoc() = listOf("StickyEnd", item).preety().joinText(":").surroundText(parens)
 }
 
-const val EOF = '\uFFFF'
+open class TextPattern<T>(item: Pattern<Char, String>, val regex: Regex, val transform: (MatchResult) -> T): PatternWrapper<Char, String, T>(item) {
+  constructor(regex: Regex, transform: (MatchResult) -> T): this(singleLine, regex, transform)
+  override fun read(s: Feed<Char>): T? = item.read(s)?.let { regex.find(it)?.let(transform) }
+  override open fun show(s: Output<Char>, value: T?) {}
+  override fun wrap(item: Pattern<Char, String>) = TextPattern(item, regex, transform)
+  override fun toPreetyDoc() = item.toPreetyDoc() + regex.preety().surroundText("/" to "/")
+}
