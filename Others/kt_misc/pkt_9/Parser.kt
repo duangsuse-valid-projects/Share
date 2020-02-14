@@ -586,6 +586,10 @@ fun <IN> SatisfyEqualTo<IN>.clam(message: ErrorMessage) = SatisfyEqualToClam(thi
 
 //// == Abstract ==
 fun <T> Pattern<Char, T>.read(text: String) = read(inputOf(text))
+fun <T> Pattern<Char, T>.readPartial(text: String): Pair<List<LocatedError>, T?> {
+  val (e, input) = inputOf(text).withErrorList()
+  return e to read(input)
+}
 fun <T> Pattern<Char, T>.show(value: T?): String? {
   if (value == null) return null
   val sb = StringBuilder()
@@ -597,6 +601,10 @@ fun <T> Pattern<Char, T>.rebuild(text: String, operation: ActionOn<T>) = show(re
 
 
 fun <IN, T> Pattern<IN, T>.read(vararg items: IN) = read(inputOf(*items))
+fun <IN, T> Pattern<IN, T>.readPartial(vararg items: IN): Pair<List<BoundError<IN>>, T?> {
+  val (e, input) = inputOf(*items).withErrorList()
+  return e to read(input)
+}
 fun <IN, T> Pattern<IN, T>.show(value: T?): List<IN>? {
   if (value == null) return null
   val list: MutableList<IN> = mutableListOf()
@@ -1051,7 +1059,7 @@ open class Trie<K, V>(var value: V?) {
   operator fun get(key: Iterable<K>): V? = getPath(key).value
   operator fun set(key: Iterable<K>, value: V) { getOrCreatePath(key).value = value }
   operator fun contains(key: Iterable<K>) = try { this[key] != null } catch (_: NoSuchElementException) { false }
-  fun toMap() = collectKeys().toMap { k -> k to this[k] }
+  fun toMap() = collectKeys().toMap { k -> k to this[k]!! }
 
   fun getPath(key: Iterable<K>): Trie<K, V> {
     return key.fold(initial = this) { point, k -> point.routes[k] ?: errorNoPath(key, k) }
@@ -1134,11 +1142,53 @@ open class TextPattern<T>(item: Pattern<Char, String>, val regex: Regex, val tra
   override fun toPreetyDoc() = item.toPreetyDoc() + regex.preety().surroundText("/" to "/")
 }
 
+// File: NumUnitPattern
+abstract class NumOps<NUM: Comparable<NUM>> {
+  abstract val zero: NUM
+  abstract fun plus(b: NUM, a: NUM): NUM
+  abstract fun minus(b: NUM, a: NUM): NUM
+  abstract fun times(b: NUM, a: NUM): NUM
+  abstract fun div(b: NUM, a: NUM): NUM
+  object IntOps: NumOps<Int>() {
+    override val zero = 0
+    override fun plus(b: Int, a: Int) = a + b
+    override fun minus(b: Int, a: Int) = a - b
+    override fun times(b: Int, a: Int) = a * b
+    override fun div(b: Int, a: Int) = a / b
+  }
+}
+
 /** Pattern for 2hr1min14s */
-class NumUnitPattern<IN, NUM: Number>(val number: Pattern<IN, NUM>, val unit: Pattern<IN, NUM>): PreetyAny(), Pattern<IN, NUM> {
-  override fun read(s: Feed<IN>): NUM { TODO() }
+abstract class NumUnitPattern<IN, NUM: Comparable<NUM>>(val number: Pattern<IN, NUM>, open val unit: Pattern<IN, NUM>,
+    private val op: NumOps<NUM>): PreetyAny(), Pattern<IN, NUM> {
+  protected open fun rescue(s: Feed<IN>, accumulator: NUM, i: NUM): NUM? = notParsed
+  override fun read(s: Feed<IN>): NUM? {
+    var accumulator: NUM = op.zero // i=num, k=unit
+    var i: NUM? = number.read(s) ?: return notParsed
+    while (i != notParsed) {
+      val k = unit.read(s) ?: rescue(s, accumulator, i) ?: return notParsed
+      accumulator = op.plus(op.times(k, i), accumulator)
+      i = number.read(s)
+    }
+    return accumulator
+  }
   override fun show(s: Output<IN>, value: NUM?) {
     if (value == null) return
+    var rest: NUM = value
+    while (rest != op.zero) {
+      val unit = reverseMapDsc.first { it.key <= rest }
+      val i = op.div(unit.key, rest)
+      rest = op.minus(op.times(unit.key, i), rest)
+      number.show(s, i)
+      unit.value.forEach(s)
+    }
   }
+  protected abstract val map: Map<Iterable<IN>, NUM>
+  private val reverseMapDsc = map.reversedMap().entries.sortedByDescending { it.key }
   override fun toPreetyDoc() = listOf("NumUnit", number, unit).preety().colonParens()
+}
+
+class NumUnitTrie<IN, NUM: Comparable<NUM>>(number: Pattern<IN, NUM>, override val unit: TriePattern<IN, NUM>,
+    op: NumOps<NUM>): NumUnitPattern<IN, NUM>(number, unit, op) {
+  override val map: Map<Iterable<IN>, NUM> get() = unit.toMap()
 }
