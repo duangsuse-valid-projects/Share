@@ -1050,7 +1050,7 @@ open class Trie<K, V>(var value: V?) {
 
   operator fun get(key: Iterable<K>): V? = getPath(key).value
   operator fun set(key: Iterable<K>, value: V) { getOrCreatePath(key).value = value }
-  operator fun contains(key: Iterable<K>) = this[key] != null
+  operator fun contains(key: Iterable<K>) = try { this[key] != null } catch (_: NoSuchElementException) { false }
   fun toMap() = collectKeys().toMap { k -> k to this[k] }
 
   fun getPath(key: Iterable<K>): Trie<K, V> {
@@ -1075,11 +1075,11 @@ open class Trie<K, V>(var value: V?) {
     throw NoSuchElementException(msg)
   }
   override fun toString(): String = when {
-    value == null -> "Path${routes}"
-    value != null && routes.isNotEmpty() -> "Bin[$value]${routes}"
-    value != null && routes.isEmpty() -> "Term($value)"
+    value == null -> "Path".preety() + routes
+    value != null && routes.isNotEmpty() -> "Bin".preety() + value.preety().surroundText(squares) + routes
+    value != null && routes.isEmpty() -> "Term".preety() + value.preety().surroundText(parens)
     else -> impossible()
-  }
+  }.toString()
   override fun equals(other: Any?): Boolean {
     if (this === other) return true
     return if (other !is Trie<*, *>) false
