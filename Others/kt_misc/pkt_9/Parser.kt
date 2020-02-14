@@ -1151,18 +1151,19 @@ interface NumOps<NUM: Comparable<NUM>> {
   fun div(b: NUM, a: NUM): NUM
   open class Instance<NUM: Comparable<NUM>>(
     override val zero: NUM,
-    private val plus: InfixJoin<NUM>,
-    private val minus: InfixJoin<NUM>,
-    private val times: InfixJoin<NUM>,
-    private val div: InfixJoin<NUM>
+    private val plus: InfixJoin<NUM>, private val minus: InfixJoin<NUM>,
+    private val times: InfixJoin<NUM>, private val div: InfixJoin<NUM>
   ): NumOps<NUM> {
-    override fun plus(b: NUM, a: NUM) = plus.invoke(b, a)
-    override fun minus(b: NUM, a: NUM) = minus.invoke(b, a)
-    override fun times(b: NUM, a: NUM) = times.invoke(b, a)
-    override fun div(b: NUM, a: NUM) = div.invoke(b, a)
+    override fun plus(b: NUM, a: NUM) = plus.invoke(a, b)
+    override fun minus(b: NUM, a: NUM) = minus.invoke(a, b)
+    override fun times(b: NUM, a: NUM) = times.invoke(a, b)
+    override fun div(b: NUM, a: NUM) = div.invoke(a, b)
   }
 }
 object IntOps: NumOps.Instance<Int>(0, Int::plus, Int::minus, Int::times, Int::div)
+object LongOps: NumOps.Instance<Long>(0L, Long::plus, Long::minus, Long::times, Long::div)
+object FloatOps: NumOps.Instance<Float>(0.0F, Float::plus, Float::minus, Float::times, Float::div)
+object DoubleOps: NumOps.Instance<Double>(0.0, Double::plus, Double::minus, Double::times, Double::div)
 
 /** Pattern for 2hr1min14s */
 abstract class NumUnitPattern<IN, NUM: Comparable<NUM>>(val number: Pattern<IN, NUM>, open val unit: Pattern<IN, NUM>,
@@ -1182,14 +1183,14 @@ abstract class NumUnitPattern<IN, NUM: Comparable<NUM>>(val number: Pattern<IN, 
     if (value == null) return
     var rest: NUM = value
     while (rest != op.zero) {
-      val unit = reverseMapDsc.first { it.key <= rest }
+      val unit = maxCmpLE(rest)
       val i = op.div(unit.key, rest)
-      rest = op.minus(op.times(unit.key, i), rest)
-      number.show(s, i)
-      unit.value.forEach(s)
+      rest = op.minus(op.times(unit.key, i), rest) //mod
+      number.show(s, i); unit.value.forEach(s)
     }
   }
   protected abstract val map: Map<Iterable<IN>, NUM>
+  protected fun maxCmpLE(value: NUM) = reverseMapDsc.first { it.key <= value }
   private val reverseMapDsc by lazy { map.reversedMap().entries.sortedByDescending { it.key } }
   override fun toPreetyDoc() = listOf("NumUnit", number, unit).preety().colonParens()
 }
