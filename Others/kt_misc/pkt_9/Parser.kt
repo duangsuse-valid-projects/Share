@@ -842,7 +842,6 @@ infix fun MonoPattern<Char>.until(terminate: MonoConstantPattern<Char>)
 // Check(item, check)
 
 data class ConvertAs<T1, T>(val from: (T) -> T1, val to: (T1) -> T)
-
 class Convert<IN, T, T1>(item: Pattern<IN, T>, val transform: ConvertAs<T1, T>): ConvertPatternWrapper<IN, T, T1>(item) {
   constructor(item: Pattern<IN, T>, from: (T) -> T1, to: (T1) -> T): this(item, ConvertAs(from, to))
   constructor(item: Pattern<IN, T>, from: (T) -> T1): this(item, from, { unsupported("convert back") })
@@ -907,14 +906,8 @@ fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.mergeSecond(second: (A) -> B) = Convert
 // File: pat/AuxiliarySJ
 // "SJIT"
 // SurroundBy(surround: Pair<ConstantPattern?, ConstantPattern?>, item)
-// JoinBy(join, item) { onItem, onSep, AddListeners(onItem, onSep) }
 
 typealias SurroundPair<IN> = Pair<MonoConstantPattern<IN>?, MonoConstantPattern<IN>?>
-
-infix fun <IN, T> Pattern<IN, T>.prefix(item: MonoConstantPattern<IN>) = SurroundBy(item to null, this)
-infix fun <IN, T> Pattern<IN, T>.suffix(item: MonoConstantPattern<IN>) = SurroundBy(null to item, this)
-fun <T> MonoPair<T>.toPat(): SurroundPair<T> = map(::item)
-
 class SurroundBy<IN, T>(val surround: SurroundPair<IN>, val item: Pattern<IN, T>): PreetyAny(), Pattern<IN, T> {
   override fun read(s: Feed<IN>): T? {
     val (left, right) = surround
@@ -929,6 +922,13 @@ class SurroundBy<IN, T>(val surround: SurroundPair<IN>, val item: Pattern<IN, T>
   }
   override fun toPreetyDoc() = item.preety().surround(surround.first.preetyOrNone() to surround.second.preetyOrNone())
 }
+
+infix fun <IN, T> Pattern<IN, T>.prefix(item: MonoConstantPattern<IN>) = SurroundBy(item to null, this)
+infix fun <IN, T> Pattern<IN, T>.suffix(item: MonoConstantPattern<IN>) = SurroundBy(null to item, this)
+fun <T> MonoPair<T>.toPat(): SurroundPair<T> = map(::item)
+fun MonoPair<String>.toCharPat(): SurroundPair<Char> = map(String::single).toPat()
+
+// JoinBy(join, item) { onItem, onSep, AddListeners(onItem, onSep) }
 
 typealias DoubleList<A, B> = Tuple2<List<A>, List<B>>
 open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN, ITEM>): PreetyAny(), Pattern<IN, DoubleList<ITEM, SEP>> {
@@ -969,6 +969,7 @@ open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN
   inner class OnItem(onItem: Consumer<ITEM>): AddListeners(onItem, {})
 }
 
+//// == Merge Join ==
 fun <IN, SEP, ITEM> JoinBy<IN, SEP, ITEM>.mergeConstantJoin(constant: SEP) = mergeSecond {
   (0 until it.size.dec()).asIterable().map { constant }
 }
@@ -993,7 +994,7 @@ class InfixOp<T>(val name: String, val assoc: Precedence, val join: InfixJoin<T>
 }
 
 infix fun <T> Pair<String, Precedence>.join(op: InfixJoin<T>) = InfixOp(first, second, op)
-fun <T> TriePattern<Char, InfixOp<T>>.register(op: InfixOp<T>) { this[op.name] = op }
+fun <T> KeywordPattern<InfixOp<T>>.register(op: InfixOp<T>) { this[op.name] = op }
 
 open class InfixPattern<IN, ATOM>(val atom: Pattern<IN, ATOM>, val op: Pattern<IN, InfixOp<ATOM>>): PreetyAny(), Pattern<IN, ATOM> {
   protected open fun rescue(s: Feed<IN>, base: ATOM, op1: InfixOp<ATOM>): ATOM? = notParsed.also { s.error("infix $base parse failed at $op1") }
@@ -1031,7 +1032,7 @@ class MapPattern<K, V>(val map: Map<K, V>): PreetyAny(), Pattern<K, V> {
 //val dict = KeywordPattern<String>().apply { mergeStrings("hello" to "你好", "world" to "世界") }
 //val noun = Repeat(asList(), dict)
 
-class KeywordPattern<V>: TriePattern<Char, V>()
+typealias KeywordPattern<V> = TriePattern<Char, V>
 
 open class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
   override fun read(s: Feed<K>): V? {
@@ -1164,6 +1165,10 @@ object IntOps: NumOps.Instance<Int>(0, Int::plus, Int::minus, Int::times, Int::d
 object LongOps: NumOps.Instance<Long>(0L, Long::plus, Long::minus, Long::times, Long::div)
 object FloatOps: NumOps.Instance<Float>(0.0F, Float::plus, Float::minus, Float::times, Float::div)
 object DoubleOps: NumOps.Instance<Double>(0.0, Double::plus, Double::minus, Double::times, Double::div)
+
+//val n=RepeatUn(asInt(), digitFor('0'..'9')) { it.toString().map { it-'0' } }
+//val u=KeywordPattern<Int>().apply { mergeStrings("s" to 1, "min" to 60, "hr" to 60*60) }
+//val k=NumUnitTrie(n, u, IntOps) 
 
 /** Pattern for 2hr1min14s */
 abstract class NumUnitPattern<IN, NUM: Comparable<NUM>>(val number: Pattern<IN, NUM>, open val unit: Pattern<IN, NUM>,
