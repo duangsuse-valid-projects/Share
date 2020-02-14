@@ -1143,20 +1143,26 @@ open class TextPattern<T>(item: Pattern<Char, String>, val regex: Regex, val tra
 }
 
 // File: NumUnitPattern
-abstract class NumOps<NUM: Comparable<NUM>> {
-  abstract val zero: NUM
-  abstract fun plus(b: NUM, a: NUM): NUM
-  abstract fun minus(b: NUM, a: NUM): NUM
-  abstract fun times(b: NUM, a: NUM): NUM
-  abstract fun div(b: NUM, a: NUM): NUM
-  object IntOps: NumOps<Int>() {
-    override val zero = 0
-    override fun plus(b: Int, a: Int) = a + b
-    override fun minus(b: Int, a: Int) = a - b
-    override fun times(b: Int, a: Int) = a * b
-    override fun div(b: Int, a: Int) = a / b
+interface NumOps<NUM: Comparable<NUM>> {
+  val zero: NUM
+  fun plus(b: NUM, a: NUM): NUM
+  fun minus(b: NUM, a: NUM): NUM
+  fun times(b: NUM, a: NUM): NUM
+  fun div(b: NUM, a: NUM): NUM
+  open class Instance<NUM: Comparable<NUM>>(
+    override val zero: NUM,
+    private val plus: InfixJoin<NUM>,
+    private val minus: InfixJoin<NUM>,
+    private val times: InfixJoin<NUM>,
+    private val div: InfixJoin<NUM>
+  ): NumOps<NUM> {
+    override fun plus(b: NUM, a: NUM) = plus.invoke(b, a)
+    override fun minus(b: NUM, a: NUM) = minus.invoke(b, a)
+    override fun times(b: NUM, a: NUM) = times.invoke(b, a)
+    override fun div(b: NUM, a: NUM) = div.invoke(b, a)
   }
 }
+object IntOps: NumOps.Instance<Int>(0, Int::plus, Int::minus, Int::times, Int::div)
 
 /** Pattern for 2hr1min14s */
 abstract class NumUnitPattern<IN, NUM: Comparable<NUM>>(val number: Pattern<IN, NUM>, open val unit: Pattern<IN, NUM>,
@@ -1184,11 +1190,11 @@ abstract class NumUnitPattern<IN, NUM: Comparable<NUM>>(val number: Pattern<IN, 
     }
   }
   protected abstract val map: Map<Iterable<IN>, NUM>
-  private val reverseMapDsc = map.reversedMap().entries.sortedByDescending { it.key }
+  private val reverseMapDsc by lazy { map.reversedMap().entries.sortedByDescending { it.key } }
   override fun toPreetyDoc() = listOf("NumUnit", number, unit).preety().colonParens()
 }
 
 class NumUnitTrie<IN, NUM: Comparable<NUM>>(number: Pattern<IN, NUM>, override val unit: TriePattern<IN, NUM>,
     op: NumOps<NUM>): NumUnitPattern<IN, NUM>(number, unit, op) {
-  override val map: Map<Iterable<IN>, NUM> get() = unit.toMap()
+  override val map get() = unit.collectKeys().toMap { k -> k.asIterable() to unit[k]!! }
 }
