@@ -1021,8 +1021,9 @@ open class InfixPattern<IN, ATOM>(val atom: Pattern<IN, ATOM>, val op: Pattern<I
 // File: pat/TriePattern
 
 class MapPattern<K, V>(val map: Map<K, V>): PreetyAny(), Pattern<K, V> {
-  override fun read(s: Feed<K>) = map[s.peek]?.also { s.consume() }
-  override fun show(s: Output<K>, value: V?) { if (value != null) map.reversedMap()[value]?.let(s) }
+  override fun read(s: Feed<K>) = map[s.peek]?.let { if (s.isStickyEnd()) null else it }
+  override fun show(s: Output<K>, value: V?) { if (value != null) reverseMap[value]?.let(s) }
+  private val reverseMap = map.reversedMap()
   override fun toPreetyDoc() = listOf("map", map).preety().colonParens()
 }
 
@@ -1042,8 +1043,9 @@ open class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
   }
   override fun show(s: Output<K>, value: V?) {
     if (value == null) return
-    toMap().reversedMap()[value]?.let { it.forEach(s) }
+    reverseMap[value]?.let { it.forEach(s) }
   }
+  private val reverseMap by lazy { toMap().reversedMap() }
   protected open fun onItem(value: K) {}
   protected open fun onSuccess(value: V) {}
   protected open fun onFail(): V? = notParsed
@@ -1068,32 +1070,30 @@ open class Trie<K, V>(var value: V?) {
     return key.fold(initial = this) { point, k -> point.routes.getOrPut(k, ::Trie) }
   }
   fun collectKeys(): Set<List<K>> {
-    return if (routes.isEmpty()) setOf() //terminator (/a/b/[])
-    else routes.flatMapTo(mutableSetOf()) { kr ->
+    if (routes.isEmpty() && value == null) return emptySet()
+    val routeSet = routes.flatMapTo(mutableSetOf()) { kr ->
       val (pathKey, nextRoute) = kr
-      val routeSet: MutableSet<List<K>> = mutableSetOf()
-      if (nextRoute.value != null) routeSet.add(listOf(pathKey))
-      nextRoute.collectKeys().mapTo(routeSet) { listOf(pathKey)+it }
-      return@flatMapTo routeSet
+      return@flatMapTo nextRoute.collectKeys().map { listOf(pathKey)+it }
     }
+    if (value != null) routeSet.add(emptyList())
+    return routeSet
   }
-
   private fun errorNoPath(key: Iterable<K>, k: K): Nothing {
     val msg = "${key.joinToString("/")} @$k"
     throw NoSuchElementException(msg)
   }
-  override fun toString(): String = when {
-    value == null -> "Path".preety() + routes
-    value != null && routes.isNotEmpty() -> "Bin".preety() + value.preety().surroundText(squares) + routes
-    value != null && routes.isEmpty() -> "Term".preety() + value.preety().surroundText(parens)
-    else -> impossible()
-  }.toString()
   override fun equals(other: Any?): Boolean {
     if (this === other) return true
     return if (other !is Trie<*, *>) false
     else (routes == other.routes) && value == other.value
   }
   override fun hashCode() = routes.hashCode() xor value.hashCode()
+  override fun toString(): String = when {
+    value == null -> "Path".preety() + routes
+    value != null && routes.isNotEmpty() -> "Bin".preety() + value.preety().surroundText(squares) + routes
+    value != null && routes.isEmpty() -> "Term".preety() + value.preety().surroundText(parens)
+    else -> impossible()
+  }.toString()
 }
 
 //// == Abstract ==
@@ -1127,7 +1127,7 @@ class StickyEnd<IN, T>(override val item: MonoPattern<IN>, val value: T?, val on
   override fun show(s: Output<IN>, value: T?) {}
   @Suppress("UNCHECKED_CAST")
   override fun wrap(item: Pattern<IN, IN>) = StickyEnd(item, value, onFail)
-  override fun toPreetyDoc() = listOf("StickyEnd", item, value).preety().colonParens()
+  override fun toPreetyDoc() = listOf("stickyEnd", item, value).preety().colonParens()
 }
 
 val newlineChar = elementIn('\r', '\n')
@@ -1195,7 +1195,7 @@ abstract class NumUnitPattern<IN, NUM: Comparable<NUM>>(val number: Pattern<IN, 
   override fun toPreetyDoc() = listOf("NumUnit", number, unit).preety().colonParens()
 }
 
-class NumUnitTrie<IN, NUM: Comparable<NUM>>(number: Pattern<IN, NUM>, override val unit: TriePattern<IN, NUM>,
+open class NumUnitTrie<IN, NUM: Comparable<NUM>>(number: Pattern<IN, NUM>, override val unit: TriePattern<IN, NUM>,
     op: NumOps<NUM>): NumUnitPattern<IN, NUM>(number, unit, op) {
   override val map get() = unit.collectKeys().toMap { k -> k.asIterable() to unit[k]!! }
 }
