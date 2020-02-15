@@ -277,10 +277,10 @@ interface Fold<in T, out R> {
 }
 
 /** Fold of [makeBase] and [onAccept] */
-abstract class EffectFold<T, R>: Fold<T, R> {
+abstract class EffectFold<T, R: R0, R0>: Fold<T, R0> {
   protected abstract fun makeBase(): R
   protected abstract fun onAccept(base: R, value: T)
-  override fun reducer() = object: Reducer<T, R> {
+  override fun reducer() = object: Reducer<T, R0> {
     val base = makeBase()
     override fun accept(value: T) { onAccept(base, value) }
     override fun finish() = base
@@ -312,7 +312,7 @@ typealias InfixJoin<T> = (T, T) -> T
 // ConvertFold { initial, join, convert }
 // JoinFold(initial, append)
 
-fun <T> asList() = object: EffectFold<T, MutableList<T>>() {
+fun <T> asList() = object: EffectFold<T, MutableList<T>, List<T>>() {
   override fun makeBase(): MutableList<T> = mutableListOf()
   override fun onAccept(base: MutableList<T>, value: T) { base.add(value) }
 }
@@ -623,7 +623,7 @@ fun <IN, T> Pattern<IN, T>.rebuild(vararg items: IN, operation: ActionOn<T>) = s
 
 // == Patterns ==
 // SURDIES (Seq, Until, Repeat, Decide) (item, elementIn, satisfy) (always, never)
-// CCDC (Convert, Contextual, Deferred, Check)
+// CCDP (Convert, Contextual, Deferred, Piped)
 // SJIT (SurroundBy, JoinBy) (InfixPattern, TriePattern)
 
 // == Extensions ==
@@ -833,18 +833,21 @@ class RepeatUn<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R)
 
 // val str = Seq(::StringTuple, item('"').asStringPat(), *anyChar until item('"'))
 
+fun <T> MonoPair<T>.toPat(): SurroundPair<T> = map(::item)
+fun MonoPair<String>.toCharPat(): SurroundPair<Char> = map(String::single).toPat()
+
 fun MonoPattern<Char>.toStringPat() = Convert(this, Char::toString, String::first)
 fun Seq<Char, Char, CharTuple>.toStringPat() = Convert(this, { it.toArray().joinToString("") }, { tupleOf(::CharTuple, *it.toCharArray().toTypedArray()) })
 
-infix fun MonoPattern<Char>.until(terminate: MonoConstantPattern<Char>)
-  = arrayOf<Pattern<Char, String>>(Until(terminate, asString(), this), item(terminate.constant).toStringPat())
+infix fun MonoPattern<Char>.until(terminate: Char)
+  = arrayOf<Pattern<Char, String>>(Until(item(terminate), asString(), this), item(terminate).toStringPat())
 
 // File: pat/WrapperCCDC
-// "CCDC"
+// "CCDP"
 // Convert(item, transform: ConvertAs<T1, T>) constructor(item, to={unsupported})
 // Contextual(head, body)
 // Deferred(item: Producer<Pattern<IN, R>>)
-// Check(item, check)
+// Piped(item, op)
 
 data class ConvertAs<T1, T>(val from: (T) -> T1, val to: (T1) -> T)
 class Convert<IN, T, T1>(item: Pattern<IN, T>, val transform: ConvertAs<T1, T>): ConvertPatternWrapper<IN, T, T1>(item) {
@@ -881,10 +884,10 @@ class Deferred<IN, T>(val lazyItem: Producer<Pattern<IN, T>>): Pattern<IN, T>, R
   override fun toString() = recurse { if (isActive) "recurse" else toPreetyDoc().toString() }
 }
 
-class Check<IN, T>(item: Pattern<IN, T>, val check: Feed<IN>.(T?) -> T? = {it}): PatternWrapper<IN, T>(item) {
-  override fun read(s: Feed<IN>): T? = item.read(s).let { s.check(it) }
-  override fun wrap(item: Pattern<IN, T>) = Check(item, check)
-  override fun toPreetyDoc() = listOf("check", item).preety().colonParens()
+class Piped<IN, T>(item: Pattern<IN, T>, val op: Feed<IN>.(T?) -> T? = {it}): PatternWrapper<IN, T>(item) {
+  override fun read(s: Feed<IN>): T? = item.read(s).let { s.op(it) }
+  override fun wrap(item: Pattern<IN, T>) = Piped(item, op)
+  override fun toPreetyDoc() = listOf("piped", item).preety().colonParens()
 }
 
 // Tuple2: flatten(), mergeFirst(first: (B) -> A), mergeSecond(second: (A) -> B)
@@ -931,8 +934,6 @@ class SurroundBy<IN, T>(val surround: SurroundPair<IN>, val item: Pattern<IN, T>
 //// == Surround Shorthands ==
 infix fun <IN, T> Pattern<IN, T>.prefix(item: MonoConstantPattern<IN>) = SurroundBy(item to null, this)
 infix fun <IN, T> Pattern<IN, T>.suffix(item: MonoConstantPattern<IN>) = SurroundBy(null to item, this)
-fun <T> MonoPair<T>.toPat(): SurroundPair<T> = map(::item)
-fun MonoPair<String>.toCharPat(): SurroundPair<Char> = map(String::single).toPat()
 
 // JoinBy(join, item) { onItem, onSep, AddListeners(onItem, onSep) }
 
@@ -1114,17 +1115,21 @@ operator fun <V> Trie<Char, V>.set(index: CharSequence, value: V) { this[index.a
 operator fun <V> Trie<Char, V>.contains(index: CharSequence) = index.asIterable() in this
 
 // File: pat/MiscHelper
+typealias CharPattern = MonoPattern<Char>
+
 fun digitFor(cs: CharRange, zero: Char = '0', pad: Int = 0): Pattern<Char, Int>
   = Convert(elementIn(cs), { (it - zero) +pad }, { zero + (it -pad) })
 
 fun asInt(radix: Int = 10, initial: Int = 0) = JoinFold(initial) { this*radix + it }
 fun asLong(radix: Int = 10, initial: Long = 0L): Fold<Int, Long> = ConvertJoinFold(initial) { this*radix + it }
 
-fun stringFor(char: MonoPattern<Char>) = Repeat(asString(), char).Many()
-fun stringFor(char: MonoPattern<Char>, surround: MonoPair<String>) = stringSurroundBy(surround.map { it.single() }, char)
+fun stringFor(char: CharPattern) = Repeat(asString(), char).Many()
+fun stringFor(char: CharPattern, surround: MonoPair<String>) = stringSurroundBy(surround.map { it.single() }, char)
 
-fun stringSurroundBy(surround: MonoPair<Char>, char: MonoPattern<Char>)
-  = Seq(::StringTuple, item(surround.first).toStringPat(), *char until item(surround.second))
+fun stringSurroundBy(surround: MonoPair<Char>, char: CharPattern)
+  = SurroundBy(surround.toPat(), Until(item(surround.second), asString(), char))
+fun stringSurroundBy(surround: MonoPair<CharPattern>, char: CharPattern)
+  = surround.second.toStringPat().let { terminate -> Seq(::StringTuple, surround.first.toStringPat(), Until(terminate, asString(), char), terminate) }
 
 val EOF = item('\uFFFF')
 class StickyEnd<IN, T>(override val item: MonoPattern<IN>, val value: T?, val onFail: ProducerOn<Feed<IN>, T?>): MonoPatternWrapper<IN, T>(item) {
