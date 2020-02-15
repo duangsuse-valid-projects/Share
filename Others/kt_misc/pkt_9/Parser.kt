@@ -421,7 +421,7 @@ typealias ErrorMessage = String
 
 interface SourceLocated { val sourceLoc: SourceLocation }
 data class SourceLocation(val file: String, var line: Cnt, var column: Cnt, var position: Cnt): Preety, Cloneable {
-  constructor(file: String): this(file,1,1, 0)
+  constructor(file: String): this(file,1,0, 0)
   val tag get() = listOf(file, line, column).preety().joinText(":")
   override fun toPreetyDoc() = tag + ("#".preety() + position)
   override fun toString() = toPreetyDoc().toString()
@@ -465,7 +465,7 @@ open class CharInput(feed: Feed<Char>, file: String): Input<Char>(feed), SourceL
     }
     ++sourceLoc.position
   }
-  private fun newLine() { ++sourceLoc.line; sourceLoc.column = 1 }
+  private fun newLine() { ++sourceLoc.line; sourceLoc.column = 0 }
   override fun toPreetyDoc(): PP = super.toPreetyDoc() + ":" + sourceLoc.preety()
   companion object {
     val STDIN by lazy { CharInput(ReaderFeed(System.`in`), "<stdin>") }
@@ -1155,36 +1155,43 @@ interface NumOps<NUM: Comparable<NUM>> {
   fun minus(b: NUM, a: NUM): NUM
   fun times(b: NUM, a: NUM): NUM
   fun div(b: NUM, a: NUM): NUM
+  fun rem(b: NUM, a: NUM): NUM
   open class Instance<NUM: Comparable<NUM>>(
     override val zero: NUM,
     private val plus: InfixJoin<NUM>, private val minus: InfixJoin<NUM>,
-    private val times: InfixJoin<NUM>, private val div: InfixJoin<NUM>
+    private val times: InfixJoin<NUM>, private val div: InfixJoin<NUM>, private val rem: InfixJoin<NUM>
   ): NumOps<NUM> {
     override fun plus(b: NUM, a: NUM) = plus.invoke(a, b)
     override fun minus(b: NUM, a: NUM) = minus.invoke(a, b)
     override fun times(b: NUM, a: NUM) = times.invoke(a, b)
     override fun div(b: NUM, a: NUM) = div.invoke(a, b)
+    override fun rem(b: NUM, a: NUM) = rem.invoke(a, b)
   }
 }
-object IntOps: NumOps.Instance<Int>(0, Int::plus, Int::minus, Int::times, Int::div)
-object LongOps: NumOps.Instance<Long>(0L, Long::plus, Long::minus, Long::times, Long::div)
-object FloatOps: NumOps.Instance<Float>(0.0F, Float::plus, Float::minus, Float::times, Float::div)
-object DoubleOps: NumOps.Instance<Double>(0.0, Double::plus, Double::minus, Double::times, Double::div)
+object IntOps: NumOps.Instance<Int>(0, Int::plus, Int::minus, Int::times, Int::div, Int::rem)
+object LongOps: NumOps.Instance<Long>(0L, Long::plus, Long::minus, Long::times, Long::div, Long::rem)
+object FloatOps: NumOps.Instance<Float>(0.0F, Float::plus, Float::minus, Float::times, Float::div, Float::rem)
+object DoubleOps: NumOps.Instance<Double>(0.0, Double::plus, Double::minus, Double::times, Double::div, Double::rem)
 
 //val n=RepeatUn(asInt(), digitFor('0'..'9')) { it.toString().map { it-'0' } }
 //val u=KeywordPattern<Int>().apply { mergeStrings("s" to 1, "min" to 60, "hr" to 60*60) }
 //val k=NumUnitTrie(n, u, IntOps) 
 
-/** Pattern for 2hr1min14s */
+typealias NumUnit<NUM, IN> = Pair<NUM, Iterable<IN>>
+
+/** Pattern for `"2hr1min14s"` */
 abstract class NumUnitPattern<IN, NUM: Comparable<NUM>>(val number: Pattern<IN, NUM>, open val unit: Pattern<IN, NUM>,
-    private val op: NumOps<NUM>): PreetyAny(), Pattern<IN, NUM> {
-  protected open fun rescue(s: Feed<IN>, accumulator: NUM, i: NUM): NUM? = notParsed
+    protected val op: NumOps<NUM>): PreetyAny(), Pattern<IN, NUM> {
+  protected open fun rescue(s: Feed<IN>, acc: NUM, i: NUM): NUM? = notParsed
   override fun read(s: Feed<IN>): NUM? {
-    var accumulator: NUM = op.zero // i=num, k=unit
+    var accumulator: NUM = op.zero
+    var lastUnit: NumUnit<NUM, IN>? = null
     var i: NUM? = number.read(s) ?: return notParsed
-    while (i != notParsed) {
+    while (i != notParsed) { // i=num, k=unit
       val k = unit.read(s) ?: rescue(s, accumulator, i) ?: return notParsed
-      accumulator = op.plus(op.times(k, i), accumulator)
+      val unit = reversedPairsDsc.first { it.first == k }
+      accumulator = if (lastUnit != null) joinUnits(s, lastUnit, unit, accumulator, i) else joinUnitsInitial(s, k, i)
+      lastUnit = unit
       i = number.read(s)
     }
     return accumulator
@@ -1192,17 +1199,24 @@ abstract class NumUnitPattern<IN, NUM: Comparable<NUM>>(val number: Pattern<IN, 
   override fun show(s: Output<IN>, value: NUM?) {
     if (value == null) return
     var rest: NUM = value
+    var lastUnit: NumUnit<NUM, IN>? = null
     while (rest != op.zero) {
       val unit = maxCmpLE(rest)
-      val i = op.div(unit.key, rest)
-      rest = op.minus(op.times(unit.key, i), rest) //mod
-      number.show(s, i); unit.value.forEach(s)
+      if (lastUnit != null) joinUnitsShow(s, lastUnit, unit)
+      lastUnit = unit
+      val (ratio, name) = unit
+      val i = op.div(ratio, rest); rest = op.rem(ratio, rest)
+      number.show(s, i); name.forEach(s)
     }
   }
   protected abstract val map: Map<Iterable<IN>, NUM>
-  protected fun maxCmpLE(value: NUM) = reverseMapDsc.first { it.key <= value }
-  private val reverseMapDsc by lazy { map.reversedMap().entries.sortedByDescending { it.key } }
+  protected val reversedPairsDsc by lazy { map.reversedMap().toList().sortedByDescending { it.first } }
+  protected fun maxCmpLE(value: NUM) = reversedPairsDsc.first { it.first <= value }
   override fun toPreetyDoc() = listOf("NumUnit", number, unit).preety().colonParens()
+
+  protected open fun joinUnitsInitial(s: Feed<IN>, k: NUM, i: NUM) = op.times(k, i)
+  protected open fun joinUnits(s: Feed<IN>, u0: NumUnit<NUM, IN>, u1: NumUnit<NUM, IN>, acc: NUM, i: NUM) = op.plus(op.times(u1.first, i), acc)
+  protected open fun joinUnitsShow(s: Output<IN>, u0: NumUnit<NUM, IN>, u1: NumUnit<NUM, IN>) {}
 }
 
 open class NumUnitTrie<IN, NUM: Comparable<NUM>>(number: Pattern<IN, NUM>, override val unit: TriePattern<IN, NUM>,
