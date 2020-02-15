@@ -7,7 +7,7 @@ val hanDigit = object: KeywordPattern<Int>() {
   init { mergeStrings(*hanDigits.toArray(), "又" to -1) } //“又”比较特殊，只能以“三十又十”形式出现
   override fun show(s: Output<Char>, value: Int?) {
     if (value == null) return
-    if (value in 1..9) super.show(s, value) else hanShow(s, value)
+    if (value in 1..9) super.show(s, value) else { hanShow(s, value); s('又') }
   }
 }
 val hanUnit = KeywordPattern<Int>().apply {
@@ -20,6 +20,8 @@ val hanUnit = KeywordPattern<Int>().apply {
 
 object HanNum: NumUnitTrie<Char, Int>(hanDigit, hanUnit, IntOps) {
   init { hanShow = this::show }
+  override fun read(s: Feed<Char>) = super.read(s).also { if (s.peek == '零') s.error("零 form cannot be used in tail part") }
+
   override fun joinUnitsInitial(s: Feed<Char>, k: Int, i: Int): Int =
     if (i == (-1)) 0.also { s.error("又 cannot be used as digit") } else op.times(abs(k), i)
   override fun joinUnits(s: Feed<Char>, u0: NumUnit<Int, Char>, u1: NumUnit<Int, Char>, acc: Int, i: Int): Int {
@@ -49,3 +51,10 @@ object HanNum: NumUnitTrie<Char, Int>(hanDigit, hanUnit, IntOps) {
     if (k1 > k2 * 10) s('零') // 一千(零)一十
   }
 }
+
+private val hanDigitsMap = MapPattern(mapOf(*hanDigits.mapToArray { it.first.single() to it.second }))
+val hanNum = Decide(
+  Convert(hanDigitsMap.toDefault(0) prefix item('十'), {it + 10}, {it - 10}),
+  MapPattern(mapOf('零' to 0)),
+  HanNum
+).mergeFirst { if (it in 10..19) 0 else if (it == 0) 1 else 2 }

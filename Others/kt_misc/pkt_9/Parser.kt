@@ -28,7 +28,6 @@ fun <E> MutableList<E>.removeLast() = removeAt(lastIndex)
 
 typealias MonoPair<T> = Pair<T, T>
 fun <T, R> MonoPair<T>.map(transform: (T) -> R): MonoPair<R> = Pair(transform(first), transform(second))
-fun IntRange.map(transform: Pipe<Int>) = transform(first)..transform(last)
 
 inline fun <T, reified R> Collection<T>.mapToArray(transform: (T) -> R): Array<R> {
   val mapFirst = transform(firstOrNull() ?: return emptyArray())
@@ -977,7 +976,7 @@ open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN
 }
 
 //// == Merge Join ==
-fun <IN, SEP, ITEM> JoinBy<IN, SEP, ITEM>.mergeConstantJoin(constant: SEP) = mergeSecond { (0 until it.size.dec()).asIterable().map { constant } }
+fun <IN, SEP, ITEM> JoinBy<IN, SEP, ITEM>.mergeConstantJoin(constant: SEP) = mergeSecond { (0 until it.size.dec()).map { constant } }
 fun <IN, SEP, ITEM> JoinBy<IN, SEP, ITEM>.mergeConstantJoin() = @Suppress("unchecked_cast") mergeConstantJoin((sep as MonoConstantPattern<SEP>).constant)
 fun <IN, ITEM> JoinBy<IN, Char, ITEM>.concatCharJoin() = Convert(this, {
   Tuple2(it.first, it.second.joinToString(""))
@@ -1175,7 +1174,7 @@ object DoubleOps: NumOps.Instance<Double>(0.0, Double::plus, Double::minus, Doub
 
 //val n=RepeatUn(asInt(), digitFor('0'..'9')) { it.toString().map { it-'0' } }
 //val u=KeywordPattern<Int>().apply { mergeStrings("s" to 1, "min" to 60, "hr" to 60*60) }
-//val k=NumUnitTrie(n, u, IntOps) 
+//val k=NumUnitTrie(n, u, IntOps)
 
 typealias NumUnit<NUM, IN> = Pair<NUM, Iterable<IN>>
 
