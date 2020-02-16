@@ -1,9 +1,12 @@
+typealias Stack = MutableList<PP>
+
 /* Lexer-like algorithm，注意如果要允许翻译则得为维护 TriePattern 的反向映射建立新类，故直接用了 Pattern.show */
 object ChengForm {
   const val 钱符 = '￥'; const val 全角空格 = "　"
 
   val 钱 = item(钱符)
-  val 钱钱 = SurroundBy(钱 to 钱.clam("钱钱"), Until(钱, asString(), anyChar))
+  val 钱边 = 钱.alsoDo { stateAs<Stack>()?.add(tag ?: Preety.Doc.None) } to 钱.clam {"钱钱 ${stateAs<Stack>()?.removeLast()!!}"}
+  val 钱钱 = SurroundBy(钱边, Until(钱, asString(), anyChar))
   val 不翻译 = 钱钱 addPrefix "-"
 
   val 翻译器 = KeywordPattern<String>().apply {
@@ -27,7 +30,7 @@ object ChengForm {
     val noReverse = args.firstOrNull()?.equals("noReverse") ?: false
     print(
       if (reverse) 橙式.show(CharInput.STDIN.readText().split(全角空格))
-      else 橙式.read(CharInput.STDIN)?.let { kws ->
+      else 橙式.read(CharInput.STDIN.withState<Stack>(mutableListOf()))?.let { kws ->
         if (noReverse) kws.joinToString("", transform = { it.drop(1) }) else kws.joinToString(全角空格)
       })
   }
