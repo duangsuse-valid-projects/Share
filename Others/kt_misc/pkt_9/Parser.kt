@@ -1116,6 +1116,7 @@ operator fun <V> Trie<Char, V>.contains(index: CharSequence) = index.asIterable(
 
 // File: pat/MiscHelper
 typealias CharPattern = MonoPattern<Char>
+typealias CharConstantPattern = MonoConstantPattern<Char>
 
 fun digitFor(cs: CharRange, zero: Char = '0', pad: Int = 0): Pattern<Char, Int>
   = Convert(elementIn(cs), { (it - zero) +pad }, { zero + (it -pad) })
@@ -1124,10 +1125,12 @@ fun asInt(radix: Int = 10, initial: Int = 0) = JoinFold(initial) { this*radix + 
 fun asLong(radix: Int = 10, initial: Long = 0L): Fold<Int, Long> = ConvertJoinFold(initial) { this*radix + it }
 
 fun stringFor(char: CharPattern) = Repeat(asString(), char).Many()
-fun stringFor(char: CharPattern, surround: MonoPair<String>) = stringSurroundBy(surround.map { it.single() }, char)
+fun stringFor(char: CharPattern, message: ErrorMessage, surround: MonoPair<String>) = stringSurroundByConstant(surround.toCharPat(), message, char)
 
-fun stringSurroundBy(surround: MonoPair<Char>, char: CharPattern)
-  = SurroundBy(surround.toPat(), Until(item(surround.second), asString(), char))
+fun stringSurroundByConstant(surround: SurroundPair<Char>, message: ErrorMessage, char: CharPattern): SurroundBy<Char, String> {
+  requireNotNull(surround.second) {"$surround second should exists"}
+  return SurroundBy(surround, Until(surround.second!!.clam(message), asString(), char))
+}
 fun stringSurroundBy(surround: MonoPair<CharPattern>, char: CharPattern)
   = surround.second.toStringPat().let { terminate -> Seq(::StringTuple, surround.first.toStringPat(), Until(terminate, asString(), char), terminate) }
 
