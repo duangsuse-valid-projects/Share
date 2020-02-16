@@ -1235,8 +1235,9 @@ abstract class NumUnitPattern<IN, NUM: Comparable<NUM>>(val number: Pattern<IN, 
     while (i != notParsed) { // i=num, k=unit
       val k = unit.read(s) ?: rescue(s, accumulator, i) ?: return notParsed
       val unit = reversedPairsDsc.first { it.first == k }
-      accumulator = if (lastUnit != null) joinUnits(s, lastUnit, unit, accumulator, i) else joinUnitsInitial(s, k, i)
-      lastUnit = unit
+      accumulator = (if (lastUnit == null) joinUnitsInitial(s, k, i)
+        else joinUnits(s, lastUnit, unit, accumulator, i)) ?: return accumulator
+      lastUnit = unit //->
       i = number.read(s)
     }
     return accumulator
@@ -1248,7 +1249,7 @@ abstract class NumUnitPattern<IN, NUM: Comparable<NUM>>(val number: Pattern<IN, 
     while (rest != op.zero) {
       val unit = maxCmpLE(rest)
       if (lastUnit != null) joinUnitsShow(s, lastUnit, unit)
-      lastUnit = unit
+      lastUnit = unit //->
       val (ratio, name) = unit
       val i = op.div(ratio, rest); rest = op.rem(ratio, rest)
       number.show(s, i); name.forEach(s)
@@ -1259,8 +1260,8 @@ abstract class NumUnitPattern<IN, NUM: Comparable<NUM>>(val number: Pattern<IN, 
   protected fun maxCmpLE(value: NUM) = reversedPairsDsc.first { it.first <= value }
   override fun toPreetyDoc() = listOf("NumUnit", number, unit).preety().colonParens()
 
-  protected open fun joinUnitsInitial(s: Feed<IN>, k: NUM, i: NUM) = op.times(k, i)
-  protected open fun joinUnits(s: Feed<IN>, u0: NumUnit<NUM, IN>, u1: NumUnit<NUM, IN>, acc: NUM, i: NUM) = op.plus(op.times(u1.first, i), acc)
+  protected open fun joinUnitsInitial(s: Feed<IN>, k: NUM, i: NUM): NUM? = op.times(k, i)
+  protected open fun joinUnits(s: Feed<IN>, u0: NumUnit<NUM, IN>, u1: NumUnit<NUM, IN>, acc: NUM, i: NUM): NUM? = op.plus(op.times(u1.first, i), acc)
   protected open fun joinUnitsShow(s: Output<IN>, u0: NumUnit<NUM, IN>, u1: NumUnit<NUM, IN>) {}
 }
 
