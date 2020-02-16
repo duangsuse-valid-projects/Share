@@ -25,7 +25,7 @@ val numPart = Contextual<Char, Int, Int>(digit) {
 }.mergeFirst {0}
 
 val int = Convert(Contextual(sign) { sign ->
-  Check(numPart) { if (sign && it!=notParsed) -it else it }
+  Piped(numPart) { if (sign && it!=notParsed) -it else it }
 }, { it.second }, { Tuple2(it<0, abs(it)) })
 
 val ws = stringFor(elementIn(' ', '\t'))

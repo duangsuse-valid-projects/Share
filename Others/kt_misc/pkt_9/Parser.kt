@@ -36,9 +36,9 @@ inline fun <T, reified R> Collection<T>.mapToArray(transform: (T) -> R): Array<R
   return array
 }
 
-inline fun <reified T> Collection<T>.toArray() = mapToArray {it}
 inline fun <A:T, B:T, reified T> Pair<A, B>.items(): Array<T> = arrayOf(first, second)
 fun CharRange.items(): Array<Char> = toList().toCharArray().toTypedArray()
+inline fun <reified T> Collection<T>.toArray() = mapToArray {it}
 
 fun <T, K, V> Iterable<T>.toMap(entry: (T) -> Pair<K, V>): Map<K, V> {
   val map: MutableMap<K, V> = mutableMapOf()
@@ -107,6 +107,7 @@ fun List<PP>.joinText(sep: String) = join(sep.preety())
 operator fun PP.plus(other: Any?) = this + other.preety()
 
 infix fun String.paired(other: String) = MonoPair(this, other)
+fun String.monoPaired() = this paired this
 val parens = "(" paired ")"
 val squares = "[" paired "]"
 val braces = "{" paired "}"
@@ -223,6 +224,7 @@ operator fun <E> Tuple<E>.component3() = this[2]
 operator fun <E> Tuple<E>.component4() = this[3]
 
 fun <E> Tuple<E>.toList() = toArray().toList()
+fun <E> Tuple<E>.asIterable() = toArray().asIterable()
 
 //// == Abstract ==
 inline fun <reified E> tupleOf(vararg items: E) = object: Tuple<E>(items.size) {
@@ -346,12 +348,14 @@ fun <IN> Feed<IN>.asSequence(): Sequence<IN>
   = sequence { while (true) yield(consumeOrNull() ?: break) }
 fun <IN> Feed<IN>.asIterable() = asSequence().asIterable()
 
+fun Feed<Char>.readText() = asIterable().joinToString("")
+
 // NOTES ABOUT Feed:
 // - Feed cannot be constructed using empty input
 // - Feed.peek will yield last item *again* when EOS reached
 fun AllFeed.isStickyEnd() = consumeOrNull() == null
 // - Patterns like `Until(elementIn(' '), asString(), anyChar)` will fail when EOS entercounted
-//    easiest workaround: append EOF or terminate char to end of *actual input*
+//      easiest workaround: append EOF or terminate char to end of *actual input*
 fun <R> AllFeed.catchError(op: Producer<R>): R? = try { op() } catch (e: IllegalStateException) { this.error(e.message ?: e.toString()); null }
 
 //// == SliceFeed & StreamFeed ==
@@ -420,7 +424,7 @@ typealias ErrorMessage = String
 
 interface SourceLocated { val sourceLoc: SourceLocation }
 data class SourceLocation(val file: String, var line: Cnt, var column: Cnt, var position: Cnt): Preety, Cloneable {
-  constructor(file: String): this(file,1,0, 0)
+  constructor(file: String): this(file,1,0, 0) // since only consumed items adds errors, column are counted from 0
   val tag get() = listOf(file, line, column).preety().joinText(":")
   override fun toPreetyDoc() = tag + ("#".preety() + position)
   override fun toString() = toPreetyDoc().toString()
@@ -722,7 +726,6 @@ class SingleFeed<T>(val value: T): Feed<T> {
   override fun toPreetyDoc(): PP = "SingleFeed".preety() + value.preety().surroundText(parens) +
     (if (valueConsumed) ".".preety() else Preety.Doc.None)
 }
-
 fun <IN> Feed<IN>.singleFeed() = Input.Filters(this, SingleFeed(peek))
 fun <IN, T> Pattern<IN, T>.testPeek(s: Feed<IN>) = read(s.singleFeed()) != notParsed
 
@@ -790,6 +793,7 @@ open class Repeat<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern
   }
   override fun toPreetyDoc(): PP = item.preety().surroundText(braces)
 
+  // "repeat many" (0..MAX) - Repeat(...).Many(), RepeatUn(...).Many()
   protected open val greedy = true
   protected open val bounds = 1..Cnt.MAX_VALUE
 
@@ -817,7 +821,6 @@ class Decide<IN, T>(vararg val cases: Pattern<IN, out T>): PreetyAny(), Pattern<
 }
 
 // "rebuild" - UntilUn(+unfold), RepeatUn(+unfold)
-// "repeat many" (0..MAX) - Repeat(...).Many(), RepeatUn(...).Many()
 
 class UntilUn<IN, T, R>(terminate: ConstantPattern<IN, T>, fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R) -> Iterable<T>): Until<IN, T, R>(terminate, fold, item) {
   override fun unfold(value: R) = unfold.invoke(value)
@@ -831,18 +834,18 @@ class RepeatUn<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R)
 // satisfy(predicate)
 // always(value), never()
 
-// val str = Seq(::StringTuple, item('"').asStringPat(), *anyChar until item('"'))
+// val str = Seq(::StringTuple, item('"').toStringPat(), *anyChar until item('"'))
 
-fun <T> MonoPair<T>.toPat(): SurroundPair<T> = map(::item)
-fun MonoPair<String>.toCharPat(): SurroundPair<Char> = map(String::single).toPat()
+fun <T> MonoPair<T>.toPat(): MonoPair<MonoConstantPattern<T>> = map(::item)
+fun MonoPair<String>.toCharPat(): MonoPair<MonoConstantPattern<Char>> = map(String::single).toPat()
 
 fun MonoPattern<Char>.toStringPat() = Convert(this, Char::toString, String::first)
 fun Seq<Char, Char, CharTuple>.toStringPat() = Convert(this, { it.toArray().joinToString("") }, { tupleOf(::CharTuple, *it.toCharArray().toTypedArray()) })
 
-infix fun MonoPattern<Char>.until(terminate: Char)
-  = arrayOf<Pattern<Char, String>>(Until(item(terminate), asString(), this), item(terminate).toStringPat())
+infix fun MonoPattern<Char>.until(terminate: MonoConstantPattern<Char>)
+  = arrayOf<Pattern<Char, String>>(Until(terminate, asString(), this), terminate.toStringPat())
 
-// File: pat/WrapperCCDC
+// File: pat/WrapperCCDP
 // "CCDP"
 // Convert(item, transform: ConvertAs<T1, T>) constructor(item, to={unsupported})
 // Contextual(head, body)
@@ -1125,13 +1128,7 @@ fun asInt(radix: Int = 10, initial: Int = 0) = JoinFold(initial) { this*radix + 
 fun asLong(radix: Int = 10, initial: Long = 0L): Fold<Int, Long> = ConvertJoinFold(initial) { this*radix + it }
 
 fun stringFor(char: CharPattern) = Repeat(asString(), char).Many()
-fun stringFor(char: CharPattern, message: ErrorMessage, surround: MonoPair<String>) = stringSurroundByConstant(surround.toCharPat(), message, char)
-
-fun stringSurroundByConstant(surround: SurroundPair<Char>, message: ErrorMessage, char: CharPattern): SurroundBy<Char, String> {
-  requireNotNull(surround.second) {"$surround second should exists"}
-  return SurroundBy(surround, Until(surround.second!!.clam(message), asString(), char))
-}
-fun stringSurroundBy(surround: MonoPair<CharPattern>, char: CharPattern)
+fun stringFor(char: CharPattern, surround: MonoPair<CharPattern>)
   = surround.second.toStringPat().let { terminate -> Seq(::StringTuple, surround.first.toStringPat(), Until(terminate, asString(), char), terminate) }
 
 val EOF = item('\uFFFF')
@@ -1180,13 +1177,15 @@ object LongOps: NumOps.Instance<Long>(0L, Long::plus, Long::minus, Long::times, 
 object FloatOps: NumOps.Instance<Float>(0.0F, Float::plus, Float::minus, Float::times, Float::div, Float::rem)
 object DoubleOps: NumOps.Instance<Double>(0.0, Double::plus, Double::minus, Double::times, Double::div, Double::rem)
 
-//val n=RepeatUn(asInt(), digitFor('0'..'9')) { it.toString().map { it-'0' } }
-//val u=KeywordPattern<Int>().apply { mergeStrings("s" to 1, "min" to 60, "hr" to 60*60) }
-//val k=NumUnitTrie(n, u, IntOps)
+/*
+val n=RepeatUn(asInt(), digitFor('0'..'9')) { it.toString().map { it-'0' } }
+val u=KeywordPattern<Int>().apply { mergeStrings("s" to 1, "min" to 60, "hr" to 60*60) }
+val k=NumUnitTrie(n, u, IntOps)
+*/
 
 typealias NumUnit<NUM, IN> = Pair<NUM, Iterable<IN>>
 
-/** Pattern for `"2hr1min14s"` */
+/** Pattern for `"2hr1min14s"`, note that reverse map won't be updated every [show] */
 abstract class NumUnitPattern<IN, NUM: Comparable<NUM>>(val number: Pattern<IN, NUM>, open val unit: Pattern<IN, NUM>,
     protected val op: NumOps<NUM>): PreetyAny(), Pattern<IN, NUM> {
   protected open fun rescue(s: Feed<IN>, acc: NUM, i: NUM): NUM? = notParsed

@@ -11,7 +11,7 @@ val ws = Repeat(asString(), white).Many()
 val hostname = Until(nl, asString(), elementIn('A'..'z', '0'..'9') or elementIn('.', '-'))
 
 //NUM: [0-9] +;
-val digit = digitItem(elementIn('0'..'9'))
+val digit = digitFor('0'..'9')
 val number = RepeatUn(asInt(), digit) { it.toString().map { it - '0' } }
 //IPADDRESS: NUM '.' NUM '.' NUM '.' NUM;
 val ipAddress = JoinBy(item('.'), number).mergeConstantJoin()
@@ -33,7 +33,7 @@ val line = Decide(
   Convert(comment, { Line.Comment(it) }, { it.t }),
   Convert(record, { Line.Record(it) }, { it.t }),
   Convert(nl, { Line.Comment(tupleOf(::StringTuple, "#", it)) }, { it.t[1] }),
-  StickyEnd(nlChar or item(EOF), notParsed) { clamWhile(!nlChar, Line.Unknown, "unknown line") }
+  StickyEnd(nlChar or EOF, notParsed) { clamWhile(!nlChar, Line.Unknown, "unknown line") }
 ).mergeFirst { if (it is Line.Comment) 1 else 0 }
 //hostfile: line* EOF;
 val hosts = Repeat(asList(), line).Many()
