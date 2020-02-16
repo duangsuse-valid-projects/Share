@@ -1,0 +1,22 @@
+object BrainFuck {
+sealed class BF {
+  data class Op(val id: Char): BF()
+  data class Blk(val body: List<BF>): BF()
+}
+val control = elementIn('>', '<', '+', '-', '.', ',')
+val controlBF = Convert(control, { BF.Op(it) }, { it.id })
+lateinit var program: Pattern<Char, List<BF>>
+val block = SurroundBy(item('[') to item(']').clam {"] !!!"}, Deferred {program})
+val blockBF = Convert(block, { BF.Blk(it) }, { it.body })
+
+val ws = Repeat(asString(), !(control or elementIn('[',']','\n')) ).Many()
+init {
+  val part = JoinBy(ws, Decide(blockBF, controlBF).mergeFirst { if (it is BF.Op) 0 else 1 }).mergeConstantJoin("")
+  program = Convert(Seq(::AnyTuple, ws, part, ws)) { it.getAs<List<BF>>(1) }
+}
+
+@JvmStatic fun main(vararg args: String) {
+  val repl = JoinBy(item('\n'), program).OnItem(::println).mergeConstantJoin()
+  println(repl.read(CharInput.STDIN))
+}
+}
