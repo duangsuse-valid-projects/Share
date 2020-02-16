@@ -7,9 +7,15 @@ object ChengForm {
   val 不翻译 = 钱钱 addPrefix "-"
 
   val 翻译器 = KeywordPattern<String>().apply {
-    mergeStrings("函数" to "fun", "量" to "val", "变" to "var")
+    mergeStrings("真" to "true", "假" to "false", "空" to "null")
+    mergeStrings("事" to "fun", "量" to "val ", "变" to "var", "常" to "const ")
     mergeStrings("若" to "if", "否则" to "else", "判" to "when")
     mergeStrings("当" to "while", "对" to "for", "在" to "in")
+    mergeStrings("停下" to "break", "略过" to "continue", "回" to "return ")
+    mergeStrings("抛下" to "throw ", "尝试" to "try", "接迎" to "catch", "终焉" to "finally")
+    mergeStrings("亲" to "super", "我" to "this", "它" to "it")
+    mergeStrings("类" to "interface", "物" to "class", "例" to "object")
+    mergeStrings("包" to "package ", "引" to "import ")
   }
   val 翻译 = Piped(翻译器 addPrefix "+") { it ?: takeWhile { c -> c !in 翻译器.routes && c != 钱符 }.joinToString("").let("-"::plus) }
 
@@ -18,10 +24,12 @@ object ChengForm {
 
   @JvmStatic fun main(vararg args: String) {
     val reverse = args.firstOrNull()?.equals("reverse") ?: false
+    val noReverse = args.firstOrNull()?.equals("noReverse") ?: false
     print(
       if (reverse) 橙式.show(CharInput.STDIN.readText().split(全角空格))
-        else 橙式.read(CharInput.STDIN)?.joinToString(全角空格)
-    )
+      else 橙式.read(CharInput.STDIN)?.let { kws ->
+        if (noReverse) kws.joinToString("", transform = { it.drop(1) }) else kws.joinToString(全角空格)
+      })
   }
 }
 
