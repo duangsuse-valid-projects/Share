@@ -19,7 +19,7 @@ val ipAddress = JoinBy(item('.'), number).mergeConstantJoin()
 //item: IPADDRESS HOSTNAME ;
 val record = Seq<Char, Any, HostEntry>(::HostEntry, ws,
   ipAddress, ws,
-  hostname.clamWhile(!nlChar, "?", "bad hostname"), ws, nl)
+  hostname.clamWhile(!nlChar, "?") {"bad hostname"}, ws, nl)
 class HostEntry: AnyTuple(6) {
   var ipAddress by indexAs<List<Int>>(1)
   var hostname by indexAs<String>(3)

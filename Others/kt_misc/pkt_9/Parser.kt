@@ -581,13 +581,13 @@ fun <IN, T> Pattern<IN, T>.toDefault(defaultValue: T) = object: OptionalPattern<
 fun <IN, T> ConstantPattern<IN, T>.toDefault() = toDefault(constant)
 
 /** Add error and __skip unacceptable__ [pat], yield [defaultValue] */
-fun <IN, T> Feed<IN>.clamWhile(pat: Pattern<IN, *>, defaultValue: T, messager: ErrorMessager): T {
-  this.error(this.messager())
+fun <IN, T> Feed<IN>.clamWhile(pat: Pattern<IN, *>, defaultValue: T, message: ErrorMessage): T {
+  this.error(message)
   while (pat.read(this) != notParsed) {}
   return defaultValue
 }
 fun <IN, T> Pattern<IN, T>.clamWhile(pat: Pattern<IN, *>, defaultValue: T, messager: ErrorMessager) = object: OptionalPattern<IN, T>(this, defaultValue) {
-  override fun read(s: Feed<IN>) = this@clamWhile.read(s) ?: s.clamWhile(pat, defaultValue, messager)
+  override fun read(s: Feed<IN>) = this@clamWhile.read(s) ?: s.clamWhile(pat, defaultValue, s.messager())
 }
 
 abstract class SatisfyPatternBy<IN>(protected open val self: SatisfyPattern<IN>): SatisfyPattern<IN>() {
@@ -615,7 +615,8 @@ class SatisfyEqualToClam<IN>(override val self: SatisfyEqualTo<IN>, messager: Er
 
 //// == Modify State ==
 // SatisfyAlsoDo, SatisfyEqualAlsoDo
-// fun Pattern.alsoDo(op)
+// PatternAlsoDo
+// fun Pattern.alsoDo(op); ...
 typealias AlsoDo<IN> = ConsumerOn<AllFeed, IN>
 
 open class SatisfyAlsoDo<IN>(self: SatisfyPattern<IN>, val op: AlsoDo<IN>): SatisfyPatternBy<IN>(self) {
