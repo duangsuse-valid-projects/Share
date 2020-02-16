@@ -1171,7 +1171,7 @@ fun stringFor(char: CharPattern, surround: MonoPair<CharPattern>)
   = surround.second.toStringPat().let { terminate -> Seq(::StringTuple, surround.first.toStringPat(), Until(terminate, asString(), char), terminate) }
 
 val EOF = item('\uFFFF')
-class StickyEnd<IN, T>(override val item: MonoPattern<IN>, val value: T?, val onFail: ProducerOn<Feed<IN>, T?>): MonoPatternWrapper<IN, T>(item) {
+class StickyEnd<IN, T>(override val item: MonoPattern<IN>, val value: T?, val onFail: ProducerOn<Feed<IN>, T?> = {notParsed}): MonoPatternWrapper<IN, T>(item) {
   override fun read(s: Feed<IN>) = if (item.testPeek(s) && s.isStickyEnd()) value else s.onFail()
   override fun show(s: Output<IN>, value: T?) {}
   @Suppress("UNCHECKED_CAST")
