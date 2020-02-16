@@ -1269,3 +1269,63 @@ open class NumUnitTrie<IN, NUM: Comparable<NUM>>(number: Pattern<IN, NUM>, overr
     op: NumOps<NUM>): NumUnitPattern<IN, NUM>(number, unit, op) {
   override val map get() = unit.collectKeys().toMap { k -> k.asIterable() to unit[k]!! }
 }
+
+// File: LayoutPattern
+
+/** item<fun sample()> tail<where> children<...{layout item}> */
+sealed class Deep<T, L> { interface HasItem<T> { val item: T }
+  data class Root<T, L>(val nodes: List<Deep<T, L>>): Deep<T, L>()
+  data class Nest<T, L>(override val item: T, val tail: L, val children: List<Deep<T, L>>): Deep<T, L>(), HasItem<T>
+  data class Term<T, L>(override val item: T): Deep<T, L>(), HasItem<T>
+  fun <R> visitBy(visitor: VisitorOn<T, L, R>): R = when (this) {
+    is Root -> visitor.see(this)
+    is Nest -> visitor.see(this)
+    is Term -> visitor.see(this)
+  }
+  interface VisitorOn<T, L, out R> {
+    fun see(t: Root<T, L>): R
+    fun see(t: Nest<T, L>): R
+    fun see(t: Term<T, L>): R
+  }
+}
+
+typealias LayoutRec<T, L> = Pair<Int, List<Deep<T, L>>>?
+open class LayoutPattern<IN, T, L>(val item: Pattern<IN, T>, val tail: Pattern<IN, L>, val layout: Pattern<IN, Int>): PreetyAny(), Pattern<IN, Deep<T, L>> {
+  protected open val layoutZero = 0
+  protected open fun rescueLayout(s: Feed<IN>, item: T): Int? = notParsed
+  protected open fun rescueLayout(s: Feed<IN>, item: T, tail: L): Int? = notParsed
+  protected open fun onTermIndent(s: Feed<IN>, n0: Int, n: Int, item: T) = when {
+    n <= n0 -> Unit
+    n0 < n -> null.also { s.error("illegal layout increment near $item") }
+    else -> impossible()
+  }
+
+  override fun read(s: Feed<IN>): Deep<T, L>? {
+    fun readRec(n0: Int): LayoutRec<T, L> {
+      val layerItems: MutableList<Deep<T, L>> = mutableListOf()
+      var parsed: T? = item.read(s)
+      var parsedTail: L? = tail.read(s)
+      while (parsed != notParsed) {
+        if (parsedTail != notParsed) {
+          val n1 = layout.read(s) ?: rescueLayout(s, parsed, parsedTail) ?: return notParsed
+          val (closed, items1) = readRec(n1) ?: return notParsed
+          val layer1 = Deep.Nest(parsed, parsedTail, items1)
+          layerItems.add(layer1)
+          if (closed > n0) return Pair(closed, layerItems)
+        } else {
+          val term = Deep.Term<T, L>(parsed)
+          layerItems.add(term)
+          val n = layout.read(s) ?: rescueLayout(s, parsed) ?: return notParsed
+          onTermIndent(s, n0, n, parsed)
+          if (n < n0) return Pair(n, layerItems)
+        }
+        parsed = item.read(s)
+        parsedTail = tail.read(s)
+      }
+      return Pair(n0, layerItems)
+    }
+    return readRec(layoutZero)?.second?.let { Deep.Root(it) }
+  }
+  override fun show(s: Output<IN>, value: Deep<T, L>?) {}
+  override fun toPreetyDoc() = listOf("Layout", item, tail, layout).preety().colonParens()
+}

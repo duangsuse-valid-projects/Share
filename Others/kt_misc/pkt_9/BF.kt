@@ -1,7 +1,7 @@
 object BrainFuck {
 sealed class BF {
   data class Op(val id: Char): BF() { override fun toString() = "Op($id)" }
-  data class Blk(val body: List<BF>): BF() { override fun toString() = "Blk$body" }
+  data class Blk(val body: List<BF>): BF() { override fun toString() = "Blk[${body.joinToString(" ")}]" }
 }
 val control = elementIn('>', '<', '+', '-', '.', ',')
 val controlBF = Convert(control, { BF.Op(it) }, { it.id })
