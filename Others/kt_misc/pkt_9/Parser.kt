@@ -1099,9 +1099,14 @@ val noun = Repeat(asList(), dict)
 */
 typealias KeywordPattern<V> = TriePattern<Char, V>
 
-open class PairedDict: PairedTriePattern<Char, String>() {
+open class PairedTrieDict: PairedTriePattern<Char, String>() {
   override fun split(value: String) = value.asIterable()
   override fun join(parts: Iterable<Char>) = parts.joinToString("")
+}
+
+fun KeywordPattern<String>.greedy() = Piped(this) { it ?: //FIXME is not possible
+  try { takeWhile { it !in this@greedy.routes }.joinToString("").takeIf(String::isNotEmpty) }
+  catch (_: Feed.End) { notParsed }
 }
 
 abstract class PairedTriePattern<K, V>: TriePattern<K, V>() {
@@ -1114,10 +1119,6 @@ abstract class PairedTriePattern<K, V>: TriePattern<K, V>() {
     back[split(value)] = join(key)
     return super.set(key, value)
   }
-}
-fun KeywordPattern<String>.greedy() = Piped(this) { it ?:
-  try { takeWhile { it !in this@greedy.routes }.joinToString("").takeIf(String::isNotEmpty) }
-  catch (_: Feed.End) { notParsed }
 }
 
 open class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
@@ -1146,7 +1147,7 @@ open class Trie<K, V>(var value: V?) {
   constructor(): this(null)
   val routes: MutableMap<K, Trie<K, V>> by lazy(::mutableMapOf)
 
-  open operator fun get(key: Iterable<K>): V? = getPath(key).value
+  operator fun get(key: Iterable<K>): V? = getPath(key).value
   open operator fun set(key: Iterable<K>, value: V) { getOrCreatePath(key).value = value }
   operator fun contains(key: Iterable<K>) = try { this[key] != null } catch (_: NoSuchElementException) { false }
   fun toMap() = collectKeys().toMap { k -> k to this[k]!! }
