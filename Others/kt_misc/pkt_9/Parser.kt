@@ -1292,43 +1292,51 @@ sealed class Deep<T, L> { interface HasItem<T> { val item: T }
 typealias LayoutRec<T, L> = Pair<Int, List<Deep<T, L>>>?
 open class LayoutPattern<IN, T, L>(val item: Pattern<IN, T>, val tail: Pattern<IN, L>, val layout: Pattern<IN, Int>): PreetyAny(), Pattern<IN, Deep<T, L>> {
   protected open val layoutZero = 0
-  protected open fun rescueLayout(s: Feed<IN>, item: T): Int? = notParsed
-  protected open fun rescueLayout(s: Feed<IN>, item: T, tail: L): Int? = notParsed
+  protected open fun rescueLayout(s: Feed<IN>, parsed: T): Int? = notParsed
+  protected open fun rescueLayout(s: Feed<IN>, parsed: T, parsedTail: L): Int? = notParsed
 
   protected open fun onRootIndent(s: Feed<IN>, closed: Int) { if (closed != 0) s.error("terminate indent not zero: $closed") }
-  protected open fun onNestIndent(s: Feed<IN>, n0: Int, closed: Int) {}
-  protected open fun onTermIndent(s: Feed<IN>, n0: Int, n: Int, item: T) = when {
+  protected open fun onNestIndent(s: Feed<IN>, n0: Int, n1: Int, closed: Int, layerItems: MutableList<Deep<T, L>>) {
+    if (n1 <= n0) s.error("bad layout-open decrement ($n0 => $n1)")
+  }
+  protected open fun onTermIndent(s: Feed<IN>, n0: Int, n: Int, parsed: T) = when {
     n <= n0 -> Unit
-    n0 < n -> null.also { s.error("illegal layout increment ($n0 => $n) near $item") }
+    n0 < n -> s.error("illegal layout increment ($n0 => $n) near $parsed")
     else -> impossible()
   }
 
-  override fun read(s: Feed<IN>): Deep<T, L>? {
-    fun readRec(n0: Int): LayoutRec<T, L> {
-      val layerItems: MutableList<Deep<T, L>> = mutableListOf()
-      var parsed: T? = item.read(s)
-      var parsedTail: L? = tail.read(s)
-      while (parsed != notParsed) {
-        if (parsedTail != notParsed) {
-          val n1 = layout.read(s) ?: rescueLayout(s, parsed, parsedTail) ?: return notParsed
-          val (closed, items1) = readRec(n1) ?: return notParsed
-          val layer1 = Deep.Nest(parsed, parsedTail, items1)
-          layerItems.add(layer1)
-          onNestIndent(s, n0, closed)
-          if (closed < n0) return Pair(closed, layerItems)
-        } else {
-          val term = Deep.Term<T, L>(parsed)
-          layerItems.add(term)
-          val n = layout.read(s) ?: rescueLayout(s, parsed) ?: return notParsed
-          onTermIndent(s, n0, n, parsed)
-          if (n < n0) return Pair(n, layerItems)
-        }
-        parsed = item.read(s)
-        parsedTail = tail.read(s)
+  /** [Pattern.show] for resulting pattern should be general, since [show] does not use this function */
+  protected open fun decideLayerItem(parsed: T, parsedTail: L): Pattern<IN, T> = item
+
+  fun readRec(s: Feed<IN>, layerItem: Pattern<IN, T>, n0: Int): LayoutRec<T, L> {
+    val layerItems: MutableList<Deep<T, L>> = mutableListOf()
+    var parsed: T? = layerItem.read(s)
+    var parsedTail: L? = tail.read(s)
+    while (parsed != notParsed) {
+      if (parsedTail != notParsed) {
+        val n1 = layout.read(s) ?: rescueLayout(s, parsed, parsedTail) ?: return notParsed
+        val (closed, items1) = readRec(s, decideLayerItem(parsed, parsedTail), n1) ?: return notParsed
+        val layer1 = Deep.Nest(parsed, parsedTail, items1)
+        layerItems.add(layer1)
+        onNestIndent(s, n0, n1, closed, layerItems)
+        if (closed < n0) return Pair(closed, layerItems)
+      } else {
+        val term = Deep.Term<T, L>(parsed)
+        layerItems.add(term)
+        val n = layout.read(s) ?: rescueLayout(s, parsed) ?: return notParsed
+        onTermIndent(s, n0, n, parsed)
+        if (n < n0) return Pair(n, layerItems)
       }
-      return Pair(n0, layerItems)
+      parsed = layerItem.read(s)
+      parsedTail = tail.read(s)
     }
-    val (closed, layout) = readRec(layoutZero) ?: return notParsed
+    return Pair(n0, layerItems)
+  }
+  fun readRec(s: Feed<IN>, n0: Int) = readRec(s, item, n0)
+  fun readRec(s: Feed<IN>) = readRec(s, layoutZero)
+
+  override fun read(s: Feed<IN>): Deep<T, L>? {
+    val (closed, layout) = readRec(s) ?: return notParsed
     onRootIndent(s, closed)
     return Deep.Root(layout)
   }
