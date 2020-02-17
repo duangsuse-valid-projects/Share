@@ -1099,9 +1099,14 @@ val noun = Repeat(asList(), dict)
 */
 typealias KeywordPattern<V> = TriePattern<Char, V>
 
-open class PairedDict: PairedTriePattern<Char, String>() {
+open class PairedTrieDict: PairedTriePattern<Char, String>() {
   override fun split(value: String) = value.asIterable()
   override fun join(parts: Iterable<Char>) = parts.joinToString("")
+}
+
+fun KeywordPattern<String>.greedy() = Piped(this) { it ?: //FIXME is not possible
+  try { takeWhile { it !in this@greedy.routes }.joinToString("").takeIf(String::isNotEmpty) }
+  catch (_: Feed.End) { notParsed }
 }
 
 abstract class PairedTriePattern<K, V>: TriePattern<K, V>() {
@@ -1114,10 +1119,6 @@ abstract class PairedTriePattern<K, V>: TriePattern<K, V>() {
     back[split(value)] = join(key)
     return super.set(key, value)
   }
-}
-fun KeywordPattern<String>.greedy() = Piped(this) { it ?:
-  try { takeWhile { it !in this@greedy.routes }.joinToString("").takeIf(String::isNotEmpty) }
-  catch (_: Feed.End) { notParsed }
 }
 
 open class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
