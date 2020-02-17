@@ -323,10 +323,16 @@ fun <T> asList() = object: EffectFold<T, MutableList<T>, List<T>>() {
   override fun makeBase(): MutableList<T> = mutableListOf()
   override fun onAccept(base: MutableList<T>, value: T) { base.add(value) }
 }
-fun asString() = object: ConvertFold<Char, StringBuilder, String>() {
+
+abstract class  AsStringBuild<T>: ConvertFold<T, StringBuilder, String>() {
   override val initial get() = StringBuilder()
-  override fun join(base: StringBuilder, value: Char) = base.append(value)
   override fun convert(base: StringBuilder) = base.toString()
+}
+fun asString() = object: AsStringBuild<Char>() {
+  override fun join(base: StringBuilder, value: Char) = base.append(value)
+}
+fun joinAsString() = object: AsStringBuild<String>() {
+  override fun join(base: StringBuilder, value: String) = base.append(value)
 }
 
 fun <T, R> Iterable<T>.fold(fold: Fold<T, R>): R {
@@ -347,7 +353,7 @@ fun <IN> Feed<IN>.consumeIf(predicate: Predicate<IN>): IN?
   = peek.takeIf(predicate)?.let { consumeOrNull() }
 
 fun <IN> Feed<IN>.takeWhile(predicate: Predicate<IN>): Sequence<IN>
-  = sequence { while (true) yield(consumeIf(predicate) ?: break) }
+  = sequence { while (predicate(peek)) yield(consume()) }
 
 fun <IN> Feed<IN>.asSequence(): Sequence<IN>
   = sequence { while (true) yield(consumeOrNull() ?: break) }
@@ -1093,6 +1099,27 @@ val noun = Repeat(asList(), dict)
 */
 typealias KeywordPattern<V> = TriePattern<Char, V>
 
+open class PairedDict: PairedTriePattern<Char, String>() {
+  override fun split(value: String) = value.asIterable()
+  override fun join(parts: Iterable<Char>) = parts.joinToString("")
+}
+
+abstract class PairedTriePattern<K, V>: TriePattern<K, V>() {
+  abstract fun split(value: V): Iterable<K>
+  abstract fun join(parts: Iterable<K>): V
+  val back = TriePattern<K, V>()
+  val map: MutableMap<Iterable<K>, V> = mutableMapOf()
+  override fun set(key: Iterable<K>, value: V) {
+    map[key] = value
+    back[split(value)] = join(key)
+    return super.set(key, value)
+  }
+}
+fun KeywordPattern<String>.greedy() = Piped(this) { it ?:
+  try { takeWhile { it !in this@greedy.routes }.joinToString("").takeIf(String::isNotEmpty) }
+  catch (_: Feed.End) { notParsed }
+}
+
 open class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
   override fun read(s: Feed<K>): V? {
     var point: Trie<K, V> = this
@@ -1119,8 +1146,8 @@ open class Trie<K, V>(var value: V?) {
   constructor(): this(null)
   val routes: MutableMap<K, Trie<K, V>> by lazy(::mutableMapOf)
 
-  operator fun get(key: Iterable<K>): V? = getPath(key).value
-  operator fun set(key: Iterable<K>, value: V) { getOrCreatePath(key).value = value }
+  open operator fun get(key: Iterable<K>): V? = getPath(key).value
+  open operator fun set(key: Iterable<K>, value: V) { getOrCreatePath(key).value = value }
   operator fun contains(key: Iterable<K>) = try { this[key] != null } catch (_: NoSuchElementException) { false }
   fun toMap() = collectKeys().toMap { k -> k to this[k]!! }
 
