@@ -1277,12 +1277,12 @@ sealed class Deep<T, L> { interface HasItem<T> { val item: T }
   data class Root<T, L>(val nodes: List<Deep<T, L>>): Deep<T, L>()
   data class Nest<T, L>(override val item: T, val tail: L, val children: List<Deep<T, L>>): Deep<T, L>(), HasItem<T>
   data class Term<T, L>(override val item: T): Deep<T, L>(), HasItem<T>
-  fun <R> visitBy(visitor: VisitorOn<T, L, R>): R = when (this) {
+  fun <R> visitBy(visitor: Visitor<T, L, R>): R = when (this) {
     is Root -> visitor.see(this)
     is Nest -> visitor.see(this)
     is Term -> visitor.see(this)
   }
-  interface VisitorOn<T, L, out R> {
+  interface Visitor<T, L, out R> {
     fun see(t: Root<T, L>): R
     fun see(t: Nest<T, L>): R
     fun see(t: Term<T, L>): R
@@ -1294,9 +1294,12 @@ open class LayoutPattern<IN, T, L>(val item: Pattern<IN, T>, val tail: Pattern<I
   protected open val layoutZero = 0
   protected open fun rescueLayout(s: Feed<IN>, item: T): Int? = notParsed
   protected open fun rescueLayout(s: Feed<IN>, item: T, tail: L): Int? = notParsed
+
+  protected open fun onRootIndent(s: Feed<IN>, closed: Int) { if (closed != 0) s.error("terminate indent not zero: $closed") }
+  protected open fun onNestIndent(s: Feed<IN>, n0: Int, closed: Int) {}
   protected open fun onTermIndent(s: Feed<IN>, n0: Int, n: Int, item: T) = when {
     n <= n0 -> Unit
-    n0 < n -> null.also { s.error("illegal layout increment near $item") }
+    n0 < n -> null.also { s.error("illegal layout increment ($n0 => $n) near $item") }
     else -> impossible()
   }
 
@@ -1311,7 +1314,8 @@ open class LayoutPattern<IN, T, L>(val item: Pattern<IN, T>, val tail: Pattern<I
           val (closed, items1) = readRec(n1) ?: return notParsed
           val layer1 = Deep.Nest(parsed, parsedTail, items1)
           layerItems.add(layer1)
-          if (closed > n0) return Pair(closed, layerItems)
+          onNestIndent(s, n0, closed)
+          if (closed < n0) return Pair(closed, layerItems)
         } else {
           val term = Deep.Term<T, L>(parsed)
           layerItems.add(term)
@@ -1324,8 +1328,24 @@ open class LayoutPattern<IN, T, L>(val item: Pattern<IN, T>, val tail: Pattern<I
       }
       return Pair(n0, layerItems)
     }
-    return readRec(layoutZero)?.second?.let { Deep.Root(it) }
+    val (closed, layout) = readRec(layoutZero) ?: return notParsed
+    onRootIndent(s, closed)
+    return Deep.Root(layout)
   }
-  override fun show(s: Output<IN>, value: Deep<T, L>?) {}
+  override fun show(s: Output<IN>, value: Deep<T, L>?) {
+    if (value == null) return
+    value.visitBy(ShowVisitor(s))
+  }
+  private inner class ShowVisitor(private val s: Output<IN>): Deep.Visitor<T, L, Unit> {
+    private var level = layoutZero
+    override fun see(t: Deep.Root<T, L>) { t.nodes.forEach { it.show() } }
+    override fun see(t: Deep.Nest<T, L>) {
+      layout.show(s, level)
+      item.show(s, t.item); tail.show(s, t.tail)
+      ++level; t.children.forEach { it.show() }; --level
+    }
+    override fun see(t: Deep.Term<T, L>) { layout.show(s, level); item.show(s, t.item) }
+    private fun Deep<T, L>.show() = visitBy(this@ShowVisitor)
+  }
   override fun toPreetyDoc() = listOf("Layout", item, tail, layout).preety().colonParens()
 }
