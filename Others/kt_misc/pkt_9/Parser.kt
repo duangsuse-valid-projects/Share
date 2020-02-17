@@ -519,6 +519,9 @@ typealias MonoPatternWrapper<IN, T> = ConvertPatternWrapper<IN, IN, T>
 interface ConstantPattern<IN, T>: Pattern<IN, T> { val constant: T }
 typealias MonoConstantPattern<IN> = ConstantPattern<IN, IN>
 
+class SatisfyToConstant<IN>(self: SatisfyPattern<IN>, override val constant: IN): SatisfyPatternBy<IN>(self), MonoConstantPattern<IN>
+fun <IN> SatisfyPattern<IN>.toConstant(constant: IN) = SatisfyToConstant(this, constant)
+
 //// == OptionalPattern & PatternWrapper ==
 
 abstract class ConvertOptionalPattern<IN, T, T1>(override val item: Pattern<IN, T>, override val defaultValue: T1): PreetyAny(),
@@ -1073,8 +1076,12 @@ open class InfixPattern<IN, ATOM>(val atom: Pattern<IN, ATOM>, val op: Pattern<I
 
 // File: pat/TriePattern
 
-class MapPattern<K, V>(val map: Map<K, V>): PreetyAny(), Pattern<K, V> {
-  override fun read(s: Feed<K>) = map[s.peek]?.let { if (s.isStickyEnd()) null else it }
+class MapPattern<K, V>(val map: Map<K, V>, private val noKey: Feed<K>.(K) -> V? = {null}): PreetyAny(), Pattern<K, V> {
+  override fun read(s: Feed<K>): V? {
+    val key = s.peek; val v = map[key]
+    return if (v != null) if (s.isStickyEnd()) notParsed else v
+    else s.noKey(key)
+  }
   override fun show(s: Output<K>, value: V?) { if (value != null) reverseMap[value]?.let(s) }
   private val reverseMap = map.reversedMap()
   override fun toPreetyDoc() = listOf("map", map).preety().colonParens()

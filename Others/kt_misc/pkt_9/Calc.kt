@@ -3,8 +3,8 @@ import kotlin.math.abs
 val digit = digitFor('0'..'9')
 val binDigit = digitFor('0'..'1')
 
-val hexLower = digitFor('a'..'z', 'a', 10)
-val hexUpper = digitFor('A'..'Z', 'A', 10)
+val hexLower = digitFor('a'..'f', 'a', 10)
+val hexUpper = digitFor('A'..'F', 'A', 10)
 val hexDigit = Decide(digit, hexLower, hexUpper).mergeFirst { if (it in 0..9) 0 else 2 }
 
 val hexPart = Repeat(asInt(16), hexDigit)
