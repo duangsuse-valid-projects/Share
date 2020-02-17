@@ -1189,9 +1189,9 @@ val newlineChar = elementIn('\r', '\n')
 val singleLine = Convert(Seq(::StringTuple, Until(newlineChar, asString(), anyChar), newlineChar.toStringPat()),
   { it[0] + it[1] }, { it.run { tupleOf(::StringTuple, take(length -1), last().toString()) } })
 
-open class TextPattern<T>(item: Pattern<Char, String>, val regex: Regex, val transform: (MatchResult) -> T): ConvertPatternWrapper<Char, String, T>(item) {
-  constructor(regex: Regex, transform: (MatchResult) -> T): this(singleLine, regex, transform)
-  override fun read(s: Feed<Char>): T? = item.read(s)?.let { regex.find(it)?.let(transform) }
+open class TextPattern<T>(item: Pattern<Char, String>, val regex: Regex, val transform: (List<String>) -> T): ConvertPatternWrapper<Char, String, T>(item) {
+  constructor(regex: Regex, transform: (List<String>) -> T): this(singleLine, regex, transform)
+  override fun read(s: Feed<Char>): T? = item.read(s)?.let { regex.find(it)?.groupValues?.let(transform) }
   override open fun show(s: Output<Char>, value: T?) {}
   override fun wrap(item: Pattern<Char, String>) = TextPattern(item, regex, transform)
   override fun toPreetyDoc() = item.toPreetyDoc() + regex.preety().surroundText("/" to "/")
