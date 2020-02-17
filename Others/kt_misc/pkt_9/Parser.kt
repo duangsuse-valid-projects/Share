@@ -888,7 +888,7 @@ fun MonoPair<String>.toCharPat(): MonoPair<MonoConstantPattern<Char>> = map(Stri
 fun MonoPattern<Char>.toStringPat() = Convert(this, Char::toString, String::first)
 fun Seq<Char, Char, CharTuple>.toStringPat() = Convert(this, { it.toArray().joinToString("") }, { tupleOf(::CharTuple, *it.toCharArray().toTypedArray()) })
 
-infix fun MonoPattern<Char>.until(terminate: MonoConstantPattern<Char>)
+infix fun MonoPattern<Char>.until(terminate: MonoPattern<Char>)
   = arrayOf<Pattern<Char, String>>(Until(terminate, asString(), this), terminate.toStringPat())
 
 // File: pat/WrapperCCDP
