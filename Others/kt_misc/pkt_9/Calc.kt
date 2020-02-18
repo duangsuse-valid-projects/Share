@@ -51,8 +51,9 @@ object Calc {
   @JvmStatic fun main(vararg args: String) {
     fun ps1() = print("> ")
     ps1()
+    val input = CharInput.STDIN
     val repl = JoinBy(item('\n'), expr).OnItem { println("= $it"); ps1() }
-    val calcLogs = repl.read(CharInput.STDIN)
+    val calcLogs = input.catchError { repl.read(input) }
     println(calcLogs)
   }
 }

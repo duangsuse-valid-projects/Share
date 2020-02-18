@@ -371,7 +371,7 @@ fun Feed<Char>.readText() = asIterable().joinToString("")
 fun AllFeed.isStickyEnd() = consumeOrNull() == null
 // - Patterns like `Until(elementIn(' '), asString(), anyChar)` will fail when EOS entercounted
 //      easiest workaround: append EOF or terminate char to end of *actual input*
-fun <R> AllFeed.catchError(op: Producer<R>): R? = try { op() } catch (e: IllegalStateException) { this.error(e.message ?: e.toString()); null }
+fun <R> AllFeed.catchError(op: Producer<R>): R? = try { op() } catch (e: Exception) { this.error(e.message ?: e.toString()); null }
 
 //// == SliceFeed & StreamFeed ==
 // SliceFeed { position, viewport }
@@ -541,7 +541,9 @@ typealias MonoPatternWrapper<IN, T> = ConvertPatternWrapper<IN, IN, T>
 interface ConstantPattern<IN, T>: Pattern<IN, T> { val constant: T }
 typealias MonoConstantPattern<IN> = ConstantPattern<IN, IN>
 
+class PatternToConstant<IN, T>(self: Pattern<IN, T>, override val constant: T): Pattern<IN, T> by self, ConstantPattern<IN, T>
 class SatisfyToConstant<IN>(self: SatisfyPattern<IN>, override val constant: IN): SatisfyPatternBy<IN>(self), MonoConstantPattern<IN>
+fun <IN, T> Pattern<IN, T>.toConstant(constant: T) = PatternToConstant(this, constant)
 fun <IN> SatisfyPattern<IN>.toConstant(constant: IN) = SatisfyToConstant(this, constant)
 
 //// == OptionalPattern & PatternWrapper ==
@@ -1042,7 +1044,7 @@ open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN
 
 //// == Merge JoinBy Join ==
 fun <IN, SEP, ITEM> JoinBy<IN, SEP, ITEM>.mergeConstantJoin(constant: SEP) = mergeSecond { (0 until it.size.dec()).map { constant } }
-fun <IN, SEP, ITEM> JoinBy<IN, SEP, ITEM>.mergeConstantJoin() = @Suppress("unchecked_cast") mergeConstantJoin((sep as MonoConstantPattern<SEP>).constant)
+fun <IN, SEP, ITEM> JoinBy<IN, SEP, ITEM>.mergeConstantJoin() = @Suppress("unchecked_cast") mergeConstantJoin((sep as ConstantPattern<IN, SEP>).constant)
 
 fun <IN, ITEM> JoinBy<IN, Char, ITEM>.concatCharJoin() = Convert(this,
   { Tuple2(it.first, it.second.joinToString("")) },
@@ -1108,11 +1110,6 @@ typealias KeywordPattern<V> = TriePattern<Char, V>
 open class PairedTrieDict: PairedTriePattern<Char, String>() {
   override fun split(value: String) = value.asIterable()
   override fun join(parts: Iterable<Char>) = parts.joinToString("")
-}
-
-fun KeywordPattern<String>.greedy() = Piped(this) { it ?: //FIXME is not possible
-  try { takeWhile { it !in this@greedy.routes }.joinToString("").takeIf(String::isNotEmpty) }
-  catch (_: Feed.End) { notParsed }
 }
 
 abstract class PairedTriePattern<K, V>: TriePattern<K, V>() {

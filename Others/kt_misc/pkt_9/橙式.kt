@@ -1,5 +1,10 @@
 typealias Stack = MutableList<PP>
 
+fun KeywordPattern<String>.greedy() = Piped(this) { it ?: //FIXME is not possible
+  try { takeWhile { it !in this@greedy.routes }.joinToString("").takeIf(String::isNotEmpty) }
+  catch (_: Feed.End) { notParsed }
+}
+
 /* Lexer-like algorithm，注意如果要允许翻译则得为维护 TriePattern 的反向映射建立新类，故直接用了 Pattern.show */
 object ChengForm {
   const val 钱符 = '￥'; const val 全角空格 = "　"
