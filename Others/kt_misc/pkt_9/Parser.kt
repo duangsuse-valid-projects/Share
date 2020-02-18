@@ -200,6 +200,7 @@ interface Slice<out E>: Sized {
 }
 
 data class Tuple2<A, B>(var first: A, var second: B)
+data class Tuple3<A, B, C>(var first: A, var second: B, var third: C)
 
 /** Data storage base on array [items], [get]/[set] and destruct, delegate by [index] */
 abstract class Tuple<E>(override val size: Cnt): Slice<E> {
@@ -434,7 +435,7 @@ typealias ErrorMessage = String
 typealias ErrorMessager = ProducerOn<AllFeed, ErrorMessage>
 
 //// == Abstract ==
-// SourceLocation <- SourceLocated { sourceLoc }
+// SourceLocated { sourceLoc: SourceLocation }
 // ParseError(feed, message)
 // Feed.tag: PP?; Feed.error(message)
 
@@ -841,7 +842,7 @@ open class Repeat<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern
     while (true) {
       val parsed = item.read(s) ?: break
       s.catchError { reducer.accept(parsed) } ?: return notParsed
-      ++count; if (!greedy && count.inc() !in bounds) break
+      ++count; if (!greedy && count >= bounds.last) break
     }
     return if (count in bounds) reducer.finish() else notParsed
   }
