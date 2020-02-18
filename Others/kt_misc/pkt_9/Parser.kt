@@ -40,6 +40,7 @@ inline fun <A:T, B:T, reified T> Pair<A, B>.items(): Array<T> = arrayOf(first, s
 fun CharRange.items(): Array<Char> = toList().toCharArray().toTypedArray()
 inline fun <reified T> Collection<T>.toArray() = mapToArray {it}
 
+// reversed map (bi-directional unchecked)
 fun <T, K, V> Iterable<T>.toMap(entry: (T) -> Pair<K, V>): Map<K, V> {
   val map: MutableMap<K, V> = mutableMapOf()
   forEach { val (k, v) = entry(it); map[k] = v }
@@ -348,12 +349,14 @@ interface Feed<out T>: Preety {
 }
 typealias AllFeed = Feed<*>
 
-fun <IN> Feed<IN>.consumeOrNull() = runCatching(::consume).getOrNull()
+fun <IN> Feed<IN>.consumeOrNull() = try { consume() } catch (_: Feed.End) {null}
 fun <IN> Feed<IN>.consumeIf(predicate: Predicate<IN>): IN?
   = peek.takeIf(predicate)?.let { consumeOrNull() }
 
 fun <IN> Feed<IN>.takeWhile(predicate: Predicate<IN>): Sequence<IN>
   = sequence { while (predicate(peek)) yield(consume()) }
+fun <IN> Feed<IN>.takeWhileNotEnd(predicate: Predicate<IN>): Sequence<IN>
+  = sequence { while (true) yield(consumeIf(predicate) ?: break) }
 
 fun <IN> Feed<IN>.asSequence(): Sequence<IN>
   = sequence { while (true) yield(consumeOrNull() ?: break) }
@@ -517,11 +520,23 @@ interface PositivePattern<IN, T>: Pattern<IN, T> {
 interface OptionalPatternKind<T> { val defaultValue: T }
 interface PatternWrapperKind<IN, T> { val item: Pattern<IN, T> }
 
+// == Patterns ==
+// SURDIES (Seq, Until, Repeat, Decide) (item, elementIn, satisfy) (always, never)
+// CCDP (Convert, Contextual, Deferred, Piped)
+// SJIT (SurroundBy, JoinBy) (InfixPattern, TriePattern)
+
+// == Extensions ==
+// ArrangeModel: Sized, Slice, Tuple
+// FoldModel: Fold
+// TextPreety: Preety
+// InputLayer: Feed, Input, CharInput
+
 typealias MonoPattern<IN> = Pattern<IN, IN>
 typealias MonoPositivePattern<IN> = PositivePattern<IN, IN>
 typealias MonoOptionalPattern<IN, T> = ConvertOptionalPattern<IN, IN, T>
 typealias MonoPatternWrapper<IN, T> = ConvertPatternWrapper<IN, IN, T>
 
+//// == Constant Pattern ==
 interface ConstantPattern<IN, T>: Pattern<IN, T> { val constant: T }
 typealias MonoConstantPattern<IN> = ConstantPattern<IN, IN>
 
@@ -529,7 +544,6 @@ class SatisfyToConstant<IN>(self: SatisfyPattern<IN>, override val constant: IN)
 fun <IN> SatisfyPattern<IN>.toConstant(constant: IN) = SatisfyToConstant(this, constant)
 
 //// == OptionalPattern & PatternWrapper ==
-
 abstract class ConvertOptionalPattern<IN, T, T1>(override val item: Pattern<IN, T>, override val defaultValue: T1): PreetyAny(),
   PositivePattern<IN, T1>, OptionalPatternKind<T1>, PatternWrapperKind<IN, T> {
   override fun toPreetyDoc() = listOf(item.preety(), defaultValue.rawPreety()).joinText("?:")
@@ -550,7 +564,7 @@ fun <IN, T> Pattern<IN, T>.toDefault(defaultValue: T) = object: OptionalPattern<
 }
 fun <IN, T> ConstantPattern<IN, T>.toDefault() = toDefault(constant)
 
-//// == Pattern Wrappers ==
+//// == Pattern Wrappers (not, clam) ==
 abstract class PatternWrapper<IN, T>(item: Pattern<IN, T>): ConvertPatternWrapper<IN, T, T>(item) {
   override fun read(s: Feed<IN>) = item.read(s)
   override fun show(s: Output<IN>, value: T?) = item.show(s, value)
@@ -567,19 +581,51 @@ inline operator fun <reified IN, T> PatternWrapper<IN, T>.not() = wrap(!(item as
 inline fun <reified IN, T> PatternWrapper<IN, T>.clam(noinline messager: ErrorMessager)
   = wrap((item as ConvertPatternWrapper<IN, IN, T>).clam(messager))
 
-//// == Error Handling (clam, clamWhile) ==
-// CharInput.addErrorList(): Pair<List<LocatedError>, CharInput>
-// Input.addErrorList(): Pair<List<BoundError>, Input>
-typealias LocatedError = Pair<SourceLocation, ErrorMessage>
-fun CharInput.addErrorList(): Pair<List<LocatedError>, CharInput> {
-  val errorList: MutableList<LocatedError> = mutableListOf()
-  onError = { message -> errorList.add(sourceLoc.clone() to message) }
-  return Pair(errorList, this)
+//// == Abstract ==
+fun <T> Pattern<Char, T>.read(text: String) = read(inputOf(text))
+fun <T> Pattern<Char, T>.readPartial(text: String): Pair<List<LocatedError>, T?> {
+  val (e, input) = inputOf(text).addErrorList()
+  return Pair(e, read(input))
 }
+fun <T> Pattern<Char, T>.show(value: T?): String? {
+  if (value == null) return null
+  val sb = StringBuilder()
+  show({ sb.append(it) }, value)
+  return sb.toString()
+}
+fun <T> Pattern<Char, T>.rebuild(text: String) = show(read(text))
+fun <T> Pattern<Char, T>.rebuild(text: String, operation: ActionOn<T>) = show(read(text)?.apply(operation))
+
+
+fun <IN, T> Pattern<IN, T>.read(vararg items: IN) = read(inputOf(*items))
+fun <IN, T> Pattern<IN, T>.readPartial(vararg items: IN): Pair<List<BoundError<IN>>, T?> {
+  val (e, input) = inputOf(*items).addErrorList()
+  return Pair(e, read(input))
+}
+fun <IN, T> Pattern<IN, T>.show(value: T?): List<IN>? {
+  if (value == null) return null
+  val list: MutableList<IN> = mutableListOf()
+  show({ list.add(it) }, value)
+  return list
+}
+fun <IN, T> Pattern<IN, T>.rebuild(vararg items: IN) = show(read(*items))
+fun <IN, T> Pattern<IN, T>.rebuild(vararg items: IN, operation: ActionOn<T>) = show(read(*items)?.apply(operation))
+
+// File: pat/PatternMisc
+//// == Error Handling (clam, clamWhile) ==
+  
+// Input.addErrorList(): Pair<List<BoundError>, Input>
+// CharInput.addErrorList(): Pair<List<LocatedError>, CharInput>
 typealias BoundError<IN> = Pair<IN, ErrorMessage>
 fun <IN> Input<IN>.addErrorList(): Pair<List<BoundError<IN>>, Input<IN>> {
   val errorList: MutableList<BoundError<IN>> = mutableListOf()
   onError = @Suppress("unchecked_cast") { message -> errorList.add((peek as IN) to message) }
+  return Pair(errorList, this)
+}
+typealias LocatedError = Pair<SourceLocation, ErrorMessage>
+fun CharInput.addErrorList(): Pair<List<LocatedError>, CharInput> {
+  val errorList: MutableList<LocatedError> = mutableListOf()
+  onError = { message -> errorList.add(sourceLoc.clone() to message) }
   return Pair(errorList, this)
 }
 
@@ -618,6 +664,7 @@ fun <IN> SatisfyPattern<IN>.clam(messager: ErrorMessager) = SatisfyClam(this, me
 fun <IN> SatisfyEqualTo<IN>.clam(messager: ErrorMessager) = SatisfyEqualClam(this, messager)
 
 //// == State & Modify State ==
+
 // StatedInput, StatedCharInput, stateAs<ST>
 interface State<out ST> { val state: ST }
 
@@ -649,46 +696,6 @@ class SatisfyEqualAlsoDo<IN>(override val self: SatisfyEqualTo<IN>, op: AlsoDo<I
 fun <IN, T> Pattern<IN, T>.alsoDo(op: AlsoDo<T>) = PatternAlsoDo(this, op)
 fun <IN> SatisfyPattern<IN>.alsoDo(op: AlsoDo<IN>) = SatisfyAlsoDo(this, op)
 fun <IN> SatisfyEqualTo<IN>.alsoDo(op: AlsoDo<IN>) = SatisfyEqualAlsoDo(this, op)
-
-//// == Abstract ==
-fun <T> Pattern<Char, T>.read(text: String) = read(inputOf(text))
-fun <T> Pattern<Char, T>.readPartial(text: String): Pair<List<LocatedError>, T?> {
-  val (e, input) = inputOf(text).addErrorList()
-  return Pair(e, read(input))
-}
-fun <T> Pattern<Char, T>.show(value: T?): String? {
-  if (value == null) return null
-  val sb = StringBuilder()
-  show({ sb.append(it) }, value)
-  return sb.toString()
-}
-fun <T> Pattern<Char, T>.rebuild(text: String) = show(read(text))
-fun <T> Pattern<Char, T>.rebuild(text: String, operation: ActionOn<T>) = show(read(text)?.apply(operation))
-
-
-fun <IN, T> Pattern<IN, T>.read(vararg items: IN) = read(inputOf(*items))
-fun <IN, T> Pattern<IN, T>.readPartial(vararg items: IN): Pair<List<BoundError<IN>>, T?> {
-  val (e, input) = inputOf(*items).addErrorList()
-  return Pair(e, read(input))
-}
-fun <IN, T> Pattern<IN, T>.show(value: T?): List<IN>? {
-  if (value == null) return null
-  val list: MutableList<IN> = mutableListOf()
-  show({ list.add(it) }, value)
-  return list
-}
-fun <IN, T> Pattern<IN, T>.rebuild(vararg items: IN) = show(read(*items))
-fun <IN, T> Pattern<IN, T>.rebuild(vararg items: IN, operation: ActionOn<T>) = show(read(*items)?.apply(operation))
-
-// == Patterns ==
-// SURDIES (Seq, Until, Repeat, Decide) (item, elementIn, satisfy) (always, never)
-// CCDP (Convert, Contextual, Deferred, Piped)
-// SJIT (SurroundBy, JoinBy) (InfixPattern, TriePattern)
-
-// == Extensions ==
-// ArrangeModel: Sized, Slice, Tuple
-// FoldModel: Fold
-// InputLayer: Feed, Input, CharInput
 
 // File: pat/AtomIES
 abstract class SatisfyPattern<IN>: PreetyAny(), MonoPattern<IN> {
@@ -758,18 +765,16 @@ fun <IN, T> never(): Pattern<IN, T> = object: PreetyAny(), Pattern<IN, T> {
 }
 
 // anyChar
-val anyChar = object: SatisfyPattern<Char>() {
-  override fun test(value :Char) = true
-  override fun toPreetyDoc() = "anyChar".preety()
-}
+val anyChar = item<Char>() named "anyChar"
 
-infix fun <IN> SatisfyPattern<IN>.named(name: String) = object: SatisfyPatternBy<IN>(this) {
-  override fun toPreetyDoc() = name.preety()
+infix fun <IN> SatisfyPattern<IN>.named(name: PP) = object: SatisfyPatternBy<IN>(this) {
+  override fun toPreetyDoc() = name
 }
+infix fun <IN> SatisfyPattern<IN>.named(name: String) = named(name.preety())
 
 // File: pat/CombSURD
 
-// SingleFeed and FoldPattern(Until, Repeat)
+// SingleFeed and FoldPattern (Until, Repeat)
 
 /** Peek feed used in [Until], [StickyEnd], etc. */
 class SingleFeed<T>(val value: T): Feed<T> {
@@ -781,8 +786,8 @@ class SingleFeed<T>(val value: T): Feed<T> {
   override fun toPreetyDoc(): PP = "SingleFeed".preety() + value.preety().surroundText(parens) +
     (if (valueConsumed) ".".preety() else Preety.Doc.None)
 }
-fun <IN> Feed<IN>.singleFeed() = Input.Filters(this, SingleFeed(peek))
-fun <IN, T> Pattern<IN, T>.testPeek(s: Feed<IN>) = read(s.singleFeed()) != notParsed
+internal fun <IN> Feed<IN>.singleFeed() = Input.Filters(this, SingleFeed(peek))
+internal fun <IN, T> Pattern<IN, T>.testPeek(s: Feed<IN>) = read(s.singleFeed()) != notParsed
 
 /** Pattern of [Iterable.fold] items, like [Until], [Repeat] */
 abstract class FoldPattern<IN, T, R>(val fold: Fold<T, R>, val item: Pattern<IN, T>): PreetyAny(), Pattern<IN, R> {
@@ -1197,7 +1202,7 @@ operator fun <V> Trie<Char, V>.get(index: CharSequence) = this[index.asIterable(
 operator fun <V> Trie<Char, V>.set(index: CharSequence, value: V) { this[index.asIterable()] = value }
 operator fun <V> Trie<Char, V>.contains(index: CharSequence) = index.asIterable() in this
 
-// File: pat/MiscHelper
+// File: pat/ext/MiscHelper
 typealias CharPattern = MonoPattern<Char>
 typealias CharConstantPattern = MonoConstantPattern<Char>
 
@@ -1232,7 +1237,7 @@ open class TextPattern<T>(item: Pattern<Char, String>, val regex: Regex, val tra
   override fun toPreetyDoc() = item.toPreetyDoc() + regex.preety().surroundText("/" to "/")
 }
 
-// File: NumUnitPattern
+// File: pat/ext/NumUnitPattern
 interface NumOps<NUM: Comparable<NUM>> {
   val zero: NUM
   fun plus(b: NUM, a: NUM): NUM
@@ -1311,7 +1316,7 @@ open class NumUnitTrie<IN, NUM: Comparable<NUM>>(number: Pattern<IN, NUM>, overr
   override val map get() = unit.collectKeys().toMap { k -> k.asIterable() to unit[k]!! }
 }
 
-// File: LayoutPattern
+// File: pat/ext/LayoutPattern
 
 /** item<fun sample()> tail<where> children<...{layout item}> */
 sealed class Deep<T, L> { interface HasItem<T> { val item: T }

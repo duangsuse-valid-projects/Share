@@ -20,7 +20,7 @@ object ChengForm {
     mergeStrings("类" to "interface", "物" to "class", "例" to "object")
     mergeStrings("包" to "package ", "引" to "import ")
   }
-  val 翻译 = Piped(翻译器 addPrefix "+") { it ?: takeWhile { c -> c !in 翻译器.routes && c != 钱符 }.joinToString("").let("-"::plus) }
+  val 翻译 = Piped(翻译器 addPrefix "+") { it ?: takeWhileNotEnd { c -> c !in 翻译器.routes && c != 钱符 }.joinToString("").let("-"::plus) }
 
   val 橙式构词 = Decide(不翻译, 翻译).mergeFirst { if (it[0] == '+') 1 else 0 }
   val 橙式 = Until(EOF, asList(), 橙式构词)

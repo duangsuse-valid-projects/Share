@@ -10,7 +10,7 @@ val hexDigit = Decide(digit, hexLower, hexUpper).mergeFirst { if (it in 0..9) 0 
 val hexPart = Repeat(asInt(16), hexDigit)
 val binPart = Repeat(asInt(2), binDigit)
 
-val sign = Convert(elementIn('+', '-').toDefault('+'), {it=='-'}, {if(it) '-' else '+'})
+val sign = Convert(elementIn('+', '-', '负').toDefault('+'), {it!='+'}, {if(it) '-' else '+'})
 // 0x / 0b / 123
 val octal = elementIn('0'..'8')
 val zeroNotation = Decide(
@@ -25,7 +25,7 @@ val numPart = Contextual<Char, Int, Int>(digit) {
 }.mergeFirst {0}
 
 val int = Convert(Contextual(sign) { sign ->
-  Piped(numPart) { if (sign && it!=notParsed) -it else it }
+  Piped(Decide(numPart, hanNum).mergeFirst {0}) { if (sign && it!=notParsed) -it else it }
 }, { it.second }, { Tuple2(it<0, abs(it)) })
 
 val ws = stringFor(elementIn(' ', '\t'))
@@ -35,17 +35,17 @@ val atomParen = SurroundBy(Pair('(', ')').toPat(), Deferred {expr})
 val atomInt = Convert(Seq(::AnyTuple, ws, int, ws), { it.getAs<Int>(1) }, { anyTupleOf("", it, "") })
 val atom = Decide(atomInt, atomParen).mergeFirst {0}
 val ops = KeywordPattern<InfixOp<Int>>().apply {
-  register("*" infixl 0 join Int::times)
-  register("/" infixl 0 join Int::div)
-  register("+" infixl 1 join Int::plus)
-  register("-" infixl 1 join Int::minus)
+  listOf("*", "乘").forEach { register(it infixl 0 join Int::times) }
+  listOf("/", "除").forEach { register(it infixl 0 join Int::div) }
+  listOf("+", "加") .forEach { register(it infixl 1 join Int::plus) }
+  listOf("-", "减") .forEach { register(it infixl 1 join Int::minus) }
 }
 
 object Calc {
   init {
+    val duoLine = int prefix item('\n')
     expr = object: InfixPattern<Char, Int>(atom, ops) {
-      override fun rescue(s: Feed<Char>, base: Int, op1: InfixOp<Int>)
-        = (int prefix item('\n')).read(s) ?: notParsed.also { s.error("expecting rhs for $base $op1") }
+      override fun rescue(s: Feed<Char>, base: Int, op1: InfixOp<Int>) = duoLine.read(s) ?: notParsed.also { s.error("expecting rhs for $base $op1") }
     }
   }
   @JvmStatic fun main(vararg args: String) {
