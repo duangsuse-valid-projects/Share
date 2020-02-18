@@ -26,26 +26,29 @@ val numPart = Contextual<Char, Int, Int>(digit) {
 
 val int = Convert(Contextual(sign) { sign ->
   Piped(Decide(numPart, hanNum).mergeFirst {0}) { if (sign && it!=notParsed) -it else it }
-}, { it.second }, { Tuple2(it<0, abs(it)) })
+}, { it.second as Number }, { Tuple2(it.toInt()<0, abs(it.toInt())) })
 
-val ws = stringFor(elementIn(' ', '\t'))
+val ws = stringFor(elementIn(' ', '\t')).toConstant(" ")
 
-lateinit var expr: Pattern<Char, Int>
-val atomParen = SurroundBy(Pair('(', ')').toPat(), Deferred {expr})
-val atomInt = Convert(Seq(::AnyTuple, ws, int, ws), { it.getAs<Int>(1) }, { anyTupleOf("", it, "") })
+lateinit var expr: Pattern<Char, Number>
+val atomParen = SurroundBy(parens.toCharPat(), Deferred {expr})
+val atomInt = SurroundBy(ws to ws, int)
 val atom = Decide(atomInt, atomParen).mergeFirst {0}
-val ops = KeywordPattern<InfixOp<Int>>().apply {
-  listOf("*", "乘").forEach { register(it infixl 0 join Int::times) }
-  listOf("/", "除").forEach { register(it infixl 0 join Int::div) }
-  listOf("+", "加") .forEach { register(it infixl 1 join Int::plus) }
-  listOf("-", "减") .forEach { register(it infixl 1 join Int::minus) }
+val ops = KeywordPattern<InfixOp<Number>>().apply {
+  listOf("*", "乘").forEach { register(it infixl 0 join fn(Int::times)) }
+  listOf("/", "除以").forEach { register(it infixl 0 join fn(Int::div)) }
+  register("除" infixl 0 join flip(fn(Int::div)))
+  register("分" infixl 0 join { a: Number, b: Number-> (a.toDouble() / b.toDouble()) as Number })
+  listOf("+", "加") .forEach { register(it infixl 1 join fn(Int::plus)) }
+  listOf("-", "减") .forEach { register(it infixl 1 join fn(Int::minus)) }
 }
+internal fun fn(join: InfixJoin<Int>): InfixJoin<Number> = { a, b -> join(a.toInt(), b.toInt()) }
 
 object Calc {
   init {
     val duoLine = int prefix item('\n')
-    expr = object: InfixPattern<Char, Int>(atom, ops) {
-      override fun rescue(s: Feed<Char>, base: Int, op1: InfixOp<Int>) = duoLine.read(s) ?: notParsed.also { s.error("expecting rhs for $base $op1") }
+    expr = object: InfixPattern<Char, Number>(atom, ops) {
+      override fun rescue(s: Feed<Char>, base: Number, op1: InfixOp<Number>) = duoLine.read(s) ?: notParsed.also { s.error("expecting rhs for $base $op1") }
     }
   }
   @JvmStatic fun main(vararg args: String) {

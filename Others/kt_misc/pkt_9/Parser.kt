@@ -981,8 +981,8 @@ fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.mergeSecond(second: (A) -> B) = Convert
 // "SJIT"
 // SurroundBy(surround: Pair<ConstantPattern?, ConstantPattern?>, item)
 
-typealias SurroundPair<IN> = Pair<MonoConstantPattern<IN>?, MonoConstantPattern<IN>?>
-class SurroundBy<IN, T>(val surround: SurroundPair<IN>, val item: Pattern<IN, T>): PreetyAny(), Pattern<IN, T> {
+typealias SurroundPair<IN, T> = Pair<ConstantPattern<IN, T>?, ConstantPattern<IN, T>?>
+class SurroundBy<IN, T, SURR>(val surround: SurroundPair<IN, SURR>, val item: Pattern<IN, T>): PreetyAny(), Pattern<IN, T> {
   override fun read(s: Feed<IN>): T? {
     val (left, right) = surround
     if (left != null) left.read(s) ?: return notParsed
@@ -991,17 +991,21 @@ class SurroundBy<IN, T>(val surround: SurroundPair<IN>, val item: Pattern<IN, T>
     return parsed
   }
   override fun show(s: Output<IN>, value: T?) {
-    val (left, right) = surround.map { it?.constant }
-    value?.let { left?.let(s); item.show(s, value); right?.let(s) }
+    if (value == null) return
+    val (leftV, rightV) = surround.map { it?.constant }
+    val (left, right) = surround
+    leftV?.let { left!!.show(s, it) }
+    item.show(s, value)
+    rightV?.let { right!!.show(s, it) }
   }
   override fun toPreetyDoc() = item.preety().surround(surround.first.preetyOrNone() to surround.second.preetyOrNone())
 }
 
 //// == Surround Shorthands ==
-infix fun <IN, T> Pattern<IN, T>.prefix(item: MonoConstantPattern<IN>) = SurroundBy(item to null, this)
-infix fun <IN, T> Pattern<IN, T>.suffix(item: MonoConstantPattern<IN>) = SurroundBy(null to item, this)
+infix fun <IN, T, SURR> Pattern<IN, T>.prefix(item: ConstantPattern<IN, SURR>) = SurroundBy(item to null, this)
+infix fun <IN, T, SURR> Pattern<IN, T>.suffix(item: ConstantPattern<IN, SURR>) = SurroundBy(null to item, this)
 
-// JoinBy(join, item) { onItem, onSep, AddListeners(onItem, onSep), OnItem(onItem) }
+// JoinBy(sep, item) { onItem, onSep; AddListeners(onItem, onSep), OnItem(onItem) }
 
 typealias DoubleList<A, B> = Tuple2<List<A>, List<B>>
 open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN, ITEM>): PreetyAny(), Pattern<IN, DoubleList<ITEM, SEP>> {
@@ -1106,23 +1110,7 @@ val dict = KeywordPattern<String>().apply { mergeStrings("hello" to "你好", "w
 val noun = Repeat(asList(), dict)
 */
 typealias KeywordPattern<V> = TriePattern<Char, V>
-
-open class PairedTrieDict: PairedTriePattern<Char, String>() {
-  override fun split(value: String) = value.asIterable()
-  override fun join(parts: Iterable<Char>) = parts.joinToString("")
-}
-
-abstract class PairedTriePattern<K, V>: TriePattern<K, V>() {
-  abstract fun split(value: V): Iterable<K>
-  abstract fun join(parts: Iterable<K>): V
-  val back = TriePattern<K, V>()
-  val map: MutableMap<Iterable<K>, V> = mutableMapOf()
-  override fun set(key: Iterable<K>, value: V) {
-    map[key] = value
-    back[split(value)] = join(key)
-    return super.set(key, value)
-  }
-}
+typealias PairedKeywordPattern<V> = PairedTriePattern<Char, V>
 
 open class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
   override fun read(s: Feed<K>): V? {
@@ -1143,6 +1131,31 @@ open class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
   protected open fun onSuccess(value: V) {}
   protected open fun onFail(): V? = notParsed
   override fun toString() = toPreetyDoc().toString()
+}
+
+/** [TriePattern] paired with [map] */
+open class PairedTriePattern<K, V>: TriePattern<K, V>() {
+  private val pairedMap: MutableMap<Iterable<K>, V> = mutableMapOf()
+  val map: Map<Iterable<K>, V> get() = pairedMap
+  override fun set(key: Iterable<K>, value: V) {
+    pairedMap[key] = value
+    return super.set(key, value)
+  }
+
+  abstract class WithBack<K, V>: PairedTriePattern<K, V>() {
+    abstract fun split(value: V): Iterable<K>
+    abstract fun join(parts: Iterable<K>): V
+    val back = TriePattern<K, V>()
+    override fun set(key: Iterable<K>, value: V) {
+      back[split(value)] = join(key)
+      return super.set(key, value)
+    }
+  }
+}
+
+open class PairedTrieDict: PairedTriePattern.WithBack<Char, String>() {
+  override fun split(value: String) = value.asIterable()
+  override fun join(parts: Iterable<Char>) = parts.joinToString("")
 }
 
 //// == Trie Tree ==
@@ -1199,6 +1212,7 @@ fun <V> Trie<Char, V>.mergeStrings(vararg kvs: Pair<CharSequence, V>) {
 operator fun <V> Trie<Char, V>.get(index: CharSequence) = this[index.asIterable()]
 operator fun <V> Trie<Char, V>.set(index: CharSequence, value: V) { this[index.asIterable()] = value }
 operator fun <V> Trie<Char, V>.contains(index: CharSequence) = index.asIterable() in this
+
 
 // File: pat/ext/MiscHelper
 typealias CharPattern = MonoPattern<Char>
@@ -1309,9 +1323,9 @@ abstract class NumUnitPattern<IN, NUM: Comparable<NUM>>(val number: Pattern<IN, 
   protected open fun joinUnitsShow(s: Output<IN>, u0: NumUnit<NUM, IN>, u1: NumUnit<NUM, IN>) {}
 }
 
-open class NumUnitTrie<IN, NUM: Comparable<NUM>>(number: Pattern<IN, NUM>, override val unit: TriePattern<IN, NUM>,
+open class NumUnitTrie<IN, NUM: Comparable<NUM>>(number: Pattern<IN, NUM>, override val unit: PairedTriePattern<IN, NUM>,
     op: NumOps<NUM>): NumUnitPattern<IN, NUM>(number, unit, op) {
-  override val map get() = unit.collectKeys().toMap { k -> k.asIterable() to unit[k]!! }
+  override val map get() = unit.map
 }
 
 // File: pat/ext/LayoutPattern
@@ -1338,16 +1352,6 @@ open class LayoutPattern<IN, T, L>(val item: Pattern<IN, T>, val tail: Pattern<I
   protected open val layoutZero = 0
   protected open fun rescueLayout(s: Feed<IN>, parsed: T): Int? = notParsed
   protected open fun rescueLayout(s: Feed<IN>, parsed: T, parsedTail: L): Int? = notParsed
-
-  protected open fun onRootIndent(s: Feed<IN>, closed: Int) { if (closed != 0) s.error("terminate indent not zero: $closed") }
-  protected open fun onNestIndent(s: Feed<IN>, n0: Int, n1: Int, closed: Int, layerItems: MutableList<Deep<T, L>>) {
-    if (n1 <= n0) s.error("bad layout-open decrement ($n0 => $n1)")
-  }
-  protected open fun onTermIndent(s: Feed<IN>, n0: Int, n: Int, parsed: T) = when {
-    n <= n0 -> Unit
-    n0 < n -> s.error("illegal layout increment ($n0 => $n) near $parsed")
-    else -> impossible()
-  }
 
   /** [Pattern.show] for resulting pattern should be general, since [show] does not use this function */
   protected open fun decideLayerItem(parsed: T, parsedTail: L): Pattern<IN, T> = item
@@ -1400,4 +1404,14 @@ open class LayoutPattern<IN, T, L>(val item: Pattern<IN, T>, val tail: Pattern<I
     private fun Deep<T, L>.show() = visitBy(this@ShowVisitor)
   }
   override fun toPreetyDoc() = listOf("Layout", item, tail, layout).preety().colonParens()
+
+  protected open fun onRootIndent(s: Feed<IN>, closed: Int) { if (closed != 0) s.error("terminate indent not zero: $closed") }
+  protected open fun onNestIndent(s: Feed<IN>, n0: Int, n1: Int, closed: Int, layerItems: MutableList<Deep<T, L>>) {
+    if (n1 <= n0) s.error("bad layout-open decrement ($n0 => $n1)")
+  }
+  protected open fun onTermIndent(s: Feed<IN>, n0: Int, n: Int, parsed: T) = when {
+    n <= n0 -> Unit
+    n0 < n -> s.error("illegal layout increment ($n0 => $n) near $parsed")
+    else -> impossible()
+  }
 }

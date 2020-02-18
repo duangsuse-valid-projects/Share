@@ -10,7 +10,7 @@ val hanDigit = object: KeywordPattern<Int>() {
     if (value in 1..9) super.show(s, value) else { hanShow(s, value); s('又') }
   }
 }
-val hanUnit = KeywordPattern<Int>().apply {
+val hanUnit = PairedKeywordPattern<Int>().apply {
   mergeStrings("" to 1, "十" to 10, "百" to 100)
   mergeStrings("千" to 1000, "万" to 10000, "亿" to 100000000/*10^8*/)
   listOf("百", "千", "万", "亿").forEach { this[it+"零"] = -this[it]!! }
