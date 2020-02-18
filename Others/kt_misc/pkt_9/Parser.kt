@@ -761,9 +761,9 @@ fun <IN, T> always(value: T): ConstantPattern<IN, T> = object: PreetyAny(), Cons
   override fun show(s: Output<IN>, value: T?) {}
   override fun toPreetyDoc() = listOf("always", value).preety().colonParens()
 }
-fun <IN, T> never(): Pattern<IN, T> = object: PreetyAny(), Pattern<IN, T> {
+fun <IN> never(): Pattern<IN, *> = object: PreetyAny(), Pattern<IN, Nothing> {
   override fun read(s: Feed<IN>) = notParsed
-  override fun show(s: Output<IN>, value: T?) {}
+  override fun show(s: Output<IN>, value: Nothing?) {}
   override fun toPreetyDoc() = "never".preety().surroundText(parens)
 }
 
@@ -1039,6 +1039,10 @@ open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN
   protected open fun onItem(value: ITEM) {}
   protected open fun onSep(value: SEP) {}
 
+  inner class Rescue(private val rescue: (Feed<IN>, DoubleList<ITEM, SEP>) -> ITEM?): JoinBy<IN, SEP, ITEM>(sep, item) {
+    override fun rescue(s: Feed<IN>, doubleList: DoubleList<ITEM, SEP>) = rescue.invoke(s, doubleList)
+  }
+
   inner open class AddListeners(private val onItem: Consumer<ITEM>, private val onSep: Consumer<SEP>): JoinBy<IN, SEP, ITEM>(sep, item) {
     override fun onItem(value: ITEM) = onItem.invoke(value)
     override fun onSep(value: SEP) = onSep.invoke(value)
@@ -1090,6 +1094,10 @@ open class InfixPattern<IN, ATOM>(val atom: Pattern<IN, ATOM>, val op: Pattern<I
     }
   }
   override fun toPreetyDoc() = listOf("InfixChain", op).preety().colonParens()
+  
+  inner class Rescue(private val rescue: (Feed<IN>, ATOM, InfixOp<ATOM>) -> ATOM?): InfixPattern<IN, ATOM>(atom, op) {
+    override fun rescue(s: Feed<IN>, base: ATOM, op1: InfixOp<ATOM>) = rescue.invoke(s, base, op1)
+  }
 }
 
 // File: pat/TriePattern
@@ -1218,7 +1226,7 @@ operator fun <V> Trie<Char, V>.contains(index: CharSequence) = index.asIterable(
 typealias CharPattern = MonoPattern<Char>
 typealias CharConstantPattern = MonoConstantPattern<Char>
 
-fun digitFor(cs: CharRange, zero: Char = '0', pad: Int = 0): Pattern<Char, Int>
+fun digitFor(cs: CharRange, zero: Char = '0', pad: Int = 0): Convert<Char, Char, Int>
   = Convert(elementIn(cs), { (it - zero) +pad }, { zero + (it -pad) })
 
 fun asInt(radix: Int = 10, initial: Int = 0) = JoinFold(initial) { this*radix + it }
