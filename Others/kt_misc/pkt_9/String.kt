@@ -42,7 +42,7 @@ val zeroNotation = Decide(
   StickyEnd(item('0'), 0) { clamWhile(!octal, octal.read(this), "no octal notations") }
 ).discardFirst()
 
-val numPart = Contextual<Char, Int, Number>(digit) {
+val numPart = Contextual(digit) {
   if (it == 0) zeroNotation
   else Contextual(Repeat(asInt(10, it), digit).Many()) {
     Decide(floatingNum(it), always(it as Number)).discardFirst()

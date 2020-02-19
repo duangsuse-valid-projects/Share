@@ -363,10 +363,9 @@ fun <IN> Feed<IN>.asSequence(): Sequence<IN>
   = sequence { while (true) yield(consumeOrNull() ?: break) }
 fun <IN> Feed<IN>.asIterable() = asSequence().asIterable()
 
-fun Feed<Char>.readText() = asIterable().joinToString("")
-
 // NOTES ABOUT Feed:
 // - Feed cannot be constructed using empty input
+fun Feed<Char>.readText() = asIterable().joinToString("")
 // - Feed.peek will yield last item *again* when EOS reached
 fun AllFeed.isStickyEnd() = consumeOrNull() == null
 // - Patterns like `Until(elementIn(' '), asString(), anyChar)` will fail when EOS entercounted
@@ -449,6 +448,7 @@ data class SourceLocation(val file: String, var line: Cnt, var column: Cnt, var 
 }
 
 open class ParseError(val feed: AllFeed, message: ErrorMessage): Error(message.toString())
+
 val AllFeed.tag: PP? get() = (this as? SourceLocated)?.sourceLoc?.tag
 fun AllFeed.error(message: ErrorMessage) = (this as? ErrorListener)?.onError?.invoke(this, message) ?: kotlin.error(message)
 
@@ -465,6 +465,7 @@ open class Input<T>(protected val feed: Feed<T>): PreetyAny(), Feed<T>, ErrorLis
   override val peek get() = feed.peek
   override fun consume() = feed.consume().also(::onItem)
   override fun toPreetyDoc(): PP = "Input".preety() + ":" + feed.toPreetyDoc()
+
   open class Filters<T>(val parent: AllFeed, feed: Feed<T>): Input<T>(feed) {
     init { onError = (parent as? ErrorListener)?.onError ?: onError }
     override fun toPreetyDoc() = parent.toPreetyDoc()
@@ -487,8 +488,12 @@ open class CharInput(feed: Feed<Char>, file: String): Input<Char>(feed), SourceL
   }
   private fun newLine() { ++sourceLoc.line; sourceLoc.column = 0 }
   override fun toPreetyDoc(): PP = super.toPreetyDoc() + ":" + sourceLoc.preety()
+
   companion object {
     val STDIN by lazy { CharInput(ReaderFeed(System.`in`), "<stdin>") }
+  }
+  inner class OnItem(private val onItem: Consumer<Char>): CharInput(feed, sourceLoc.file) {
+    override fun onItem(item: Char) { super.onItem(item); onItem.invoke(item) }
   }
 }
 
@@ -701,7 +706,7 @@ inline fun <reified ST> AllFeed.stateAs(): ST? = (this as? State<ST>)?.state
 // fun Pattern.alsoDo(op); ...
 typealias AlsoDo<IN> = ConsumerOn<AllFeed, IN>
 
-open class PatternAlsoDo<IN, T>(self: Pattern<IN, T>, val op: AlsoDo<T>): PatternWrapper<IN, T>(self) {
+class PatternAlsoDo<IN, T>(self: Pattern<IN, T>, val op: AlsoDo<T>): PatternWrapper<IN, T>(self) {
   override fun read(s: Feed<IN>) = super.read(s)?.also { s.op(it) }
   override fun wrap(item: Pattern<IN, T>) = PatternAlsoDo(this, op)
 }
@@ -771,9 +776,7 @@ fun <IN> satisfy(name: String = "?", predicate: Predicate<IN>) = object: Satisfy
 //// == anyChar & named ==
 val anyChar = item<Char>() named "anyChar"
 
-infix fun <IN> SatisfyPattern<IN>.named(name: PP) = object: SatisfyPatternBy<IN>(this) {
-  override fun toPreetyDoc() = name
-}
+infix fun <IN> SatisfyPattern<IN>.named(name: PP) = object: SatisfyPatternBy<IN>(this) { override fun toPreetyDoc() = name }
 infix fun <IN> SatisfyPattern<IN>.named(name: String) = named(name.preety())
 
 // File: pat/CombSURD
@@ -857,7 +860,7 @@ open class Repeat<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>): FoldPattern
   }
   override fun toPreetyDoc(): PP = item.preety().surroundText(braces)
 
-  // "repeat many" (0..MAX) - Repeat(...).Many(), RepeatUn(...).Many()
+  // "repeat many" (0..MAX) - Repeat(...).Many(); Repeat(...).InBounds(0..n, greedy = true)
   protected open val greedy = true
   protected open val bounds = 1..Cnt.MAX_VALUE
 
@@ -896,7 +899,6 @@ class RepeatUn<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R)
 // item(), item(value)
 // elementIn(vararg values), elementIn(ClosedRange), elementIn(vararg ranges: CharRange)
 // satisfy(predicate)
-// always(value), never()
 
 /* val str = Seq(::StringTuple, item('"').toStringPat(), *anyChar until item('"')) */
 
@@ -954,7 +956,7 @@ class Deferred<IN, T>(val lazyItem: Producer<Pattern<IN, T>>): Pattern<IN, T>, R
 class Piped<IN, T>(item: Pattern<IN, T>, val op: Feed<IN>.(T?) -> T? = {it}): PatternWrapper<IN, T>(item) {
   override fun read(s: Feed<IN>): T? = item.read(s).let { s.op(it) }
   override fun wrap(item: Pattern<IN, T>) = Piped(item, op)
-  override fun toPreetyDoc() = listOf("piped", item).preety().colonParens()
+  override fun toPreetyDoc() = listOf("Piped", item).preety().colonParens()
 }
 
 // Tuple2: flatten(), mergeFirst(first: (B) -> A), mergeSecond(second: (A) -> B)
@@ -962,12 +964,12 @@ class Piped<IN, T>(item: Pattern<IN, T>, val op: Feed<IN>.(T?) -> T? = {it}): Pa
 
 fun <IN, A, B> Pattern<IN, Tuple2<A, B>>.flatten(): Pair<Pattern<IN, A>, Pattern<IN, B>> {
   val item = this; var parsed: Tuple2<A, B>? = null
-  val part1: Pattern<IN, A> = object: PreetyAny(), Pattern<IN, A> {
+  val part1: Pattern<IN, A> = object: PreetyPattern<IN, A>() {
     override fun read(s: Feed<IN>) = item.read(s).also { parsed = it }?.first
     override fun show(s: Output<IN>, value: A?) {}
     override fun toPreetyDoc() = item.toPreetyDoc()
   }
-  val part2: Pattern<IN, B> = object: PreetyAny(), Pattern<IN, B> {
+  val part2: Pattern<IN, B> = object: PreetyPattern<IN, B>() {
     override fun read(s: Feed<IN>) = parsed?.second
     override fun show(s: Output<IN>, value: B?) = item.show(s, parsed)
     override fun toPreetyDoc() = "#2".preety()
@@ -1056,7 +1058,7 @@ open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN
 }
 
 //// == Merge JoinBy Join ==
-fun <IN, SEP, ITEM> JoinBy<IN, SEP, ITEM>.mergeConstantJoin(constant: SEP) = mergeSecond { (1 until it.size).map { constant } }
+fun <IN, SEP, ITEM> JoinBy<IN, SEP, ITEM>.mergeConstantJoin(constant: SEP) = mergeSecond { (1 until it.size).map{constant} }
 fun <IN, SEP, ITEM> JoinBy<IN, SEP, ITEM>.mergeConstantJoin() = mergeConstantJoin(sep.constant ?: sep.item?.constant ?: error("$sep not constant"))
 
 fun <IN, ITEM> JoinBy<IN, Char, ITEM>.concatCharJoin() = Convert(this,
@@ -1099,7 +1101,7 @@ open class InfixPattern<IN, ATOM>(val atom: Pattern<IN, ATOM>, val op: Pattern<I
     }
   }
   override fun toPreetyDoc() = listOf("InfixChain", op).preety().colonParens()
-  
+
   inner class Rescue(private val rescue: (Feed<IN>, ATOM, InfixOp<ATOM>) -> ATOM?): InfixPattern<IN, ATOM>(atom, op) {
     override fun rescue(s: Feed<IN>, base: ATOM, op1: InfixOp<ATOM>) = rescue.invoke(s, base, op1)
   }
@@ -1107,11 +1109,11 @@ open class InfixPattern<IN, ATOM>(val atom: Pattern<IN, ATOM>, val op: Pattern<I
 
 // File: pat/TriePattern
 
-class MapPattern<K, V>(val map: Map<K, V>, private val noKey: Feed<K>.(K) -> V? = {null}): PreetyPattern<K, V>() {
+class MapPattern<K, V>(val map: Map<K, V>, private val noKey: Feed<K>.(K) -> V? = {notParsed}): PreetyPattern<K, V>() {
   override fun read(s: Feed<K>): V? {
-    val key = s.peek; val v = map[key]
-    return if (v != null) if (s.isStickyEnd()) notParsed else v
-    else s.noKey(key)
+    val key = s.peek; val value = map[key]
+    return if (value == null) s.noKey(key)
+    else if (s.isStickyEnd()) notParsed else value
   }
   override fun show(s: Output<K>, value: V?) { if (value != null) reverseMap[value]?.let(s) }
   private val reverseMap = map.reversedMap()
@@ -1123,6 +1125,7 @@ val dict = KeywordPattern<String>().apply { mergeStrings("hello" to "你好", "w
 val noun = Repeat(asList(), dict)
 */
 typealias KeywordPattern<V> = TriePattern<Char, V>
+typealias PairedKeywordPattern<V> = PairedTriePattern<Char, V>
 
 open class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
   override fun read(s: Feed<K>): V? {
@@ -1145,15 +1148,13 @@ open class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
   override fun toString() = toPreetyDoc().toString()
 }
 
-/** [TriePattern] paired with [map] */
 open class PairedTriePattern<K, V>: TriePattern<K, V>() {
-  private val pairedMap: MutableMap<Iterable<K>, V> = mutableMapOf()
   val map: Map<Iterable<K>, V> get() = pairedMap
+  private val pairedMap: MutableMap<Iterable<K>, V> = mutableMapOf()
   override fun set(key: Iterable<K>, value: V) {
     pairedMap[key] = value
     return super.set(key, value)
   }
-
   abstract class BackTrie<K, V>: PairedTriePattern<K, V>() {
     abstract fun split(value: V): Iterable<K>
     abstract fun join(parts: Iterable<K>): V
@@ -1171,8 +1172,7 @@ open class PairedTrieDict: PairedTriePattern.BackTrie<Char, String>() {
 }
 
 //// == Trie Tree ==
-open class Trie<K, V>(var value: V?) {
-  constructor(): this(null)
+open class Trie<K, V>(var value: V?) { constructor(): this(null)
   val routes: MutableMap<K, Trie<K, V>> by lazy(::mutableMapOf)
 
   operator fun get(key: Iterable<K>): V? = getPath(key).value
@@ -1237,10 +1237,12 @@ fun asInt(radix: Int = 10, initial: Int = 0) = JoinFold(initial) { this*radix + 
 fun asLong(radix: Int = 10, initial: Long = 0L): Fold<Int, Long> = ConvertJoinFold(initial) { this*radix + it }
 
 fun stringFor(char: CharPattern) = Repeat(asString(), char).Many()
-fun stringFor(char: CharPattern, surround: MonoPair<CharPattern>)
-  = surround.second.toStringPat().let { terminate -> Seq(::StringTuple, surround.first.toStringPat(), Until(terminate, asString(), char), terminate) }
+fun stringFor(char: CharPattern, surround: MonoPair<CharPattern>): Pattern<Char, StringTuple> {
+  val terminate = surround.second.toStringPat()
+  return Seq(::StringTuple, surround.first.toStringPat(), Until(terminate, asString(), char), terminate)
+}
 
-val EOF = item('\uFFFF')
+val EOF = item('\uFFFF') named "EOF"
 class StickyEnd<IN, T>(override val item: MonoPattern<IN>, val value: T?, val onFail: ProducerOn<Feed<IN>, T?> = {notParsed}): MonoPatternWrapper<IN, T>(item) {
   override fun read(s: Feed<IN>) = if (item.testPeek(s) && s.isStickyEnd()) value else s.onFail()
   override fun show(s: Output<IN>, value: T?) {}
@@ -1248,8 +1250,8 @@ class StickyEnd<IN, T>(override val item: MonoPattern<IN>, val value: T?, val on
   override fun toPreetyDoc() = listOf("stickyEnd", item, value).preety().colonParens()
 }
 
-val newlineChar = elementIn('\r', '\n')
-val singleLine = Convert(Seq(::StringTuple, Until(newlineChar, asString(), anyChar), newlineChar.toStringPat()),
+val newlineChar = elementIn('\r', '\n') named "newline"
+val singleLine = Convert(Seq(::StringTuple, *anyChar until newlineChar),
   { it[0] + it[1] }, { it.run { tupleOf(::StringTuple, take(length -1), last().toString()) } })
 
 open class TextPattern<T>(item: Pattern<Char, String>, val regex: Regex, val transform: (List<String>) -> T): ConvertPatternWrapper<Char, String, T>(item) {
