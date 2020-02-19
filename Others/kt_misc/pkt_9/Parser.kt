@@ -524,7 +524,7 @@ interface OptionalPatternKind<T> { val defaultValue: T }
 interface PatternWrapperKind<IN, T> { val item: Pattern<IN, T> }
 
 // == Patterns ==
-// SURDIES (Seq, Until, Repeat, Decide) (item, elementIn, satisfy) (always, never)
+// SURDIES (Seq, Until, Repeat, Decide) (item, elementIn, satisfy, StickyEnd) (always, never)
 // CCDP (Convert, Contextual, Deferred, Piped)
 // SJIT (SurroundBy, JoinBy) (InfixPattern, TriePattern)
 
@@ -593,7 +593,7 @@ abstract class SatisfyPatternBy<IN>(protected open val self: SatisfyPattern<IN>)
 //// == Optional Patterns (toDefault) ==
 open class OptionalPattern<IN, T>(item: Pattern<IN, T>, defaultValue: T): ConvertOptionalPattern<IN, T, T>(item, defaultValue) {
   override fun read(s: Feed<IN>) = item.read(s) ?: defaultValue
-  override fun show(s: Output<IN>, value: T?) { item.show(s, value ?: defaultValue) }
+  override fun show(s: Output<IN>, value: T?) = item.show(s, value)
 }
 
 fun <IN, T> Pattern<IN, T>.toDefault(defaultValue: T) = OptionalPattern(this, defaultValue)
@@ -628,7 +628,6 @@ fun <T> Pattern<Char, T>.show(value: T?): String? {
 fun <T> Pattern<Char, T>.rebuild(text: String) = show(read(text))
 fun <T> Pattern<Char, T>.rebuild(text: String, operation: ActionOn<T>) = show(read(text)?.apply(operation))
 
-
 fun <IN, T> Pattern<IN, T>.read(vararg items: IN) = read(inputOf(*items))
 fun <IN, T> Pattern<IN, T>.readPartial(vararg items: IN): Pair<List<BoundError<IN>>, T?> {
   val (e, input) = inputOf(*items).addErrorList()
@@ -642,6 +641,14 @@ fun <IN, T> Pattern<IN, T>.show(value: T?): List<IN>? {
 }
 fun <IN, T> Pattern<IN, T>.rebuild(vararg items: IN) = show(read(*items))
 fun <IN, T> Pattern<IN, T>.rebuild(vararg items: IN, operation: ActionOn<T>) = show(read(*items)?.apply(operation))
+
+fun Pattern<Char, *>.test(value: Char) = read(SingleFeed(value)) != notParsed
+fun <IN> Pattern<IN, *>.test(value: IN) = read(SingleFeed(value)) != notParsed
+
+fun <IN, T> Pattern<IN, T>.showBy(show: (Output<IN>, T) -> Unit) = object: Pattern<IN, T> by this {
+  override fun show(s: Output<IN>, value: T?) { if (value != null) show.invoke(s, value) }
+}
+fun <T> Pattern<Char, T>.showByString(string: (T) -> String) = showBy { s, value -> string(value).forEach(s) }
 
 // File: pat/PatternMisc
 //// == Error Handling (addErrorList, clamWhile, clam) ==
@@ -773,8 +780,16 @@ fun <IN> satisfy(name: String = "?", predicate: Predicate<IN>) = object: Satisfy
   override fun toPreetyDoc() = name.preety().surroundText(parens)
 }
 
+class StickyEnd<IN, T>(override val item: MonoPattern<IN>, val value: T?, val onFail: ProducerOn<Feed<IN>, T?> = {notParsed}): MonoPatternWrapper<IN, T>(item) {
+  override fun read(s: Feed<IN>) = if (item.testPeek(s) && s.isStickyEnd()) value else s.onFail()
+  override fun show(s: Output<IN>, value: T?) {}
+  override fun wrap(item: Pattern<IN, IN>) = StickyEnd(item, value, onFail)
+  override fun toPreetyDoc() = listOf("stickyEnd", item, value).preety().colonParens()
+}
+
 //// == anyChar & named ==
 val anyChar = item<Char>() named "anyChar"
+val EOF = item('\uFFFF') named "EOF"
 
 infix fun <IN> SatisfyPattern<IN>.named(name: PP) = object: SatisfyPatternBy<IN>(this) { override fun toPreetyDoc() = name }
 infix fun <IN> SatisfyPattern<IN>.named(name: String) = named(name.preety())
@@ -904,6 +919,7 @@ class RepeatUn<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R)
 
 fun <T> MonoPair<T>.toPat(): MonoPair<MonoConstantPattern<T>> = map(::item)
 fun MonoPair<String>.toCharPat(): MonoPair<MonoConstantPattern<Char>> = map(String::single).toPat()
+fun <IN> Pattern<IN, Int>.toLongPat() = Convert(this, Int::toLong, Long::toInt)
 
 fun MonoPattern<Char>.toStringPat() = Convert(this, Char::toString, String::first)
 fun Seq<Char, Char, CharTuple>.toStringPat() = Convert(this, { it.toArray().joinToString("") }, { tupleOf(::CharTuple, *it.toCharArray().toTypedArray()) })
@@ -918,9 +934,11 @@ infix fun MonoPattern<Char>.until(terminate: MonoPattern<Char>)
 // Deferred(item: Producer<Pattern<IN, R>>)
 // Piped(item, op)
 
-data class ConvertAs<T1, T>(val from: (T) -> T1, val to: (T1) -> T)
+data class ConvertAs<T1, T>(val from: (T) -> T1, val to: (T1) -> T?) {
+  interface Box<T> { val x: T }
+}
 class Convert<IN, T, T1>(item: Pattern<IN, T>, val transform: ConvertAs<T1, T>): ConvertPatternWrapper<IN, T, T1>(item) {
-  constructor(item: Pattern<IN, T>, from: (T) -> T1, to: (T1) -> T): this(item, ConvertAs(from, to))
+  constructor(item: Pattern<IN, T>, from: (T) -> T1, to: (T1) -> T?): this(item, ConvertAs(from, to))
   constructor(item: Pattern<IN, T>, from: (T) -> T1): this(item, from, { unsupported("convert back") })
 
   override fun read(s: Feed<IN>) = item.read(s)?.let(transform.from)
@@ -929,6 +947,10 @@ class Convert<IN, T, T1>(item: Pattern<IN, T>, val transform: ConvertAs<T1, T>):
     item.show(s, value.let(transform.to))
   }
   override fun wrap(item: Pattern<IN, T>) = Convert(item, transform)
+
+  companion object Instance {
+    fun <IN, T, BOX: ConvertAs.Box<T>> typed(type: (T) -> BOX, item: Pattern<IN, T>) = Convert(item, type, ConvertAs.Box<T>::x)
+  }
 }
 
 class Contextual<IN, HEAD, BODY>(val head: Pattern<IN, HEAD>, val body: (HEAD) -> Pattern<IN, BODY>): PreetyPattern<IN, Tuple2<HEAD, BODY>>() {
@@ -1242,12 +1264,34 @@ fun stringFor(char: CharPattern, surround: MonoPair<CharPattern>): Pattern<Char,
   return Seq(::StringTuple, surround.first.toStringPat(), Until(terminate, asString(), char), terminate)
 }
 
-val EOF = item('\uFFFF') named "EOF"
-class StickyEnd<IN, T>(override val item: MonoPattern<IN>, val value: T?, val onFail: ProducerOn<Feed<IN>, T?> = {notParsed}): MonoPatternWrapper<IN, T>(item) {
-  override fun read(s: Feed<IN>) = if (item.testPeek(s) && s.isStickyEnd()) value else s.onFail()
-  override fun show(s: Output<IN>, value: T?) {}
-  override fun wrap(item: Pattern<IN, IN>) = StickyEnd(item, value, onFail)
-  override fun toPreetyDoc() = listOf("stickyEnd", item, value).preety().colonParens()
+abstract class AsFloating<NUM: Comparable<NUM>>(val integral: Long): ConvertFold<Int, Long, NUM>() {
+  override val initial = 0L
+  override fun join(base: Long, value: Int) = base*radix + value
+  override fun convert(base: Long) = op.run { plus(integral.let(::from), fraction(base.let(::from)) ) }
+  protected abstract val op: NumOps<NUM>
+  protected abstract fun fraction(n: NUM): NUM
+  protected open val radix = 10
+}
+
+fun asFloat(integral: Long) = object: AsFloating<Float>(integral) {
+  override val op = FloatOps
+  override tailrec fun fraction(n: Float): Float = if (n < 1.0F) n else fraction(n / radix)
+}
+fun asDouble(integral: Long) = object: AsFloating<Double>(integral) {
+  override val op = DoubleOps
+  override tailrec fun fraction(n: Double): Double = if (n < 1.0) n else fraction(n / radix)
+}
+
+abstract class LexicalBasics {
+  protected val digit = digitFor('0'..'9')
+  protected val sign = Convert(elementIn('+', '-').toDefault('+'), { it == '-' }, { if(it) '-' else null })
+  protected val bin = digitFor('0'..'1'); val octal = digitFor('0'..'8')
+  protected val hex = Decide(digit, digitFor('A'..'F', 'A', 10), digitFor('a'..'f', 'a', 10)).mergeFirst { if (it in 0..9) 0 else 1 }
+
+  protected val white: SatisfyPattern<Char> = elementIn(' ', '\t', '\n', '\r') named "white"
+  protected val ws = stringFor(white).toConstant("")
+  protected val ws1 = Repeat(asString(), white).toConstant(" ")
+  protected fun <T> Pattern<Char, T>.tokenize() = SurroundBy(ws to ws, this)
 }
 
 val newlineChar = elementIn('\r', '\n') named "newline"
@@ -1265,16 +1309,18 @@ open class TextPattern<T>(item: Pattern<Char, String>, val regex: Regex, val tra
 // File: pat/ext/NumUnitPattern
 interface NumOps<NUM: Comparable<NUM>> {
   val zero: NUM
+  fun from(n: Number): NUM
   fun plus(b: NUM, a: NUM): NUM
   fun minus(b: NUM, a: NUM): NUM
   fun times(b: NUM, a: NUM): NUM
   fun div(b: NUM, a: NUM): NUM
   fun rem(b: NUM, a: NUM): NUM
   open class Instance<NUM: Comparable<NUM>>(
-    override val zero: NUM,
+    override val zero: NUM, private val from: (Number) -> NUM,
     private val plus: InfixJoin<NUM>, private val minus: InfixJoin<NUM>,
     private val times: InfixJoin<NUM>, private val div: InfixJoin<NUM>, private val rem: InfixJoin<NUM>
   ): NumOps<NUM> {
+    override fun from(n: Number) = from.invoke(n)
     override fun plus(b: NUM, a: NUM) = plus.invoke(a, b)
     override fun minus(b: NUM, a: NUM) = minus.invoke(a, b)
     override fun times(b: NUM, a: NUM) = times.invoke(a, b)
@@ -1282,10 +1328,10 @@ interface NumOps<NUM: Comparable<NUM>> {
     override fun rem(b: NUM, a: NUM) = rem.invoke(a, b)
   }
 }
-object IntOps: NumOps.Instance<Int>(0, Int::plus, Int::minus, Int::times, Int::div, Int::rem)
-object LongOps: NumOps.Instance<Long>(0L, Long::plus, Long::minus, Long::times, Long::div, Long::rem)
-object FloatOps: NumOps.Instance<Float>(0.0F, Float::plus, Float::minus, Float::times, Float::div, Float::rem)
-object DoubleOps: NumOps.Instance<Double>(0.0, Double::plus, Double::minus, Double::times, Double::div, Double::rem)
+object IntOps: NumOps.Instance<Int>(0, Number::toInt, Int::plus, Int::minus, Int::times, Int::div, Int::rem)
+object LongOps: NumOps.Instance<Long>(0L, Number::toLong, Long::plus, Long::minus, Long::times, Long::div, Long::rem)
+object FloatOps: NumOps.Instance<Float>(0.0F, Number::toFloat, Float::plus, Float::minus, Float::times, Float::div, Float::rem)
+object DoubleOps: NumOps.Instance<Double>(0.0, Number::toDouble, Double::plus, Double::minus, Double::times, Double::div, Double::rem)
 
 /*
 val n=RepeatUn(asInt(), digitFor('0'..'9')) { it.toString().map { it-'0' } }
@@ -1332,7 +1378,7 @@ abstract class NumUnitPattern<IN, NUM: Comparable<NUM>>(val number: Pattern<IN, 
   override fun toPreetyDoc() = listOf("NumUnit", number, unit).preety().colonParens()
 
   protected open fun joinUnitsInitial(s: Feed<IN>, k: NUM, i: NUM): NUM? = op.times(k, i)
-  protected open fun joinUnits(s: Feed<IN>, u0: NumUnit<NUM, IN>, u1: NumUnit<NUM, IN>, acc: NUM, i: NUM): NUM? = op.plus(op.times(u1.first, i), acc)
+  protected open fun joinUnits(s: Feed<IN>, u0: NumUnit<NUM, IN>, u1: NumUnit<NUM, IN>, acc: NUM, i: NUM): NUM? = op.run { plus(times(u1.first, i), acc) }
   protected open fun joinUnitsShow(s: Output<IN>, u0: NumUnit<NUM, IN>, u1: NumUnit<NUM, IN>) {}
 }
 

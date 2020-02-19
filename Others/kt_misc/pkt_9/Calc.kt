@@ -1,18 +1,13 @@
 import kotlin.math.abs
 
-val digit = digitFor('0'..'9')
-val binDigit = digitFor('0'..'1')
+object Calc: LexicalBasics() {
+val wsLn = stringFor(elementIn(' ', '\t')).toConstant("")
 
-val hexLower = digitFor('a'..'f', 'a', 10)
-val hexUpper = digitFor('A'..'F', 'A', 10)
-val hexDigit = Decide(digit, hexLower, hexUpper).mergeFirst { if (it in 0..9) 0 else 2 }
+val hexPart = Repeat(asInt(16), hex)
+val binPart = Repeat(asInt(2), bin)
 
-val hexPart = Repeat(asInt(16), hexDigit)
-val binPart = Repeat(asInt(2), binDigit)
-
-val sign = Convert(elementIn('+', '-', '负').toDefault('+'), {it!='+'}, {if(it) '-' else '+'})
+val hanSign = Convert(elementIn('+', '-', '负').toDefault('+'), {it!='+'}, {if(it) '-' else '+'})
 // 0x / 0b / 123
-val octal = elementIn('0'..'8')
 val zeroNotation = Decide(
   hexPart prefix item('x'),
   binPart prefix item('b'),
@@ -24,15 +19,13 @@ val numPart = Contextual<Char, Int, Int>(digit) {
   else Repeat(asInt(10, it), digit).Many()
 }.mergeFirst {0}
 
-val int = Convert(Contextual(sign) { sign ->
+val int = Convert(Contextual(hanSign) { sign ->
   Piped(Decide(numPart, hanNum).mergeFirst {0}) { if (sign && it!=notParsed) -it else it }
 }, { it.second as Number }, { Tuple2(it.toInt()<0, abs(it.toInt())) })
 
-val ws = stringFor(elementIn(' ', '\t')).toConstant(" ")
-
 lateinit var expr: Pattern<Char, Number>
 val atomParen = SurroundBy(parens.toCharPat(), Deferred {expr})
-val atomInt = SurroundBy(ws to ws, int)
+val atomInt = SurroundBy(wsLn to wsLn, int)
 val atom = Decide(atomInt, atomParen).mergeFirst {0}
 val ops = KeywordPattern<InfixOp<Number>>().apply {
   listOf("*", "乘").forEach { register(it infixl 0 join fn(Int::times)) }
@@ -44,7 +37,6 @@ val ops = KeywordPattern<InfixOp<Number>>().apply {
 }
 internal fun fn(join: InfixJoin<Int>): InfixJoin<Number> = { a, b -> join(a.toInt(), b.toInt()) }
 
-object Calc {
   init {
     val duoLine = int prefix item('\n')
     expr = object: InfixPattern<Char, Number>(atom, ops) {
