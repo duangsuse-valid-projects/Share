@@ -511,7 +511,7 @@ fun inputOf(reader: Reader, file: String = "<read>") = CharInput(ReaderFeed(read
 inline val notParsed: Nothing? get() = null
 typealias Output<T> = Consumer<T>
 
-//// "POP" (Pattern, OptionalPattern, PatternWrapper)
+//// "POPCorn" (Pattern, OptionalPattern, PatternWrapper, ConstantPattern)
 // Pattern { read(Feed), show(Output, value) }
 // val notParsed: Nothing? = null
 
@@ -522,6 +522,7 @@ interface Pattern<IN, T>: Preety {
 }
 interface OptionalPatternKind<T> { val defaultValue: T }
 interface PatternWrapperKind<IN, T> { val item: Pattern<IN, T> }
+interface ConstantPattern<IN, T>: Pattern<IN, T> { val constant: T }
 
 // == Patterns ==
 // SURDIES (Seq, Until, Repeat, Decide) (item, elementIn, satisfy, StickyEnd) (always, never)
@@ -541,6 +542,7 @@ abstract class PreetyPattern<IN, T>: Pattern<IN, T> {
 typealias MonoPattern<IN> = Pattern<IN, IN>
 typealias MonoOptionalPattern<IN, T> = ConvertOptionalPattern<IN, IN, T>
 typealias MonoPatternWrapper<IN, T> = ConvertPatternWrapper<IN, IN, T>
+typealias MonoConstantPattern<IN> = ConstantPattern<IN, IN>
 
 @Suppress("UNCHECKED_CAST")
 inline val <IN, T> Pattern<IN, T>.defaultValue get() = (this as? OptionalPatternKind<T>)?.defaultValue
@@ -550,9 +552,6 @@ inline val <IN, T> Pattern<IN, T>.item get() = (this as? PatternWrapperKind<IN, 
 inline val <IN, T> Pattern<IN, T>.constant get() = (this as? ConstantPattern<IN, T>)?.constant
 
 //// == Constant Pattern ==
-interface ConstantPattern<IN, T>: Pattern<IN, T> { val constant: T }
-typealias MonoConstantPattern<IN> = ConstantPattern<IN, IN>
-
 class PatternToConstant<IN, T>(self: Pattern<IN, T>, override val constant: T): Pattern<IN, T> by self, ConstantPattern<IN, T>
 class SatisfyToConstant<IN>(self: SatisfyPattern<IN>, override val constant: IN): SatisfyPatternBy<IN>(self), MonoConstantPattern<IN>
 
@@ -935,7 +934,7 @@ infix fun MonoPattern<Char>.until(terminate: MonoPattern<Char>)
 // Piped(item, op)
 
 data class ConvertAs<T1, T>(val from: (T) -> T1, val to: (T1) -> T?) {
-  interface Box<T> { val x: T }
+  interface Box<T> { val v: T }
 }
 class Convert<IN, T, T1>(item: Pattern<IN, T>, val transform: ConvertAs<T1, T>): ConvertPatternWrapper<IN, T, T1>(item) {
   constructor(item: Pattern<IN, T>, from: (T) -> T1, to: (T1) -> T?): this(item, ConvertAs(from, to))
@@ -947,11 +946,8 @@ class Convert<IN, T, T1>(item: Pattern<IN, T>, val transform: ConvertAs<T1, T>):
     item.show(s, value.let(transform.to))
   }
   override fun wrap(item: Pattern<IN, T>) = Convert(item, transform)
-
-  companion object Instance {
-    fun <IN, T, BOX: ConvertAs.Box<T>> typed(type: (T) -> BOX, item: Pattern<IN, T>) = Convert(item, type, ConvertAs.Box<T>::x)
-  }
 }
+infix fun <IN, T, BOX: ConvertAs.Box<T>> Pattern<IN, T>.typed(type: (T) -> BOX) = Convert(this, type, ConvertAs.Box<T>::v)
 
 class Contextual<IN, HEAD, BODY>(val head: Pattern<IN, HEAD>, val body: (HEAD) -> Pattern<IN, BODY>): PreetyPattern<IN, Tuple2<HEAD, BODY>>() {
   override fun read(s: Feed<IN>): Tuple2<HEAD, BODY>? {
@@ -1059,7 +1055,7 @@ open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN
     if (value == null) return
     val (values, sepratorList) = value
     val seprators = sepratorList.iterator()
-    item.show(s, values.first())
+    item.show(s, values.firstOrNull() ?: return)
     try { values.drop(1).forEach { sep.show(s, seprators.next()); item.show(s, it) } }
     catch (_: NoSuchElementException) { error("Missing seprator: ${sepratorList.size} vs. ${values.size}") }
   }
@@ -1080,7 +1076,7 @@ open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN
 }
 
 //// == Merge JoinBy Join ==
-fun <IN, SEP, ITEM> JoinBy<IN, SEP, ITEM>.mergeConstantJoin(constant: SEP) = mergeSecond { (1 until it.size).map{constant} }
+fun <IN, SEP, ITEM> JoinBy<IN, SEP, ITEM>.mergeConstantJoin(constant: SEP) = mergeSecond { (1..it.lastIndex).map{constant} }
 fun <IN, SEP, ITEM> JoinBy<IN, SEP, ITEM>.mergeConstantJoin() = mergeConstantJoin(sep.constant ?: sep.item?.constant ?: error("$sep not constant"))
 
 fun <IN, ITEM> JoinBy<IN, Char, ITEM>.concatCharJoin() = Convert(this,
@@ -1292,6 +1288,11 @@ abstract class LexicalBasics {
   protected val ws = stringFor(white).toConstant("")
   protected val ws1 = Repeat(asString(), white).toConstant(" ")
   protected fun <T> Pattern<Char, T>.tokenize() = SurroundBy(ws to ws, this)
+  protected fun <T> Pattern<Char, T>.split() = SurroundBy(ws1 to ws1, this)
+  
+  companion object Helper {
+    fun itemNocase(char: Char) = elementIn(char.toUpperCase(), char).toConstant(char)
+  }
 }
 
 val newlineChar = elementIn('\r', '\n') named "newline"
@@ -1425,7 +1426,7 @@ open class LayoutPattern<IN, T, L>(val item: Pattern<IN, T>, val tail: Pattern<I
         val (closed, items1) = readRec(s, decideLayerItem(parsed, parsedTail), n1) ?: return notParsed
         val layer1 = Deep.Nest(parsed, parsedTail, items1)
         layerItems.add(layer1)
-        onNestIndent(s, n0, n1, closed, layerItems)
+        onNestIndent(s, n0, n1, closed, parsedTail, layerItems)
         if (closed < n0) return Pair(closed, layerItems)
       } else {
         val term = Deep.Term<T, L>(parsed)
@@ -1465,7 +1466,7 @@ open class LayoutPattern<IN, T, L>(val item: Pattern<IN, T>, val tail: Pattern<I
   override fun toPreetyDoc() = listOf("Layout", item, tail, layout).preety().colonParens()
 
   protected open fun onRootIndent(s: Feed<IN>, closed: Int) { if (closed != 0) s.error("terminate indent not zero: $closed") }
-  protected open fun onNestIndent(s: Feed<IN>, n0: Int, n1: Int, closed: Int, layerItems: MutableList<Deep<T, L>>) {
+  protected open fun onNestIndent(s: Feed<IN>, n0: Int, n1: Int, closed: Int, parsedTail: L, layerItems: MutableList<Deep<T, L>>) {
     if (n1 <= n0) s.error("bad layout-open decrement ($n0 => $n1)")
   }
   protected open fun onTermIndent(s: Feed<IN>, n0: Int, n: Int, parsed: T) = when {
