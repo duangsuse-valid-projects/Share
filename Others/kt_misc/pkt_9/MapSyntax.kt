@@ -14,8 +14,10 @@ val mapPart = SurroundBy(clamly(braces), comma seprated kv)
 val map = Convert(mapPart, { it.toMap() }, { it.toList() })
 
 @JvmStatic fun main(vararg args: String) {
-  val parsed = map.read(CharInput.STDIN.withState(ExpectClose()))
+  val (e, input) = CharInput.STDIN.withState(ExpectClose()).addErrorList()
+  val parsed = map.read(input)
   println(parsed)
   println(map.show(parsed))
+  println(e)
 }
 }

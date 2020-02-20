@@ -1042,7 +1042,7 @@ infix fun <IN, T, SURR> Pattern<IN, T>.suffix(item: ConstantPattern<IN, SURR>) =
 
 typealias DoubleList<A, B> = Tuple2<List<A>, List<B>>
 open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN, ITEM>): PreetyPattern<IN, DoubleList<ITEM, SEP>>() {
-  protected open fun rescue(s: Feed<IN>, doubleList: DoubleList<ITEM, SEP>): ITEM? = notParsed.also { s.error("expecting item for last seprator") }
+  protected open fun rescue(s: Feed<IN>, doubleList: DoubleList<ITEM, SEP>): ITEM? = notParsed.also { s.error("expecting item for last seprator $sep") }
   override fun read(s: Feed<IN>): DoubleList<ITEM, SEP>? {
     val items: MutableList<ITEM> = mutableListOf()
     val seprators: MutableList<SEP> = mutableListOf()
@@ -1314,7 +1314,7 @@ abstract class LexicalBasics {
       sourceLoc?.let { stateAs<ExpectClose>()?.add(pair, it.clone()) }
     } to pair.second.clam {
       val fromTag = stateAs<ExpectClose>()?.remove(pair)?.let {" (from ${it.tag})"} ?: ""
-      "$head`${pair.second}'$fromTag"
+      "$head${pair.second}$fromTag"
     }
     fun clamly(pair: MonoPair<String>) = clamly(pair.toCharPat())
   }
