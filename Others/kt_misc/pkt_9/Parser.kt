@@ -956,6 +956,7 @@ class Convert<IN, T, T1>(item: Pattern<IN, T>, val transform: ConvertAs<T1, T>):
   override fun wrap(item: Pattern<IN, T>) = Convert(item, transform)
 }
 infix fun <IN, T, BOX: ConvertAs.Box<T>> Pattern<IN, T>.typed(type: (T) -> BOX) = Convert(this, type, ConvertAs.Box<T>::v)
+fun <IN, T:T1, T1> Pattern<IN, T>.force() = @Suppress("unchecked_cast") Convert(this, { it as T1 }, { it as T })
 
 class Contextual<IN, HEAD, BODY>(val head: Pattern<IN, HEAD>, val body: (HEAD) -> Pattern<IN, BODY>): PreetyPattern<IN, Tuple2<HEAD, BODY>>() {
   override fun read(s: Feed<IN>): Tuple2<HEAD, BODY>? {
@@ -1298,9 +1299,13 @@ abstract class LexicalBasics {
   protected val bin = digitFor('0'..'1'); val octal = digitFor('0'..'8')
   protected val hex = Decide(digit, digitFor('A'..'F', 'A', 10), digitFor('a'..'f', 'a', 10)).mergeFirst { if (it in 0..9) 0 else 1 }
 
+  protected val numInt = RepeatUn(asInt(), digit) { i -> i.toString().map { it - '0' } }
+  protected val numLong = RepeatUn(asLong(), digit) { i -> i.toString().map { it - '0' } }
+
   protected open val white: SatisfyPattern<Char> = elementIn(' ', '\t', '\n', '\r') named "white"
   protected val ws by lazy(LazyThreadSafetyMode.NONE) { stringFor(white).toConstant("") }
   protected val ws1 by lazy(LazyThreadSafetyMode.NONE) { Repeat(asString(), white).toConstant(" ") }
+
   protected fun <T> Pattern<Char, T>.tokenize() = SurroundBy(ws to ws, this)
   protected fun <T> Pattern<Char, T>.tokenizePunction() = SurroundBy(ws to ws.toConstant(" "), this)
   protected fun <T> Pattern<Char, T>.split() = SurroundBy(ws to ws1, this)
@@ -1320,12 +1325,8 @@ abstract class LexicalBasics {
   }
   class ExpectClose {
     private val map: MutableMap<Any, MutableList<SourceLocation>> = mutableMapOf()
-    fun add(id: Any, sourceLoc: SourceLocation) {
-      map.getOrPut(id, ::mutableListOf).add(sourceLoc)
-    }
-    fun remove(id: Any): SourceLocation {
-      return map.getValue(id).removeLast()
-    }
+    fun add(id: Any, sourceLoc: SourceLocation) { map.getOrPut(id, ::mutableListOf).add(sourceLoc) }
+    fun remove(id: Any): SourceLocation = map.getValue(id).removeLast()
   }
 }
 
