@@ -1263,35 +1263,8 @@ operator fun <V> Trie<Char, V>.contains(index: CharSequence) = index.asIterable(
 typealias CharPattern = MonoPattern<Char>
 typealias CharConstantPattern = MonoConstantPattern<Char>
 
-fun digitFor(cs: CharRange, zero: Char = '0', pad: Int = 0): Convert<Char, Char, Int>
-  = Convert(elementIn(cs), { (it - zero) +pad }, { zero + (it -pad) })
-
 fun asInt(radix: Int = 10, initial: Int = 0) = JoinFold(initial) { this*radix + it }
 fun asLong(radix: Int = 10, initial: Long = 0L): Fold<Int, Long> = ConvertJoinFold(initial) { this*radix + it }
-
-fun stringFor(char: CharPattern) = Repeat(asString(), char).Many()
-fun stringFor(char: CharPattern, surround: MonoPair<CharPattern>): Pattern<Char, StringTuple> {
-  val terminate = surround.second.toStringPat()
-  return Seq(::StringTuple, surround.first.toStringPat(), Until(terminate, asString(), char), terminate)
-}
-
-abstract class AsFloating<NUM: Comparable<NUM>>(val integral: Long): ConvertFold<Int, Long, NUM>() {
-  override val initial = 0L
-  override fun join(base: Long, value: Int) = base*radix + value
-  override fun convert(base: Long) = op.run { plus(integral.let(::from), fraction(base.let(::from)) ) }
-  protected abstract val op: NumOps<NUM>
-  protected abstract fun fraction(n: NUM): NUM
-  protected open val radix = 10
-}
-
-fun asFloat(integral: Long) = object: AsFloating<Float>(integral) {
-  override val op = FloatOps
-  override tailrec fun fraction(n: Float): Float = if (n < 1.0F) n else fraction(n / radix)
-}
-fun asDouble(integral: Long) = object: AsFloating<Double>(integral) {
-  override val op = DoubleOps
-  override tailrec fun fraction(n: Double): Double = if (n < 1.0) n else fraction(n / radix)
-}
 
 abstract class LexicalBasics {
   protected val digit = digitFor('0'..'9')
@@ -1322,6 +1295,20 @@ abstract class LexicalBasics {
       "$head${pair.second}$fromTag"
     }
     fun clamly(pair: MonoPair<String>) = clamly(pair.toCharPat())
+
+    fun digitFor(cs: CharRange, zero: Char = '0', pad: Int = 0): Convert<Char, Char, Int>
+      = Convert(elementIn(cs), { (it - zero) +pad }, { zero + (it -pad) })
+
+    fun stringFor(char: CharPattern) = Repeat(asString(), char).Many()
+    fun stringFor(char: CharPattern, surround: MonoPair<CharPattern>): Pattern<Char, StringTuple> {
+      val terminate = surround.second.toStringPat()
+      return Seq(::StringTuple, surround.first.toStringPat(), Until(terminate, asString(), char), terminate)
+    }
+
+    fun prefix1(head: CharPattern, item: Pattern<Char, String>) = Convert(Seq(::StringTuple, head.toStringPat(), item),
+      { it[0] + it[1] }, { it.run { tupleOf(::StringTuple, take(1), drop(1)) } })
+    fun suffix1(tail: CharPattern, item: CharPattern) = Convert(Seq(::StringTuple, *item until tail),
+      { it[0] + it[1] }, { it.run { tupleOf(::StringTuple, take(length -1), last().toString()) } })
   }
   class ExpectClose {
     private val map: MutableMap<Any, MutableList<SourceLocation>> = mutableMapOf()
@@ -1330,9 +1317,27 @@ abstract class LexicalBasics {
   }
 }
 
+abstract class AsFloating<NUM: Comparable<NUM>>(val integral: Long): ConvertFold<Int, Long, NUM>() {
+  override val initial = 0L
+  override fun join(base: Long, value: Int) = base*radix + value
+  override fun convert(base: Long) = op.run { plus(integral.let(::from), fraction(base.let(::from)) ) }
+  protected abstract val op: NumOps<NUM>
+  protected abstract fun fraction(n: NUM): NUM
+  protected open val radix = 10
+}
+
+fun asFloat(integral: Long) = object: AsFloating<Float>(integral) {
+  override val op = FloatOps
+  override tailrec fun fraction(n: Float): Float = if (n < 1.0F) n else fraction(n / radix)
+}
+fun asDouble(integral: Long) = object: AsFloating<Double>(integral) {
+  override val op = DoubleOps
+  override tailrec fun fraction(n: Double): Double = if (n < 1.0) n else fraction(n / radix)
+}
+
+//// == Old-style Parsing (Regex TextPattern, LexerFeed) ==
 val newlineChar = elementIn('\r', '\n') named "newline"
-val singleLine = Convert(Seq(::StringTuple, *anyChar until newlineChar),
-  { it[0] + it[1] }, { it.run { tupleOf(::StringTuple, take(length -1), last().toString()) } })
+val singleLine = LexicalBasics.suffix1(newlineChar, anyChar)
 
 open class TextPattern<T>(item: Pattern<Char, String>, val regex: Regex, val transform: (List<String>) -> T): ConvertPatternWrapper<Char, String, T>(item) {
   constructor(regex: Regex, transform: (List<String>) -> T): this(singleLine, regex, transform)
