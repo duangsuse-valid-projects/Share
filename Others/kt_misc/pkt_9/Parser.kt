@@ -215,7 +215,7 @@ abstract class Tuple<E>(override val size: Cnt): Slice<E> {
     operator fun getValue(self: Tuple<out T>, _p: KProperty<*>): T = self[idx]
     operator fun setValue(self: Tuple<in T>, _p: KProperty<*>, value: T) { self[idx] = value }
   }
-  
+
   override fun equals(other: Any?): Boolean {
     if (this === other) return true
     return if (other !is Tuple<*>) false
@@ -452,7 +452,8 @@ data class SourceLocation(val file: String, var line: Cnt, var column: Cnt, var 
 
 open class ParseError(val feed: AllFeed, message: ErrorMessage): Error(message.toString())
 
-val AllFeed.tag: PP? get() = (this as? SourceLocated)?.sourceLoc?.tag
+val AllFeed.sourceLoc: SourceLocation? get() = (this as? SourceLocated)?.sourceLoc
+val AllFeed.tag: PP? get() = sourceLoc?.tag
 fun AllFeed.error(message: ErrorMessage) = (this as? ErrorListener)?.onError?.invoke(this, message) ?: kotlin.error(message)
 
 //// == Input & CharInput ==
@@ -652,7 +653,7 @@ fun <T> Pattern<Char, T>.showByString(string: (T) -> String) = showBy { s, value
 
 // File: pat/PatternMisc
 //// == Error Handling (addErrorList, clamWhile, clam) ==
-  
+
 // Input.addErrorList(): Pair<List<BoundError>, Input>
 // CharInput.addErrorList(): Pair<List<LocatedError>, CharInput>
 typealias BoundError<IN> = Pair<IN, ErrorMessage>
@@ -664,7 +665,7 @@ fun <IN> Input<IN>.addErrorList(): Pair<List<BoundError<IN>>, Input<IN>> {
 typealias LocatedError = Pair<SourceLocation, ErrorMessage>
 fun CharInput.addErrorList(): Pair<List<LocatedError>, CharInput> {
   val errorList: MutableList<LocatedError> = mutableListOf()
-  onError = { message -> errorList.add(sourceLoc.clone() to message) }
+  onError = { message -> errorList.add(this@addErrorList.sourceLoc.clone() to message) }
   return Pair(errorList, this)
 }
 
@@ -923,8 +924,8 @@ class RepeatUn<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R)
 
 /* val str = Seq(::StringTuple, item('"').toStringPat(), *anyChar until item('"')) */
 
-fun <T> MonoPair<T>.toPat(): MonoPair<MonoConstantPattern<T>> = map(::item)
-fun MonoPair<String>.toCharPat(): MonoPair<MonoConstantPattern<Char>> = map(String::single).toPat()
+fun <T> MonoPair<T>.toPat(): MonoPair<SatisfyEqualTo<T>> = map(::item)
+fun MonoPair<String>.toCharPat(): MonoPair<SatisfyEqualTo<Char>> = map(String::single).toPat()
 fun <IN> Pattern<IN, Int>.toLongPat() = Convert(this, Int::toLong, Long::toInt)
 
 fun MonoPattern<Char>.toStringPat() = Convert(this, Char::toString, String::first)
@@ -1037,11 +1038,11 @@ class SurroundBy<IN, T, SURR>(val surround: SurroundPair<IN, SURR>, item: Patter
 infix fun <IN, T, SURR> Pattern<IN, T>.prefix(item: ConstantPattern<IN, SURR>) = SurroundBy(item to null, this)
 infix fun <IN, T, SURR> Pattern<IN, T>.suffix(item: ConstantPattern<IN, SURR>) = SurroundBy(null to item, this)
 
-// JoinBy(sep, item) { onItem, onSep; AddListeners(onItem, onSep), OnItem(onItem) }
+// JoinBy(sep, item) { onItem, onSep; Rescue(rescue), AddListeners(onItem, onSep), OnItem(onItem) }
 
 typealias DoubleList<A, B> = Tuple2<List<A>, List<B>>
 open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN, ITEM>): PreetyPattern<IN, DoubleList<ITEM, SEP>>() {
-  protected open fun rescue(s: Feed<IN>, doubleList: DoubleList<ITEM, SEP>): ITEM? = notParsed
+  protected open fun rescue(s: Feed<IN>, doubleList: DoubleList<ITEM, SEP>): ITEM? = notParsed.also { s.error("expecting item for last seprator") }
   override fun read(s: Feed<IN>): DoubleList<ITEM, SEP>? {
     val items: MutableList<ITEM> = mutableListOf()
     val seprators: MutableList<SEP> = mutableListOf()
@@ -1064,7 +1065,7 @@ open class JoinBy<IN, SEP, ITEM>(val sep: Pattern<IN, SEP>, val item: Pattern<IN
     val seprators = sepratorList.iterator()
     item.show(s, values.firstOrNull() ?: return)
     try { values.drop(1).forEach { sep.show(s, seprators.next()); item.show(s, it) } }
-    catch (_: NoSuchElementException) { error("Missing seprator: ${sepratorList.size} vs. ${values.size}") }
+    catch (_: NoSuchElementException) { error("missing seprator: ${sepratorList.size} vs. ${values.size}") }
   }
   override fun toPreetyDoc() = listOf(item, sep).preety().joinText("...").surroundText(braces)
 
@@ -1297,14 +1298,34 @@ abstract class LexicalBasics {
   protected val bin = digitFor('0'..'1'); val octal = digitFor('0'..'8')
   protected val hex = Decide(digit, digitFor('A'..'F', 'A', 10), digitFor('a'..'f', 'a', 10)).mergeFirst { if (it in 0..9) 0 else 1 }
 
-  protected val white: SatisfyPattern<Char> = elementIn(' ', '\t', '\n', '\r') named "white"
-  protected val ws = stringFor(white).toConstant("")
-  protected val ws1 = Repeat(asString(), white).toConstant(" ")
+  protected open val white: SatisfyPattern<Char> = elementIn(' ', '\t', '\n', '\r') named "white"
+  protected val ws by lazy(LazyThreadSafetyMode.NONE) { stringFor(white).toConstant("") }
+  protected val ws1 by lazy(LazyThreadSafetyMode.NONE) { Repeat(asString(), white).toConstant(" ") }
   protected fun <T> Pattern<Char, T>.tokenize() = SurroundBy(ws to ws, this)
-  protected fun <T> Pattern<Char, T>.split() = SurroundBy(ws1 to ws1, this)
-  
+  protected fun <T> Pattern<Char, T>.tokenizePunction() = SurroundBy(ws to ws.toConstant(" "), this)
+  protected fun <T> Pattern<Char, T>.split() = SurroundBy(ws to ws1, this)
+
+  protected infix fun <SEP, ITEM> Pattern<Char, SEP>.seprated(item: Pattern<Char, ITEM>): Pattern<Char, List<ITEM>>
+    = JoinBy(this, item).mergeConstantJoin().toDefault(emptyList()).tokenize()
+
   companion object Helper {
     fun itemNocase(char: Char) = elementIn(char.toUpperCase(), char).toConstant(char)
+    fun clamly(pair: MonoPair<SatisfyEqualTo<Char>>, head: String = "expecting ") = pair.first.alsoDo {
+      sourceLoc?.let { stateAs<ExpectClose>()?.add(pair, it.clone()) }
+    } to pair.second.clam {
+      val fromTag = stateAs<ExpectClose>()?.remove(pair)?.let {" (from ${it.tag})"} ?: ""
+      "$head`${pair.second}'$fromTag"
+    }
+    fun clamly(pair: MonoPair<String>) = clamly(pair.toCharPat())
+  }
+  class ExpectClose {
+    private val map: MutableMap<Any, MutableList<SourceLocation>> = mutableMapOf()
+    fun add(id: Any, sourceLoc: SourceLocation) {
+      map.getOrPut(id, ::mutableListOf).add(sourceLoc)
+    }
+    fun remove(id: Any): SourceLocation {
+      return map.getValue(id).removeLast()
+    }
   }
 }
 
@@ -1373,7 +1394,7 @@ typealias NumUnit<NUM, IN> = Pair<NUM, Iterable<IN>>
 /** Pattern for `"2hr1min14s"`, note that reverse map won't be updated every [show] */
 abstract class NumUnitPattern<IN, NUM: Comparable<NUM>>(val number: Pattern<IN, NUM>, open val unit: Pattern<IN, NUM>,
     protected val op: NumOps<NUM>): PreetyPattern<IN, NUM>() {
-  protected open fun rescue(s: Feed<IN>, acc: NUM, i: NUM): NUM? = notParsed
+  protected open fun rescue(s: Feed<IN>, acc: NUM, i: NUM): NUM? = notParsed.also { s.error("expecting unit for $i (accumulated $acc)") }
   override fun read(s: Feed<IN>): NUM? {
     var accumulator: NUM = op.zero
     var lastUnit: NumUnit<NUM, IN>? = null
