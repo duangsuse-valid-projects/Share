@@ -362,6 +362,9 @@ fun <IN> Feed<IN>.takeWhileNotEnd(predicate: Predicate<IN>): Sequence<IN>
 fun <IN> Feed<IN>.asSequence(): Sequence<IN>
   = sequence { while (true) yield(consumeOrNull() ?: break) }
 fun <IN> Feed<IN>.asIterable() = asSequence().asIterable()
+fun <IN> Feed<IN>.toList() = asIterable().toList()
+
+abstract class PreetyFeed<T>: PreetyAny(), Feed<T>
 
 // NOTES ABOUT Feed:
 // - Feed cannot be constructed using empty input
@@ -378,7 +381,7 @@ fun <R> AllFeed.catchError(op: Producer<R>): R? = try { op() } catch (e: Excepti
 //   - IteratorFeed
 //   - ReaderFeed
 
-open class SliceFeed<T>(private val slice: Slice<T>): PreetyAny(), Feed<T> {
+open class SliceFeed<T>(private val slice: Slice<T>): PreetyFeed<T>() {
   init { require(slice.isNotEmpty) {"empty input"} }
   protected var position = 0
   override val peek get() = try { slice[position] }
@@ -392,7 +395,7 @@ open class SliceFeed<T>(private val slice: Slice<T>): PreetyAny(), Feed<T> {
   private fun Idx.inbound() = coerceIn(slice.indices)
 }
 
-abstract class StreamFeed<T, BUF, STREAM>(private val stream: STREAM): PreetyAny(), Feed<T> {
+abstract class StreamFeed<T, BUF, STREAM>(private val stream: STREAM): PreetyFeed<T>() {
   protected abstract fun bufferIterator(stream: STREAM): Iterator<BUF>
   protected abstract fun convert(buffer: BUF): T
   private val iterator = bufferIterator(stream)
@@ -416,7 +419,7 @@ class IteratorFeed<T>(iterator: Iterator<T>): StreamFeed<T, T, Iterator<T>>(iter
 class ReaderFeed(reader: Reader): StreamFeed<Char, Int, Reader>(reader) {
   constructor(s: InputStream, charset: Charset = StandardCharsets.UTF_8): this(InputStreamReader(s, charset))
   override fun bufferIterator(stream: Reader) = object: Iterator<Int> {
-    override fun hasNext() = nextOne != (-1) //impossible
+    override fun hasNext() = nextOne != (-1) //always true
     override fun next() = stream.read()
   }
   override fun convert(buffer: Int) = buffer.toChar()
@@ -456,7 +459,7 @@ fun AllFeed.error(message: ErrorMessage) = (this as? ErrorListener)?.onError?.in
 // Input { onItem, onError }
 // CharInput (STDIN) { isCRLF, eol }
 
-open class Input<T>(protected val feed: Feed<T>): PreetyAny(), Feed<T>, ErrorListener {
+open class Input<T>(protected val feed: Feed<T>): PreetyFeed<T>(), ErrorListener {
   protected open fun onItem(item: T) {}
   override var onError: ConsumerOn<AllFeed, ErrorMessage> = { message ->
     val inputDesc = this.tag ?: (this as? Filters<*>)?.parent?.tag ?: "parse fail near `$peek'"
@@ -466,7 +469,7 @@ open class Input<T>(protected val feed: Feed<T>): PreetyAny(), Feed<T>, ErrorLis
   override fun consume() = feed.consume().also(::onItem)
   override fun toPreetyDoc(): PP = "Input".preety() + ":" + feed.toPreetyDoc()
 
-  open class Filters<T>(val parent: AllFeed, feed: Feed<T>): Input<T>(feed) {
+  class Filters<T>(val parent: AllFeed, feed: Feed<T>): Input<T>(feed) {
     init { onError = (parent as? ErrorListener)?.onError ?: onError }
     override fun toPreetyDoc() = parent.toPreetyDoc()
   }
@@ -535,9 +538,7 @@ interface ConstantPattern<IN, T>: Pattern<IN, T> { val constant: T }
 // TextPreety: Preety
 // InputLayer: Feed, Input, CharInput
 
-abstract class PreetyPattern<IN, T>: Pattern<IN, T> {
-  override fun toString() = toPreetyDoc().toString()
-}
+abstract class PreetyPattern<IN, T>: PreetyAny(), Pattern<IN, T>
 
 typealias MonoPattern<IN> = Pattern<IN, IN>
 typealias MonoOptionalPattern<IN, T> = ConvertOptionalPattern<IN, IN, T>
@@ -792,6 +793,12 @@ val EOF = item('\uFFFF') named "EOF"
 
 infix fun <IN> SatisfyPattern<IN>.named(name: PP) = object: SatisfyPatternBy<IN>(this) { override fun toPreetyDoc() = name }
 infix fun <IN> SatisfyPattern<IN>.named(name: String) = named(name.preety())
+
+infix fun <IN, T> Pattern<IN, T>.named(name: PP) = object: Pattern<IN, T> by this {
+  override fun toPreetyDoc() = name
+  override fun toString() = toPreetyDoc().toString()
+}
+infix fun <IN, T> Pattern<IN, T>.named(name: String) = named(name.preety())
 
 // File: pat/CombSURD
 
@@ -1168,10 +1175,16 @@ open class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
 
 open class PairedTriePattern<K, V>: TriePattern<K, V>() {
   val map: Map<Iterable<K>, V> get() = pairedMap
+  val reverseMap: Map<V, Iterable<K>> get() = pairedReverseMap
   private val pairedMap: MutableMap<Iterable<K>, V> = mutableMapOf()
+  private val pairedReverseMap: MutableMap<V, Iterable<K>> = mutableMapOf()
   override fun set(key: Iterable<K>, value: V) {
-    pairedMap[key] = value
+    pairedMap[key] = value; pairedReverseMap[value] = key
     return super.set(key, value)
+  }
+  override fun show(s: Output<K>, value: V?) {
+    if (value == null) return super.show(s, value)
+    reverseMap[value]?.let { it.forEach(s) }
   }
   abstract class BackTrie<K, V>: PairedTriePattern<K, V>() {
     abstract fun split(value: V): Iterable<K>
@@ -1305,6 +1318,21 @@ open class TextPattern<T>(item: Pattern<Char, String>, val regex: Regex, val tra
   override open fun show(s: Output<Char>, value: T?) {}
   override fun wrap(item: Pattern<Char, String>) = TextPattern(item, regex, transform)
   override fun toPreetyDoc() = item.toPreetyDoc() + regex.preety().surroundText("/" to "/")
+}
+
+abstract class LexerFeed<TOKEN>(feed: Feed<Char>): StreamFeed<TOKEN, TOKEN?, Feed<Char>>(feed) {
+  abstract fun tokenizer(): Pattern<Char, TOKEN>
+  protected abstract val eof: TOKEN
+  override fun bufferIterator(stream: Feed<Char>) = object: Iterator<TOKEN?> {
+    private val token = tokenizer()
+    override fun next() = token.read(stream)
+    override fun hasNext() = nextOne != notParsed
+  }
+  override fun convert(buffer: TOKEN?) = buffer ?: eof
+  override fun consume(): TOKEN {
+    if (nextOne == null) throw Feed.End()
+    else return super.consume()
+  }
 }
 
 // File: pat/ext/NumUnitPattern
