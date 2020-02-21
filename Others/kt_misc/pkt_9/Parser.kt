@@ -1290,6 +1290,7 @@ typealias CharConstantPattern = MonoConstantPattern<Char>
 fun asInt(radix: Int = 10, initial: Int = 0) = JoinFold(initial) { this*radix + it }
 fun asLong(radix: Int = 10, initial: Long = 0L): Fold<Int, Long> = ConvertJoinFold(initial) { this*radix + it }
 
+typealias ClamlyFormat = AllFeed.(MonoPair<SatisfyEqualTo<Char>>) -> String
 abstract class LexicalBasics {
   protected val digit = digitFor('0'..'9')
   protected val sign = Convert(elementIn('+', '-').toDefault('+'), { it == '-' }, { if(it) '-' else null })
@@ -1317,12 +1318,13 @@ abstract class LexicalBasics {
     fun <V> Trie<Char, V>.setNocase(key: CharSequence, value: V) = getOrCreatePathsNocase(key).forEach { it.value = value }
     fun <V> Trie<Char, V>.mergeStringsNocase(vararg kvs: Pair<CharSequence, V>) { for ((k, v) in kvs) this.setNocase(k, v) }
 
-    fun clamly(pair: MonoPair<SatisfyEqualTo<Char>>, head: String = "expecting ") = pair.first.alsoDo {
-      sourceLoc?.let { stateAs<ExpectClose>()?.add(pair, it.clone()) }
-    } to pair.second.clam {
+    private val clamlyFormat: ClamlyFormat = { pair ->
       val fromTag = stateAs<ExpectClose>()?.remove(pair)?.let {" (from ${it.tag})"} ?: ""
-      "$head${pair.second}$fromTag"
+      "expecting ${pair.second}$fromTag"
     }
+    fun clamly(pair: MonoPair<SatisfyEqualTo<Char>>, format: ClamlyFormat = clamlyFormat) = pair.first.alsoDo {
+      sourceLoc?.let { stateAs<ExpectClose>()?.add(pair, it.clone()) }
+    } to pair.second.clam { format(pair) }
     fun clamly(pair: MonoPair<String>) = clamly(pair.toCharPat())
 
     //// == Pattern Templates ==
