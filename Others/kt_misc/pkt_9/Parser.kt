@@ -539,6 +539,24 @@ interface ConstantPattern<IN, T>: Pattern<IN, T> { val constant: T }
 // TextPreety: Preety
 // InputLayer: Feed, Input, CharInput
 
+// == With OnItem / Rescue ==
+// CharInput.OnItem
+// JoinBy.OnItem, JoinBy.Rescue
+// InfixPattern.Rescue
+
+// == Special Repeat ==
+// Repeat.InBounds(bounds, greedy = true)
+// Repeat.Many -- with support for OptionalPattern
+
+// == Error Handling ==
+// Input.addErrorList
+// clam(messager), clamWhile(pat, defaultValue, messager)
+// Pattern.toDefault(defaultValue), ConstantPattern.toDefault()
+
+// == State ==
+// AllFeed.withState, AllFeed.stateAs
+// alsoDo -- Pattern, SatisfyPattern, SatisfyEqualTo
+
 abstract class PreetyPattern<IN, T>: PreetyAny(), Pattern<IN, T>
 
 typealias MonoPattern<IN> = Pattern<IN, IN>
@@ -926,9 +944,9 @@ class RepeatUn<IN, T, R>(fold: Fold<T, R>, item: Pattern<IN, T>, val unfold: (R)
 
 fun <T> MonoPair<T>.toPat(): MonoPair<SatisfyEqualTo<T>> = map(::item)
 fun MonoPair<String>.toCharPat(): MonoPair<SatisfyEqualTo<Char>> = map(String::single).toPat()
-fun <IN> Pattern<IN, Int>.toLongPat() = Convert(this, Int::toLong, Long::toInt)
-
 fun MonoPattern<Char>.toStringPat() = Convert(this, Char::toString, String::first)
+
+fun <IN> Pattern<IN, Int>.toLongPat() = Convert(this, Int::toLong, Long::toInt)
 fun Seq<Char, Char, CharTuple>.toStringPat() = Convert(this, { it.toArray().joinToString("") }, { tupleOf(::CharTuple, *it.toCharArray().toTypedArray()) })
 
 infix fun MonoPattern<Char>.until(terminate: MonoPattern<Char>)
@@ -1247,6 +1265,10 @@ open class Trie<K, V>(var value: V?) { constructor(): this(null)
 }
 
 //// == Abstract ==
+operator fun <V> Trie<Char, V>.get(index: CharSequence) = this[index.asIterable()]
+operator fun <V> Trie<Char, V>.set(index: CharSequence, value: V) { this[index.asIterable()] = value }
+operator fun <V> Trie<Char, V>.contains(index: CharSequence) = index.asIterable() in this
+
 fun <K, V> Trie<K, V>.merge(vararg kvs: Pair<Iterable<K>, V>) {
   for ((k, v) in kvs) this[k] = v
 }
@@ -1254,13 +1276,16 @@ fun <V> Trie<Char, V>.mergeStrings(vararg kvs: Pair<CharSequence, V>) {
   for ((k, v) in kvs) this[k] = v
 }
 
-operator fun <V> Trie<Char, V>.get(index: CharSequence) = this[index.asIterable()]
-operator fun <V> Trie<Char, V>.set(index: CharSequence, value: V) { this[index.asIterable()] = value }
-operator fun <V> Trie<Char, V>.contains(index: CharSequence) = index.asIterable() in this
-
+fun <K, V> Trie<K, V>.getOrCreatePaths(key: Iterable<K>, layer: (K) -> List<K>): List<Trie<K, V>> = key.fold(listOf(this)) { points, k ->
+  points.flatMap { point ->
+    layer(k).map { point.routes.getOrPut(it, ::Trie) }
+  }
+}
 
 // File: pat/ext/MiscHelper
 typealias CharPattern = MonoPattern<Char>
+typealias CharOptionalPattern = MonoOptionalPattern<Char, Char>
+typealias CharPatternWrapper = MonoPatternWrapper<Char, Char>
 typealias CharConstantPattern = MonoConstantPattern<Char>
 
 fun asInt(radix: Int = 10, initial: Int = 0) = JoinFold(initial) { this*radix + it }
@@ -1288,6 +1313,11 @@ abstract class LexicalBasics {
 
   companion object Helper {
     fun itemNocase(char: Char) = elementIn(char.toUpperCase(), char).toConstant(char)
+
+    fun <V> Trie<Char, V>.getOrCreatePathsNocase(key: CharSequence) = getOrCreatePaths(key.asIterable()) { listOf(it.toUpperCase(), it.toLowerCase()) }
+    fun <V> Trie<Char, V>.setNocase(key: CharSequence, value: V) = getOrCreatePathsNocase(key).forEach { it.value = value }
+    fun <V> Trie<Char, V>.mergeStringsNocase(vararg kvs: Pair<CharSequence, V>) { for ((k, v) in kvs) this.setNocase(k, v) }
+
     fun clamly(pair: MonoPair<SatisfyEqualTo<Char>>, head: String = "expecting ") = pair.first.alsoDo {
       sourceLoc?.let { stateAs<ExpectClose>()?.add(pair, it.clone()) }
     } to pair.second.clam {
@@ -1296,9 +1326,9 @@ abstract class LexicalBasics {
     }
     fun clamly(pair: MonoPair<String>) = clamly(pair.toCharPat())
 
+    //// == Pattern Templates ==
     fun digitFor(cs: CharRange, zero: Char = '0', pad: Int = 0): Convert<Char, Char, Int>
       = Convert(elementIn(cs), { (it - zero) +pad }, { zero + (it -pad) })
-
     fun stringFor(char: CharPattern) = Repeat(asString(), char).Many()
     fun stringFor(char: CharPattern, surround: MonoPair<CharPattern>): Pattern<Char, StringTuple> {
       val terminate = surround.second.toStringPat()
@@ -1310,7 +1340,7 @@ abstract class LexicalBasics {
     fun suffix1(tail: CharPattern, item: CharPattern) = Convert(Seq(::StringTuple, *item until tail),
       { it[0] + it[1] }, { it.run { tupleOf(::StringTuple, take(length -1), last().toString()) } })
   }
-  class ExpectClose {
+  open class ExpectClose {
     private val map: MutableMap<Any, MutableList<SourceLocation>> = mutableMapOf()
     fun add(id: Any, sourceLoc: SourceLocation) { map.getOrPut(id, ::mutableListOf).add(sourceLoc) }
     fun remove(id: Any): SourceLocation = map.getValue(id).removeLast()
