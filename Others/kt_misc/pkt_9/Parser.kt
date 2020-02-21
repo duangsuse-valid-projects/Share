@@ -560,7 +560,7 @@ interface ConstantPattern<IN, T>: Pattern<IN, T> { val constant: T }
 abstract class PreetyPattern<IN, T>: PreetyAny(), Pattern<IN, T>
 
 typealias MonoPattern<IN> = Pattern<IN, IN>
-typealias MonoOptionalPattern<IN, T> = ConvertOptionalPattern<IN, IN, T>
+typealias MonoOptionalPattern<IN> = OptionalPattern<IN, IN>
 typealias MonoPatternWrapper<IN, T> = ConvertPatternWrapper<IN, IN, T>
 typealias MonoConstantPattern<IN> = ConstantPattern<IN, IN>
 
@@ -570,6 +570,46 @@ inline val <IN, T> Pattern<IN, T>.defaultValue get() = (this as? OptionalPattern
 inline val <IN, T> Pattern<IN, T>.item get() = (this as? PatternWrapperKind<IN, T>)?.item
 @Suppress("UNCHECKED_CAST")
 inline val <IN, T> Pattern<IN, T>.constant get() = (this as? ConstantPattern<IN, T>)?.constant
+
+//// == OptionalPattern (toDefault) ==
+
+open class OptionalPattern<IN, T>(override val item: Pattern<IN, T>, override val defaultValue: T): PreetyPattern<IN, T>(),
+    OptionalPatternKind<T>, PatternWrapperKind<IN, T> {
+  override fun read(s: Feed<IN>) = item.read(s) ?: defaultValue
+  override fun show(s: Output<IN>, value: T?) = item.show(s, value)
+  override fun toPreetyDoc() = listOf(item.preety(), defaultValue.rawPreety()).joinText("?:")
+}
+
+fun <IN, T> Pattern<IN, T>.toDefault(defaultValue: T) = OptionalPattern(this, defaultValue)
+fun <IN, T> ConstantPattern<IN, T>.toDefault() = toDefault(constant)
+
+//// == PatternWrapper / SatisfyPatternBy ==
+
+abstract class ConvertPatternWrapper<IN, T, T1>(override val item: Pattern<IN, T>): PreetyPattern<IN, T1>(), PatternWrapperKind<IN, T> {
+  abstract fun wrap(item: Pattern<IN, T>): ConvertPatternWrapper<IN, T, T1>
+  override fun toPreetyDoc() = item.toPreetyDoc()
+}
+
+abstract class SatisfyPatternBy<IN>(protected open val self: SatisfyPattern<IN>): SatisfyPattern<IN>() {
+  override fun test(value: IN) = self.test(value)
+  override fun read(s: Feed<IN>) = self.read(s)
+  override fun show(s: Output<IN>, value: IN?) = self.show(s, value)
+  override fun toPreetyDoc() = self.toPreetyDoc()
+}
+
+//// == Pattern Wrappers (not, clam) ==
+abstract class PatternWrapper<IN, T>(item: Pattern<IN, T>): ConvertPatternWrapper<IN, T, T>(item) {
+  override fun read(s: Feed<IN>) = item.read(s)
+  override fun show(s: Output<IN>, value: T?) = item.show(s, value)
+}
+
+inline operator fun <reified IN, T> MonoPatternWrapper<IN, T>.not() = wrap(!(item as SatisfyPattern<IN>))
+inline fun <reified IN, T> MonoPatternWrapper<IN, T>.clam(noinline messager: ErrorMessager) = wrap((item as SatisfyPattern<IN>).clam(messager))
+
+@Suppress("UNCHECKED_CAST") // Losing type information for T in ConvertPatternWrapper, required for fun show
+inline operator fun <reified IN, T> PatternWrapper<IN, T>.not() = wrap(!(item as ConvertPatternWrapper<IN, IN, T>))
+@Suppress("UNCHECKED_CAST")
+inline fun <reified IN, T> PatternWrapper<IN, T>.clam(noinline messager: ErrorMessager) = wrap((item as ConvertPatternWrapper<IN, IN, T>).clam(messager))
 
 //// == Constant Pattern ==
 class PatternToConstant<IN, T>(self: Pattern<IN, T>, override val constant: T): Pattern<IN, T> by self, ConstantPattern<IN, T>
@@ -590,47 +630,6 @@ fun <IN> never(): Pattern<IN, *> = object: PreetyPattern<IN, Nothing>() {
   override fun show(s: Output<IN>, value: Nothing?) {}
   override fun toPreetyDoc() = "never".preety().surroundText(parens)
 }
-
-//// == OptionalPattern & PatternWrapper / SatisfyPatternBy ==
-abstract class ConvertOptionalPattern<IN, T, T1>(override val item: Pattern<IN, T>, override val defaultValue: T1): PreetyPattern<IN, T1>(),
-    OptionalPatternKind<T1>, PatternWrapperKind<IN, T> {
-  override abstract fun read(s: Feed<IN>): T1
-  override fun toPreetyDoc() = listOf(item.preety(), defaultValue.rawPreety()).joinText("?:")
-}
-abstract class ConvertPatternWrapper<IN, T, T1>(override val item: Pattern<IN, T>): PreetyPattern<IN, T1>(), PatternWrapperKind<IN, T> {
-  abstract fun wrap(item: Pattern<IN, T>): ConvertPatternWrapper<IN, T, T1>
-  override fun toPreetyDoc() = item.toPreetyDoc()
-}
-
-abstract class SatisfyPatternBy<IN>(protected open val self: SatisfyPattern<IN>): SatisfyPattern<IN>() {
-  override fun test(value: IN) = self.test(value)
-  override fun read(s: Feed<IN>) = self.read(s)
-  override fun show(s: Output<IN>, value: IN?) = self.show(s, value)
-  override fun toPreetyDoc() = self.toPreetyDoc()
-}
-
-//// == Optional Patterns (toDefault) ==
-open class OptionalPattern<IN, T>(item: Pattern<IN, T>, defaultValue: T): ConvertOptionalPattern<IN, T, T>(item, defaultValue) {
-  override fun read(s: Feed<IN>) = item.read(s) ?: defaultValue
-  override fun show(s: Output<IN>, value: T?) = item.show(s, value)
-}
-
-fun <IN, T> Pattern<IN, T>.toDefault(defaultValue: T) = OptionalPattern(this, defaultValue)
-fun <IN, T> ConstantPattern<IN, T>.toDefault() = toDefault(constant)
-
-//// == Pattern Wrappers (not, clam) ==
-abstract class PatternWrapper<IN, T>(item: Pattern<IN, T>): ConvertPatternWrapper<IN, T, T>(item) {
-  override fun read(s: Feed<IN>) = item.read(s)
-  override fun show(s: Output<IN>, value: T?) = item.show(s, value)
-}
-
-inline operator fun <reified IN, T> MonoPatternWrapper<IN, T>.not() = wrap(!(item as SatisfyPattern<IN>))
-inline fun <reified IN, T> MonoPatternWrapper<IN, T>.clam(noinline messager: ErrorMessager) = wrap((item as SatisfyPattern<IN>).clam(messager))
-
-@Suppress("UNCHECKED_CAST") // Losing type information for T in ConvertPatternWrapper, required for fun show
-inline operator fun <reified IN, T> PatternWrapper<IN, T>.not() = wrap(!(item as ConvertPatternWrapper<IN, IN, T>))
-@Suppress("UNCHECKED_CAST")
-inline fun <reified IN, T> PatternWrapper<IN, T>.clam(noinline messager: ErrorMessager) = wrap((item as ConvertPatternWrapper<IN, IN, T>).clam(messager))
 
 //// == Abstract ==
 fun <T> Pattern<Char, T>.read(text: String) = read(inputOf(text))
@@ -706,12 +705,12 @@ open class SatisfyClam<IN>(self: SatisfyPattern<IN>, val messager: ErrorMessager
       parsed = self.read(s)
     }; return@run parsed }
 }
-class SatisfyEqualClam<IN>(override val self: SatisfyEqualTo<IN>, messager: ErrorMessager): SatisfyClam<IN>(self, messager), MonoConstantPattern<IN> {
+class SatisfyEqualToClam<IN>(override val self: SatisfyEqualTo<IN>, messager: ErrorMessager): SatisfyClam<IN>(self, messager), MonoConstantPattern<IN> {
   override val constant get() = self.constant
 }
 
 fun <IN> SatisfyPattern<IN>.clam(messager: ErrorMessager) = SatisfyClam(this, messager)
-fun <IN> SatisfyEqualTo<IN>.clam(messager: ErrorMessager) = SatisfyEqualClam(this, messager)
+fun <IN> SatisfyEqualTo<IN>.clam(messager: ErrorMessager) = SatisfyEqualToClam(this, messager)
 
 //// == State & Modify State ==
 
@@ -1284,7 +1283,7 @@ fun <K, V> Trie<K, V>.getOrCreatePaths(key: Iterable<K>, layer: (K) -> List<K>):
 
 // File: pat/ext/MiscHelper
 typealias CharPattern = MonoPattern<Char>
-typealias CharOptionalPattern = MonoOptionalPattern<Char, Char>
+typealias CharOptionalPattern = MonoOptionalPattern<Char>
 typealias CharPatternWrapper = MonoPatternWrapper<Char, Char>
 typealias CharConstantPattern = MonoConstantPattern<Char>
 
