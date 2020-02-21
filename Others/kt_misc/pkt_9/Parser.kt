@@ -1176,7 +1176,7 @@ open class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
     var point: Trie<K, V> = this
     while (true)
       try { point = point.routes[s.peek]?.also { onItem(s.consume()) } ?: break }
-      catch (_: Feed.End) { break }
+      catch (_: Feed.End) { onEOS(); break }
     return point.value?.also(::onSuccess) ?: onFail()
   }
   override fun show(s: Output<K>, value: V?) {
@@ -1189,6 +1189,7 @@ open class TriePattern<K, V>: Trie<K, V>(), Pattern<K, V> {
   protected open fun onItem(value: K) {}
   protected open fun onSuccess(value: V) {}
   protected open fun onFail(): V? = notParsed
+  protected open fun onEOS() {}
   override fun toString() = toPreetyDoc().toString()
 }
 
@@ -1216,9 +1217,27 @@ open class PairedTriePattern<K, V>: TriePattern<K, V>() {
   }
 }
 
-open class PairedTrieDict: PairedTriePattern.BackTrie<Char, String>() {
+//// == DictTrie, LazyTrie, GreedyTrie ==
+open class PairedDictTrie: PairedTriePattern.BackTrie<Char, String>() {
   override fun split(value: String) = value.asIterable()
   override fun join(parts: Iterable<Char>) = parts.joinToString("")
+}
+open class PairedLazyTrie<V>(private val op: (String) -> V?): PairedTriePattern<Char, V>() {
+  private val currentPath = StringBuilder()
+  private fun clear() { currentPath.clear() }
+  override fun onItem(value: Char) { currentPath.append(value) }
+  override fun onSuccess(value: V) { clear() }
+  override fun onFail(): V? {
+    val path = currentPath.toString()
+    clear(); return op(path)?.also { this[path] = it  }
+  }
+}
+open class PairedGreedyTrie(private val predicate: Predicate<Char>): PairedLazyTrie<String>({ it.takeIf(String::isNotEmpty) }) {
+  override fun read(s: Feed<Char>) = super.read(s) ?: s.takeWhileNotEnd { it !in routes && predicate(it) }
+    .joinToString("").takeIf { it.isNotEmpty() || s.peek in routes && !isEOS }
+  override fun onEOS() { _isEOS = true }
+  protected val isEOS get() = _isEOS.also { _isEOS = false }
+  private var _isEOS = false
 }
 
 //// == Trie Tree ==
