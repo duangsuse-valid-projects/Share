@@ -1,0 +1,109 @@
+<!DOCTYPE html> 
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Bilibili AV/BV 号转换</title>
+
+<script>
+function* withIndex(xs) {
+  let i = 0;
+  for (let x of xs) yield [i++, x];
+}
+function makeReversedIndex(xs) {
+  let reverseIndex = {};
+  for (let [i, x] of withIndex(xs)) reverseIndex[x] = i;
+  return reverseIndex;
+}
+const div = (a, b) => Math.floor(a / b);
+const compose = (f, g) => x => f(g(x));
+
+const helem = id => document.getElementById(id);
+function updateFrequency(delay_ms, op) {
+  let timerId = null;
+  return (...args) => {
+    clearTimeout(timerId);
+    setTimeout(op.bind(null, args), delay_ms);
+  };
+}
+</script>
+
+<script>
+const table = "fZodR9XQDSUm21yCkr6zBqiveYah8bt4xsWpHnJE7jL5VG3guMTKNPAwcF";
+const tableFind = makeReversedIndex(table);
+
+const
+  TEMPLATE = "BV1  4 1 7  ",
+  BLANK = [11,10,3,8,4,6],
+  AV_XOR = 0xa93b324,
+  AV_ADD = 0x2084007c0;
+
+function bvFrom(av) {
+  let avHash = (av^AV_XOR) + AV_ADD;
+  let res = [...TEMPLATE];
+  for (let [i, x] of withIndex(BLANK)) {
+    const k = table.length;
+    res[x] = table[div(avHash, (k**i)) % k];
+  }
+  return res.join("");
+}
+function bvTo(bv) {
+  let res = 0;
+  const k = table.length;
+  for (let [i, x] of withIndex(BLANK)) {
+    res += tableFind[bv[x]] * (k**i)
+  }
+  return (res - AV_ADD) ^ AV_XOR;
+}
+const
+  bvVerify = compose(bvTo, bvFrom),
+  bvVerifyBack = compose(bvFrom, bvTo);
+</script>
+</head>
+
+<body>
+  <h3 class="header">Bilibili AV/BV 视频编号转换</h3>
+  <input id="video-code" placeholder="视频编号，如 BV17x411w7KC 或 170001"></input>
+  <div id="code-trans"></div>
+  <div id="code-trans-extra"></div>
+<script>
+const
+  input = helem("video-code"),
+  output = helem("code-trans"),
+  extra = helem("code-trans-extra");
+const
+  regexBV = /^BV[0-9A-Za-z]{10}$/,
+  regexAV = /^\d+$/;
+
+input.oninput = updateFrequency(300, () => {
+  let text = input.value;
+  let verified = false;
+  if (regexBV.test(text)) {
+    output.innerText = bvTo(text);
+    verified = bvVerifyBack(text) == text;
+  } else if (regexAV.test(text)) {
+    output.innerText = bvFrom(text);
+    verified = bvVerify(text) == text;
+  } else {
+    extra.innerText = "（无法解析新输入）";
+    return;
+  }
+  extra.innerText = verified? "（OK）" : "（好像有问题）";
+});
+</script>
+
+<style>
+html {
+  background: #efefef;
+}
+body {
+  max-width: 800px;
+  margin: 0 auto;
+}
+.header {
+  text-align: center;
+  padding: 60px 0;
+}
+
+</style>
+</body>
+</html>
