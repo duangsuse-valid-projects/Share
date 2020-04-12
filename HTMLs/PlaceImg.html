@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Image Pasteover</title>
+  <meta name="description" content="Simple image-paste-over composition">
+  <meta name="viewport" content="width=device-width">
+<style>
+html, body {
+  height: 100%;
+}
+
+html {
+  display: table;
+  margin: auto;
+}
+
+body {
+  display: table-cell;
+  vertical-align: middle;
+}
+</style>
+</head>
+<body>
+Source<input id="source-img" type="file"></input>
+Paste-over<input id="over-img" type="file"></input>
+<br>
+<canvas id="drawing"></canvas>
+
+<script>
+function helem(id) { return document.getElementById(id); }
+function readImage(e, onOver) {
+  let img_file = e.files[0];
+  let reader = new FileReader();
+  reader.readAsDataURL(img_file);
+  reader.onload = () => {
+    let img = new Image();
+    img.src = reader.result;
+    onOver(img);
+  };
+}
+
+function assignSize(dst, src) {
+  dst.style.width = src.width+"px";
+  dst.style.height = src.height+"px";
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const src = helem("source-img"), cover = helem("over-img"), e_paint = helem("drawing");
+  let paint = e_paint.getContext("2d");
+  let src_img = null, cover_img = null;
+  function redraw() {
+    if (src_img == null || cover_img == null) return;
+    assignSize(e_paint, src_img);
+    paint.fillStyle = 'green';
+    paint.fillRect(0,0, 150, 200);
+    paint.drawImage(src_img, 0, 0);
+  }
+  src.onchange = () => readImage(src, dl => { src_img = dl; redraw(); });
+  cover.onchange = () => readImage(cover, dl => { cover_img = dl; redraw(); });
+});
+</script>
+</body>
+</html>
