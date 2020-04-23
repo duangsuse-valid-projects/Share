@@ -1,16 +1,13 @@
 TEMPLATE = app
-TARGET = audiooutput
+TARGET = audio_output
 
-QT += multimedia widgets
+QT += widgets multimedia
+QMAKE_CXXFLAGS = -std=c++14
 
-HEADERS       = \
-  audio_output.h \
-  helper.h \
-  primitiveData.h
+SOURCES += main.cpp audio_output.cpp
+HEADERS += primitive_data.hpp helper.hpp audio_output.hpp
 
-SOURCES       = \
-                audio_output.cpp \
-                main.cpp
-
-target.path = $$[QT_INSTALL_EXAMPLES]/multimedia/audiooutput
+target.path = /bin/
 INSTALLS += target
+
+

@@ -50,7 +50,7 @@
 
 #pragma once
 
-#include "primitiveData.h"
+#include "primitive_data.hpp"
 
 #include <QObject>
 #include <QScopedPointer>
@@ -67,11 +67,11 @@
 #include <QPushButton>
 #include <QSlider>
 
-class AudioGenerator : public QIODevice
+class AudioGenerator: public QIODevice
 { Q_OBJECT
 
 public:
-    AudioGenerator(QAudioFormat &format, usec durationUs, cnt sampleRate);
+    AudioGenerator(QAudioFormat& format, usec durationUs);
 
     void start(); void stop();
 
@@ -81,16 +81,25 @@ public:
 
 private:
     cnt position = 0;
-    QByteArray audioBuffer;
-    qreal waveY(unsigned x);
-    void generateData();
     void writeUInt16(byte* dst, quint16 v);
+
+protected:
+    QByteArray audioBuffer;
+    virtual void generateData() = 0;
     void writeSample(byte* ys, idx i, qreal y);
 
-private:
     QAudioFormat &format;
     usec durationUs;
-    cnt sampleRate;
+};
+
+class SinWaveGenerator: public AudioGenerator
+{
+public:
+    SinWaveGenerator(QAudioFormat& format, usec durationUs, int pitch);
+    int pitch;
+    void generateData() override;
+private:
+    qreal waveY(int x);
 };
 
 class AudioTest : public QMainWindow
@@ -101,7 +110,7 @@ public:
 
 private:
     void initializeWindow();
-    void initializeAudio(const QAudioDeviceInfo &device_info);
+    void initializeAudio(const QAudioDeviceInfo &device_info, int pitch);
 
 private:
     QTimer *pushTimer = nullptr;
@@ -109,18 +118,21 @@ private:
     // Owned by layout
     QPushButton *btnMode = nullptr;
     QPushButton *btnSuspendResume = nullptr;
-    QComboBox *boxDevice = nullptr;
+    QComboBox *boxDevice = nullptr; QAudioDeviceInfo currentDevice;
     QLabel *labelVolume = nullptr;
     QSlider *sliderVolume = nullptr;
+    QSlider *sliderPitch = nullptr;
 
-    QScopedPointer<AudioGenerator> audioGenerator;
+    QScopedPointer<SinWaveGenerator> audioGenerator;
     QScopedPointer<QAudioOutput> audioOutput;
 
     bool isPullMode = true;
+    int DEFAULT_PITCH = 800;
 
 private slots:
     void toggleMode();
     void toggleSuspendResume();
     void deviceChanged(int index);
     void volumeChanged(int);
+    void pitchChanged(int);
 };

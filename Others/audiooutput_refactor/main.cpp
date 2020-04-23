@@ -50,7 +50,7 @@
 
 #include <QApplication>
 
-#include "audio_output.h"
+#include "audio_output.hpp"
 
 auto main(int argc, char *argv[]) -> int {
   QApplication _(argc, argv);

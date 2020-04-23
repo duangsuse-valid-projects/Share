@@ -1,1 +1,5 @@
 _site
+*.kdev4
+*.stash
+*.o
+moc_*
