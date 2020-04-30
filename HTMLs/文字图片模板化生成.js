@@ -3,6 +3,7 @@ function withDefaults() { return (e) => {}; }
 function withText(text) { return (e) => { e.innerText = text; }; }
 function withAttr(name, value) { return (e) => { e[name] = value; }; }
 function withCssAttr(name, value) { return (e) => { e.style[name] = value; }; }
+function withCssClass(...classes) { return (e) => { for (let c of classes) e.classList.add(c); }; }
 
 function configured(...configs) {
   return e => { for (let config of configs) config(e); };
@@ -33,9 +34,9 @@ function cyclicGet(xs, i) {
   if (xs.length == 0) throw Error(`attempt to cyclic get ${i} from empty list`);
   return xs[i % xs.length];
 }
-function* withIndex(xs) {
+Array.prototype.withIndex = function*() {
   let index = 0;
-  for (let x of xs) { yield [index, x]; index++; }
+  for (let x of this) { yield [index, x]; index++; }
 }
 
 const PAT_URL_PARAM = /[?|&]([^=]+)=([^&;#]+)/g;
@@ -144,7 +145,7 @@ for (let [name, value] of params) {
   if (hardParams.has(name)) { console.warn(`unsettable param ${name}`); continue; }
   if (idMap.has(name)) { idMap.get(name).value = value; }
   else { if (!softParams.has(name)) console.warn(`unknown param ${name}`); }
-}
+} //^ set url-param values
 
 let imageUrl = null;
 img_file.onchange = readDataUrlThen(it => { imageUrl = it; mainUpdate(); });
@@ -153,12 +154,18 @@ let urlFiredImg = listenKey("Enter", img_url, target => {
   mainUpdate();
 }); //没法反向要求更新，参数化event.target的缺陷，算了
 
+const PAT_CSS_URL = /(\.css$)|(\/css2?\/|\??)/g;
 function appendFont(url) {
-  let font = new FontFace(font_name.value, `url(${url}) format('woff2')`);
-  font.load().then(face => document.fonts.add(face));
+  if (!url.startsWith("data:") && PAT_CSS_URL.test(url)) {
+    document.head.appendChild(element("link",
+      configured(withAttr("rel", "stylesheet"), withAttr("href", url))
+    ));
+  } else {
+    let font = new FontFace(font_name.value, `url(${url}) format('woff2')`);
+    font.load().then(face => document.fonts.add(face));
+  }
 }
-
-font_file.onchange = readDataUrlThen(it => appendFont(it));
+font_file.onchange = readDataUrlThen(appendFont);
 let urlFiredFont = listenKey("Enter", font_url, target => appendFont(target.value));
 
 function updateLink(target = cfg_link) {
@@ -170,9 +177,10 @@ function updateLink(target = cfg_link) {
   target.href = location.pathname+encodeURLParameters(params); //< convenient...
 }
 
-function render(xy, font, text) {
-  return element("text",
-    configured(withPoint(xy[0], xy[1]), withFont(...font), withText(text) )
+function renderText(xy, font, text) {
+  return element("text",  configured(
+    withPoint(xy[0], xy[1]),
+    withFont(...font), withText(text))
   );
 }
 
@@ -186,13 +194,13 @@ function mainUpdate() {
 
   clearChilds(images);
   for (let row of table) {
-    let img = images.appendChild(element("div", withCssAttr("position", "relative"),
+    let img = images.appendChild(element("div", withCssClass("drawn-image"),
       element("img", withAttr("src", imageUrl))
     ));
-    for (let [i, col] of withIndex(row)) {
+    for (let [i, col] of row.withIndex()) {
       let xy = cyclicGet(vpoints, i);
       let font = cyclicGet(vfonts, i);
-      img.appendChild(render(xy, font, col));
+      img.appendChild(renderText(xy, font, col));
     }
   }
   updateLink();

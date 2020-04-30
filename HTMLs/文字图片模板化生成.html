@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <title>文字图片模板化生成</title>
   <meta name="description" content="模板化生成文本图片">
-  <meta name="viewport">
+  <style>.drawn-image { position: relative; display: inline-block; }</style>
 </head>
 
 <body>
   <details id="box-settings" style="border: 1px solid yellowgreen">
     <summary>生成配置……</summary>
-    <div>选择图片：<input id="img-file" type="file"></input> or <input id="img-url" placeholder="http://xxx.png"></input>
-      <br>加载字体：<input id="font-name" placeholder="某字体族名"></input>, <input id="font-file" type="file"></input> or <input id="font-url" placeholder="http://xxx.woff"></input> </div>
+    <div>选择图片：<input id="img-file" type="file"></input> 或 <input id="img-url" placeholder="http://xxx.png"></input>
+      <br>加载字体：<input id="font-name" placeholder="某字体族名"></input>, <input id="font-file" type="file"></input> 或 <input id="font-url" placeholder="http://xxx.woff"></input> </div>
     <div>
       <br>文字起点表：<input id="points" placeholder="(x,y) (x1,y1)"></input>
       字体(族:字号,字重,color=颜色,writing-mode=方向)表：<input id="fonts" placeholder="(Arial:20,bold,color=green,writing-mode=horizontal-tb)"></input>
