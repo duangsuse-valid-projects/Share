@@ -8,12 +8,14 @@
 </head>
 
 <body>
-  <div>选择图片：<input id="img-file" type="file"></input> or <input id="img-url" placeholder="http://xxx.png"></input>
-    <br>加载字体：<input id="font-name" placeholder="某字体族名"></input>, <input id="font-file" type="file"></input> or <input id="font-url" placeholder="http://xxx.woff"></input> </div>
-  <div>
-    <br>文字起点表：<input id="points" placeholder="(x,y) (x1,y1)"></input>
-    字体(族: 字号 字重 颜色 方向)表：<input id="fonts" placeholder="(Arial: 20 bold green horizontal-tb)"></input>
-    <br>文字元组列表：<textarea id="source-table" placeholder="Apple--
+  <details id="box-settings" style="border: 1px solid yellowgreen">
+    <summary>生成配置……</summary>
+    <div>选择图片：<input id="img-file" type="file"></input> or <input id="img-url" placeholder="http://xxx.png"></input>
+      <br>加载字体：<input id="font-name" placeholder="某字体族名"></input>, <input id="font-file" type="file"></input> or <input id="font-url" placeholder="http://xxx.woff"></input> </div>
+    <div>
+      <br>文字起点表：<input id="points" placeholder="(x,y) (x1,y1)"></input>
+      字体(族:字号,字重,color=颜色,writing-mode=方向)表：<input id="fonts" placeholder="(Arial:20,bold,color=green,writing-mode=horizontal-tb)"></input>
+      <br>文字元组列表：<textarea id="source-table" placeholder="Apple--
 An apple a day, ...
 Banana--
 A banana a day, ...
@@ -22,203 +24,13 @@ Human--
 WTF?
 Monkey--
 Yeee! Yeee!
-"></textarea>
-  </div>
+  "></textarea>
+    </div>
+    <a id="cfg-link">分享配置链接(只有图片/字体链接才能被自动下载)</a>
+  </details>
   <div id="images"></div>
-  <a id="cfg-link">分享配置链接(只有图片/字体链接才能被自动下载)</a>
 </body>
 
-<script>
-function withDefaults() { return (e) => {}; }
-function withText(text) { return (e) => { e.innerText = text; }; }
-function withAttr(name, value) { return (e) => { e[name] = value; }; }
-function withCssAttr(name, value) { return (e) => { e.style[name] = value; }; }
-
-function configured(...configs) {
-  return e => { for (let config of configs) config(e); };
-}
-function element(tagName, config, ...childs) {
-  let e = document.createElement(tagName); config(e);
-  for (let child of childs) e.appendChild(child);
-  return e;
-}
-function elem(id) { return document.getElementById(id); }
-
-function* findAll(re, text) {
-  while (re.lastIndex < text.length) {
-    let match = re.exec(text);
-    if (match == null) break; else yield match.slice(1, match.length);
-  }
-  re.lastIndex = 0;
-}
-function* map(f, xz) {
-  for (let x of xz) yield f(x);
-}
-function cyclicGet(xs, i) { return xs[i % xs.length]; }
-function* withIndex(xs) {
-  let index = 0;
-  for (let x of xs) { yield [index, x]; index++; }
-}
-
-const PAT_URL_PARAM = /[?|&]([^=]+)=([^&;#]+)/g;
-function parseURLParameters(text = null) {
-  let match = findAll(PAT_URL_PARAM, text || location.search);
-  return new Map(map(m => [m[0], decodeURIComponent(m[1].replace(/\+/g, "%20"))], match));
-}
-
-function encodeURLParameters(params) {
-  if (params.length == 0) return "";
-  function code(kv) { return `${kv[0]}=${encodeURIComponent(kv[1])}`; }
-  let sb = `?${code(params[0])}`;
-  for (var i=0; i<params.length; i++) { sb += `&${code(params[i])}` }
-  return sb;
-}
-
-function elems(...ids) {
-  let elements = [];
-  let idMap = new Map();
-  for (let id of ids) {
-    let e = elem(id);
-    elements.push(e);
-    idMap.set(id, e);
-  }
-  return [idMap, elements];
-}
-
-function listenKey(name, e, on_up) {
-  e.onkeyup = function(event) {
-    if (event.key == name) on_up(event.target);
-  };
-  return () => { on_up(e) };
-}
-
-function readDataUrlThen(onDone) { return (event) => {
-  let fref = event.target.files[0]; if(!fref) return;
-  let reader = new FileReader();
-  reader.readAsDataURL(fref);
-  reader.onload = () => onDone(reader.result);
-}; }
-
-function clearChilds(e) { while (e.firstChild) e.removeChild(e.firstChild); }
-</script>
-
-<script>
-function* readSourceTable(text) { //< obsoleted
-  let entries = text.split("\n\n");
-  for (let entry of entries) {
-    let entryList = [];
-    let key = null; let content = "";
-    for (let line of entry.split("\n").map(it => it.trim())) {
-      if (line.length == 0) continue;
-      if (line.endsWith(":")) {
-        if (key != null) entryList.push([key, content]);
-        key = line.substring(0, line.length-1); content = "";
-      } else content += `${line}\n`;
-    }
-    entryList.push([key, content]);
-    yield entryList;
-  }
-}
-
-function parseTable(text, sep = "==", sep1 = "--") {
-  return [...map(r => [...map(c => c.trim(), r.split(sep1))], source_table.value.split(sep))];
-}
-
-const PAT_POINT = /\((\d+),(\d+)\)/g;
-function* readPointTable(text) {
-  for (let pt of findAll(PAT_POINT, text)) yield [...map(Number.parseInt, pt)];
-}
-
-const PAT_FONT = /\(([^:]+):\s(\d+)\s(\S+)\s(\S+)\s(\S+)\)/g;
-function* readFontTable(text) {
-  for (let fnt of findAll(PAT_FONT, text)) { fnt[1] = Number.parseInt(fnt[1]); yield fnt; }
-}
-
-function withPoint(x, y) {
-  return configured(withCssAttr("position", "absolute"),
-    withCssAttr("left", `${x}px`), withCssAttr("top", `${y}px`));
-}
-function withFont(family, size, weight, color, dir) {
-  return configured(
-    withCssAttr("font-family", family),
-    withCssAttr("font-size", `${size}px`),
-    withCssAttr("font-weight", weight),
-    withCssAttr("color", color),
-    withCssAttr("writing-mode", dir)
-  );
-}
-</script>
-
-<script>
-const [ed1, elements1] = elems("img-file", "img-url", "points", "fonts");
-const [ed2, elements2] = elems("font-name", "font-file", "font-url", "source-table");
-
-const [img_file, img_url, points, fonts] = elements1;
-const [font_name, font_file, font_url, source_table] = elements2;
-
-const images = elem("images");
-const cfg_link = elem("cfg-link");
-
-let ps = parseURLParameters();
-let idMap = new Map([...ed1, ...ed2]);
-const hardParam = new Set(["img-file", "font-file"]);
-
-for (let [name, value] of ps) {
-  if (hardParam.has(name)) { console.warn(`unsettable param ${name}`); continue }
-  if (idMap.has(name)) { idMap.get(name).value = value; }
-  else { console.warn(`unknown param ${name}`); }
-}
-
-let imageUrl = null;
-img_file.onchange = readDataUrlThen(it => { imageUrl = it; mainUpdate(); });
-let urlFiredImg = listenKey("Enter", img_url, target => {
-  imageUrl = target.value;
-  mainUpdate();
-}); //没法反向要求更新，参数化event.target的缺陷，算了
-
-function appendFont(url) {
-  let font = new FontFace(font_name.value, `url(${url}) format('woff2')`);
-  font.load().then(face => document.fonts.add(face))
-}
-
-font_file.onchange = readDataUrlThen(it => appendFont(it));
-let urlFiredFont = listenKey("Enter", font_url, target => appendFont(target.value));
-
-function updateLink(target = cfg_link) {
-  let params = [];
-  for (let [id, view] of idMap.entries()) {
-    if (!hardParam.has(id) && view != target) params.push([id, view.value]);
-  }
-  target.href = document.location.pathname+encodeURLParameters(params); //< convenient...
-}
-
-function mainUpdate() {
-  if (imageUrl == null) return;
-  let vpoints = [...readPointTable(points.value)];
-  let vfonts = [...readFontTable(fonts.value)];
-  let table = parseTable(source_table.value);
-  console.log(vpoints, vfonts, table);
-
-  clearChilds(images);
-  for (let row of table) {
-    let img = images.appendChild(element("div", withCssAttr("position", "relative"),
-      element("img", withAttr("src", imageUrl))
-    ));
-    for (let [i, col] of withIndex(row)) {
-      let xy = cyclicGet(vpoints, i);
-      let font = cyclicGet(vfonts, i);
-      let text = element("text",
-        configured(withPoint(xy[0], xy[1]), withFont(...font), withText(col) )
-      );
-      img.appendChild(text);
-    }
-  }
-  updateLink();
-}
-
-if (ps.size != 0) { urlFiredFont(); urlFiredImg(); }
-source_table.onblur = mainUpdate;
-for (let view of [points, fonts]) listenKey("Enter", view, mainUpdate);
-</script>
+<script src="文字图片模板化生成.js"></script>
 
 </html>
