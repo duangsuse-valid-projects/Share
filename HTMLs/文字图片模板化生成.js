@@ -77,6 +77,16 @@ function readDataUrlThen(on_done) { return (event) => {
   reader.onload = () => on_done(reader.result);
 }; }
 
+function xhrReadText(method, url, on_done) {
+  let xhr = new XMLHttpRequest();
+  xhr.open(method, url, true);
+  xhr.onreadystatechange = () => {
+    if (xhr.readyState != XMLHttpRequest.DONE) return;
+    on_done(xhr.status, xhr.responseText, xhr);
+  };
+  xhr.send();
+}
+
 function clearChilds(e) { while (e.firstChild) e.removeChild(e.firstChild); }
 
 // Part II: Parse
@@ -126,13 +136,14 @@ const [font_name, font_file, font_url, source_table] = elements2;
 const images = elem("images");
 const cfg_link = elem("cfg-link");
 
-let urlParams = parseURLParameters();
+let params = parseURLParameters();
 const hardParams = new Set(["img-file", "font-file"]);
+const softParams = new Set(["source-table-url"]);
 
-for (let [name, value] of urlParams) {
+for (let [name, value] of params) {
   if (hardParams.has(name)) { console.warn(`unsettable param ${name}`); continue; }
   if (idMap.has(name)) { idMap.get(name).value = value; }
-  else { console.warn(`unknown param ${name}`); }
+  else { if (!softParams.has(name)) console.warn(`unknown param ${name}`); }
 }
 
 let imageUrl = null;
@@ -187,9 +198,21 @@ function mainUpdate() {
   updateLink();
 }
 
-if (urlParams.size != 0) {
+if (params.size != 0) {
   if (font_url.value != "") urlFiredFont();
   if (img_url.value != "") urlFiredImg();
 }
 source_table.onblur = mainUpdate;
 for (let view of [points, fonts]) listenKey("Enter", view, mainUpdate);
+
+for (let param of softParams) {
+  if (!params.has(param)) continue;
+  let pvalue = params.get(param);
+
+  if (param == "source-table-url") {
+    xhrReadText("GET", pvalue, (status, text, xhr) => {
+      if (status != 200) { source_table.value = `从 ${pvalue} 处加载失败, code ${status}... ${xhr.response}`; }
+      else { source_table.value = text; mainUpdate(); }
+    });
+  }
+}
