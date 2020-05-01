@@ -6,6 +6,9 @@ function withAttr(name, value) { return (e) => { e[name] = value; }; }
 function withCssAttr(name, value) { return (e) => { e.style[name] = value; }; }
 function withCssClass(...classes) { return (e) => { for (let c of classes)
     e.classList.add(c); }; }
+function withListener(event, callback) {
+    return (e) => { e.addEventListener(event, callback); };
+}
 function configured(...configs) {
     return e => { for (let config of configs)
         config(e); };
@@ -111,6 +114,10 @@ function xhrReadText(method, url, on_done) {
     };
     xhr.send();
 }
+function rewriteChild(index, e, transform) {
+    let oldChild = e.children[index];
+    e.replaceChild(transform(oldChild), oldChild);
+}
 function clearChilds(e) { while (e.firstChild)
     e.removeChild(e.firstChild); }
 // Part II: Parse
@@ -150,14 +157,15 @@ function withFont(family, size, weight, cfgs) {
 // Part III: Application
 function initialBindView() {
     const [ed1, elements1] = elems("img-file", "img-url", "points", "fonts");
-    const [ed2, elements2] = elems("font-name", "font-file", "font-url", "source-table");
+    const [ed2, elements2] = elems("font-name", "font-file", "font-url", "source-table", "imageset-name");
     let idMap = new Map([...ed1, ...ed2]);
     return [idMap, elements1, elements2];
 }
 const [idMap, elements1, elements2] = initialBindView();
 const [img_file, img_url, points, fonts] = elements1;
-const [font_name, font_file, font_url, source_table] = elements2;
+const [font_name, font_file, font_url, source_table, imageset_name] = elements2;
 const images = elem("images");
+const image_downloads = elem("image-downloads");
 const cfg_link = elem("cfg-link");
 let imageUrl = null;
 let downloadedText;
@@ -231,6 +239,23 @@ function updateLink(target = cfg_link) {
     console.log(newParams);
     target.href = location.pathname + encodeURLParameters(newParams); //< convenient...
 }
+function updateImageDownload(index, e) {
+    function imgExport(ev) {
+        images.classList.add("rendering-png");
+        let domtoimage = window["domtoimage"];
+        if (!domtoimage)
+            return;
+        let saveAs = window["saveAs"];
+        if (!saveAs)
+            return;
+        let idx = Number.parseInt(ev.target.innerText);
+        let view = images.children[idx];
+        let download = () => { domtoimage.toBlob(view).then(b => saveAs(b, `${imageset_name.value}_${idx}.png`)).catch(alert); };
+        domtoimage.toPng(view).then(png => rewriteChild(idx, image_downloads, () => element("img", configured(withAttr("src", png), withListener("click", download))))).catch(alert);
+    }
+    let item = element("li", withDefaults(), element("a", configured(withText(index.toString()), withListener("click", imgExport))));
+    image_downloads.appendChild(item);
+}
 let renderTextElement = (point, font, text) => {
     let [x, y] = point;
     return element("text", configured(withPoint(x, y), withFont(...font), withText(text)));
@@ -249,12 +274,14 @@ function mainUpdate() {
     console.log(vpoints, vfonts, table);
     if (vpoints.length == 0 || vfonts.length == 0)
         return;
+    clearChilds(image_downloads);
     clearChilds(images);
-    for (let row of table) {
+    for (let [i, row] of enumerate(table)) {
         let img = images.appendChild(element("div", withCssClass("drawn-image"), element("img", withAttr("src", imageUrl))));
-        for (let [i, col] of enumerate(row)) {
-            img.appendChild(renderText(vpoints, vfonts, i, col));
+        for (let [j, col] of enumerate(row)) {
+            img.appendChild(renderText(vpoints, vfonts, j, col));
         }
+        updateImageDownload(i, img);
     }
     updateLink();
 }

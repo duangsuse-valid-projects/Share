@@ -6,6 +6,9 @@ function withText(text:string): Conf { return (e) => { e.innerText = text; }; }
 function withAttr(name:string, value:any): Conf { return (e) => { e[name] = value; }; }
 function withCssAttr(name:string, value:any): Conf { return (e) => { e.style[name] = value; }; }
 function withCssClass(...classes:string[]): Conf { return (e) => { for (let c of classes) e.classList.add(c); }; }
+function withListener<EV extends keyof(HTMLElementEventMap)>(event:EV, callback:Consumer<HTMLElementEventMap[EV]>): Conf {
+  return (e) => { e.addEventListener(event, callback); };
+}
 
 type Predicate<T> = (x:T) => boolean
 type Conf = (e:HTMLElement) => any
@@ -106,6 +109,12 @@ function xhrReadText(method:string, url:string, on_done:(status:number,text:stri
   xhr.send();
 }
 
+type Rewrite<T> = (x:T) => T
+function rewriteChild<H extends HTMLElement>(index:number, e:H, transform:Rewrite<H>) {
+  let oldChild = e.children[index] as H;
+  e.replaceChild(transform(oldChild), oldChild);
+}
+
 function clearChilds(e:HTMLElement) { while (e.firstChild) e.removeChild(e.firstChild); }
 
 // Part II: Parse
@@ -159,16 +168,17 @@ function withFont(family:string, size:number, weight:string, cfgs:Iterable<[stri
 // Part III: Application
 function initialBindView(): [Map<string, HTMLInputElement>, HTMLInputElement[], HTMLInputElement[]] {
   const [ed1, elements1] = elems<HTMLInputElement>("img-file", "img-url", "points", "fonts");
-  const [ed2, elements2] = elems<HTMLInputElement>("font-name", "font-file", "font-url", "source-table");
+  const [ed2, elements2] = elems<HTMLInputElement>("font-name", "font-file", "font-url", "source-table", "imageset-name");
   let idMap = new Map([...ed1, ...ed2]);
   return [idMap, elements1, elements2];
 }
 
 const [idMap, elements1, elements2] = initialBindView();
 const [img_file, img_url, points, fonts] = elements1;
-const [font_name, font_file, font_url, source_table] = elements2;
+const [font_name, font_file, font_url, source_table, imageset_name] = elements2;
 
 const images = elem("images");
+const image_downloads = elem("image-downloads");
 const cfg_link = elem("cfg-link");
 
 let imageUrl: string = null;
@@ -225,6 +235,25 @@ function updateLink(target = cfg_link) {
   (target as HTMLAnchorElement).href = location.pathname+encodeURLParameters(newParams); //< convenient...
 }
 
+function updateImageDownload(index:number, e:HTMLElement) {
+  function imgExport(ev:MouseEvent) {
+    images.classList.add("rendering-png");
+    let domtoimage = window["domtoimage"]; if (!domtoimage) return;
+    let saveAs = window["saveAs"]; if (!saveAs) return;
+    let idx = Number.parseInt((ev.target as HTMLElement).innerText);
+
+    let view = images.children[idx];
+    let download = () => { domtoimage.toBlob(view).then(b => saveAs(b, `${imageset_name.value}_${idx}.png`)).catch(alert); };
+    domtoimage.toPng(view).then(png =>
+      rewriteChild(idx, image_downloads, () => element("img", configured(withAttr("src", png), withListener("click", download))))
+    ).catch(alert);
+  }
+  let item = element("li", withDefaults(),
+    element("a", configured(withText(index.toString()), withListener("click", imgExport)))
+  );
+  image_downloads.appendChild(item);
+}
+
 let renderTextElement = (point:number[], font:FontEntry, text:string) => {
   let [x, y] = point;
   return element("text",  configured(
@@ -246,14 +275,16 @@ function mainUpdate() {
   console.log(vpoints, vfonts, table);
   if (vpoints.length == 0 || vfonts.length == 0) return;
 
+  clearChilds(image_downloads);
   clearChilds(images);
-  for (let row of table) {
+  for (let [i, row] of enumerate(table)) {
     let img = images.appendChild(element("div", withCssClass("drawn-image"),
       element("img", withAttr("src", imageUrl))
     ));
-    for (let [i, col] of enumerate(row)) {
-      img.appendChild(renderText(vpoints, vfonts, i, col));
+    for (let [j, col] of enumerate(row)) {
+      img.appendChild(renderText(vpoints, vfonts, j, col));
     }
+    updateImageDownload(i, img);
   }
   updateLink();
 }

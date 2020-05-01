@@ -6,6 +6,7 @@
   <meta name="description" content="模板化生成文本图片">
   <style>
   .drawn-image { position: relative; display: inline-block; }
+  .rendering-png { display: block !important; }
   #images { display: grid; }
   </style>
 </head>
@@ -27,9 +28,14 @@ Monkey--Yeee! Yeee!
     </div>
     <a id="cfg-link">分享配置链接</a>(只有图片/字体链接才能被<abbr title="如果内容过长，source-table-url 参数允许自动加载外部文本；此外 eval 参数允许执行脚本">自动下载</abbr>)
   </details>
+
   <div id="images"></div>
+  图片下载<input id="imageset-name" placeholder="下载名前缀" value="render"></input>：
+  <ul id="image-downloads"></ul>
 </body>
 
 <script src="文字图片模板化生成.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/1.3.8/FileSaver.min.js" integrity="sha256-FPJJt8nA+xL4RU6/gsriA8p8xAeLGatoyTjldvQKGdE=" crossorigin="anonymous"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js" integrity="sha256-c9vxcXyAG4paArQG3xk6DjyW/9aHxai2ef9RpMWO44A=" crossorigin="anonymous"></script>
 
 </html>
