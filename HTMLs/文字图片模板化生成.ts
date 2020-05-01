@@ -7,6 +7,7 @@ function withAttr(name:string, value:any): Conf { return (e) => { e[name] = valu
 function withCssAttr(name:string, value:any): Conf { return (e) => { e.style[name] = value; }; }
 function withCssClass(...classes:string[]): Conf { return (e) => { for (let c of classes) e.classList.add(c); }; }
 
+type Predicate<T> = (x:T) => boolean
 type Conf = (e:HTMLElement) => any
 function configured(...configs:Conf[]): Conf {
   return e => { for (let config of configs) config(e); };
@@ -31,6 +32,10 @@ function* map<T, R>(f:(x:T)=>R, xz:Iterable<T>): Iterable<R> {
 }
 function drop(n:number, s:string) {
   return s.substring(1, s.length);
+}
+function findRemove<T>(predicate:Predicate<T>, xs:T[]) {
+  let index = xs.findIndex(predicate);
+  if (index != (-1)) xs.splice(index, 1);
 }
 
 function cyclicGet<T>(xs:T[], i:number): T {
@@ -63,12 +68,12 @@ function encodeURLParameters(params:Array<[string,any]>) {
   return sb;
 }
 
-function elems(...ids: string[]): [Map<string, HTMLElement>, HTMLElement[]] {
-  let elements: HTMLElement[] = [];
+function elems<H extends HTMLElement>(...ids: string[]): [Map<string, H>, H[]] {
+  let elements: H[] = [];
   let idMap = new Map();
   for (let id of ids) {
     let e = elem(id);
-    elements.push(e);
+    elements.push(e as H);
     idMap.set(id, e);
   }
   return [idMap, elements];
@@ -84,11 +89,11 @@ function listenKey<H extends HTMLElement>(name:string, e:H, on_up:Consumer<H>): 
   return () => { on_up(e) };
 }
 
-function readDataUrlThen(on_done:Consumer<string|ArrayBuffer>) { return (event:InputEvent) => {
+function readDataUrlThen(on_done:Consumer<string>) { return (event:InputEvent) => {
   let file = (event.target as HTMLInputElement).files[0]; if(!file) return;
   let reader = new FileReader();
   reader.readAsDataURL(file);
-  reader.onload = () => on_done(reader.result);
+  reader.onload = () => on_done(reader.result as string);
 }; }
 
 function xhrReadText(method:string, url:string, on_done:(status:number,text:string,xhr:XMLHttpRequest)=>any) {
@@ -105,7 +110,7 @@ function clearChilds(e:HTMLElement) { while (e.firstChild) e.removeChild(e.first
 
 // Part II: Parse
 function parseTable(text:string, sep = "==", sep1 = "--") {
-  return [...map(r => [...map(c => c.trim(), r.split(sep1))], source_table.value.split(sep))];
+  return [...map(r => [...map(c => c.trim(), r.split(sep1))], text.split(sep))];
 }
 
 const PAT_POINT = /\((\d+),\s*(\d+)\)/y;
@@ -126,52 +131,7 @@ function* readFontTable(text:string): Iterable<FontEntry> {
   }
 }
 
-function withPoint(x, y) {
-  return configured(withCssAttr("position", "absolute"),
-    withCssAttr("left", `${x}px`), withCssAttr("top", `${y}px`));
-}
-function withFont(family, size, weight, cfgs) {
-  return configured(
-    withCssAttr("font-family", family),
-    withCssAttr("font-size", `${size}px`),
-    withCssAttr("font-weight", weight),
-    ...map(kv => withCssAttr(kv[0], kv[1]), cfgs)
-  );
-}
-
-// Part III: Application
-function initialBindView(): [Map<string, HTMLElement>, HTMLElement[], HTMLElement[]] {
-  const [ed1, elements1] = elems("img-file", "img-url", "points", "fonts");
-  const [ed2, elements2] = elems("font-name", "font-file", "font-url", "source-table");
-  let idMap = new Map([...ed1, ...ed2]);
-  return [idMap, elements1, elements2];
-}
-
-const [idMap, elements1, elements2] = initialBindView();
-const [img_file, img_url, points, fonts] = elements1 as HTMLInputElement[];
-const [font_name, font_file, font_url, source_table] = elements2 as HTMLInputElement[];
-
-const images = elem("images");
-const cfg_link = elem("cfg-link");
-
-let params = parseURLParameters();
-const hardParams = new Set(["img-file", "font-file"]);
-const softParams = new Set(["source-table-url", "eval"]);
-
-for (let [name, value] of params) {
-  if (hardParams.has(name)) { console.warn(`unsettable param ${name}`); continue; }
-  if (idMap.has(name)) { (idMap.get(name) as HTMLInputElement).value = value; }
-  else { if (!softParams.has(name)) console.warn(`unknown param ${name}`); }
-} //^ set url-param values
-
-let imageUrl = null;
-img_file.onchange = readDataUrlThen(it => { imageUrl = it; mainUpdate(); });
-let urlFiredImg = listenKey("Enter", img_url, target => {
-  imageUrl = target.value;
-  mainUpdate();
-}); //没法反向要求更新，参数化event.target的缺陷，算了
-
-const PAT_CSS_URL = /(\.css$)|(\/css2?\/|\??)/g;
+const PAT_CSS_URL = /\.css$|\/css2?[\/\?]/;
 function appendFont(url:string) {
   if (!url.startsWith("data:") && PAT_CSS_URL.test(url)) {
     document.head.appendChild(element("link",
@@ -182,9 +142,70 @@ function appendFont(url:string) {
     font.load().then(face => document['fonts'].add(face));
   }
 }
-font_file.onchange = readDataUrlThen(appendFont);
-let urlFiredFont = listenKey("Enter", font_url, target => appendFont(target.value));
 
+function withPoint(x:number, y:number) {
+  return configured(withCssAttr("position", "absolute"),
+    withCssAttr("left", `${x}px`), withCssAttr("top", `${y}px`));
+}
+function withFont(family:string, size:number, weight:string, cfgs:Iterable<[string,any]>) {
+  return configured(
+    withCssAttr("font-family", family),
+    withCssAttr("font-size", `${size}px`),
+    withCssAttr("font-weight", weight),
+    ...map(kv => withCssAttr(kv[0], kv[1]), cfgs)
+  );
+}
+
+// Part III: Application
+function initialBindView(): [Map<string, HTMLInputElement>, HTMLInputElement[], HTMLInputElement[]] {
+  const [ed1, elements1] = elems<HTMLInputElement>("img-file", "img-url", "points", "fonts");
+  const [ed2, elements2] = elems<HTMLInputElement>("font-name", "font-file", "font-url", "source-table");
+  let idMap = new Map([...ed1, ...ed2]);
+  return [idMap, elements1, elements2];
+}
+
+const [idMap, elements1, elements2] = initialBindView();
+const [img_file, img_url, points, fonts] = elements1;
+const [font_name, font_file, font_url, source_table] = elements2;
+
+const images = elem("images");
+const cfg_link = elem("cfg-link");
+
+let imageUrl: string = null;
+let downloadedText: string;
+
+let params = parseURLParameters();
+const hardParams = new Set(["img-file", "font-file"]);
+const softParams = new Set(["source-table-url", "eval"]);
+//^ global variable defs
+
+function fillInputValues(value_map:Map<string,HTMLInputElement>) {
+  for (let [name, value] of params) {
+    if (hardParams.has(name)) { console.warn(`unsettable param ${name}`); continue; }
+    if (value_map.has(name)) { value_map.get(name).value = value; }
+    else { if (!softParams.has(name)) console.warn(`unknown param ${name}`); }
+  } //^ set url-param values
+}
+fillInputValues(idMap);
+
+function applySoftParams() {
+for (let param of softParams) {
+  if (!params.has(param)) continue;
+  let pvalue = params.get(param);
+
+  if (param == "source-table-url") {
+    xhrReadText("GET", pvalue, (status, text, xhr) => {
+      if (status != 200) { source_table.value = `从 ${pvalue} 处加载失败, code ${status}... ${xhr.response}`; }
+      else { downloadedText = text; source_table.value = text; mainUpdate(); }
+    });
+  } else if (param == "eval") {
+    let message = `你要执行此配置附带的脚本吗？这样的危险等同访问一个你不信任的链接。\n下面的代码应该简单，并且只有很少的链接：\n${pvalue}`;
+    if (window.confirm(message)) { eval(pvalue); mainUpdate(); }
+  }
+} }
+applySoftParams();
+
+//v main update generation logics
 function updateLink(target = cfg_link) {
   let newParams = [];
   for (let [id, view] of idMap.entries()) {
@@ -194,7 +215,11 @@ function updateLink(target = cfg_link) {
   }
   // softParams are not automatically-exportable
   for (let [param, pvalue] of params) {
-    if (param == "eval") newParams.push([param, pvalue]);
+    let inherit = () => newParams.push([param, pvalue]);
+    if (param == "eval") inherit();
+    else if (param == "source-table-url" && source_table.value == downloadedText) {
+      inherit(); findRemove(kv => kv[0] == "source-table", newParams);
+    }
   }
   console.log(newParams);
   (target as HTMLAnchorElement).href = location.pathname+encodeURLParameters(newParams); //< convenient...
@@ -233,24 +258,22 @@ function mainUpdate() {
   updateLink();
 }
 
-if (params.size != 0) {
-  if (font_url.value != "") urlFiredFont();
-  if (img_url.value != "") urlFiredImg();
-}
-source_table.onblur = mainUpdate;
-for (let view of [points, fonts]) listenKey("Enter", view, mainUpdate);
+function registerImageFontInputs() {
+  img_file.onchange = readDataUrlThen(it => { imageUrl = it; mainUpdate(); });
+  let urlFiredImg = listenKey("Enter", img_url, target => {
+    imageUrl = target.value;
+    mainUpdate();
+  }); //没法反向要求更新，参数化event.target的缺陷，算了
 
-for (let param of softParams) {
-  if (!params.has(param)) continue;
-  let pvalue = params.get(param);
+  font_file.onchange = readDataUrlThen(appendFont);
+  let urlFiredFont = listenKey("Enter", font_url, target => appendFont(target.value));
 
-  if (param == "source-table-url") {
-    xhrReadText("GET", pvalue, (status, text, xhr) => {
-      if (status != 200) { source_table.value = `从 ${pvalue} 处加载失败, code ${status}... ${xhr.response}`; }
-      else { source_table.value = text; mainUpdate(); }
-    });
-  } else if (param == "eval") {
-    let message = `你要执行此配置附带的脚本吗？这样的危险等同访问一个你不信任的链接。\n下面的代码应该简单，并且只有很少的链接：\n${pvalue}`;
-    if (window.confirm(message)) eval(pvalue);
+  if (params.size != 0) { //< fire events after url filled
+    if (font_url.value != "") urlFiredFont();
+    if (img_url.value != "") urlFiredImg();
   }
 }
+registerImageFontInputs();
+
+source_table.onblur = mainUpdate;
+for (let view of [points, fonts]) listenKey("Enter", view, mainUpdate);

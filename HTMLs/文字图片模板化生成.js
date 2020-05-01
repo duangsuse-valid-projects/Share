@@ -35,6 +35,11 @@ function* map(f, xz) {
 function drop(n, s) {
     return s.substring(1, s.length);
 }
+function findRemove(predicate, xs) {
+    let index = xs.findIndex(predicate);
+    if (index != (-1))
+        xs.splice(index, 1);
+}
 function cyclicGet(xs, i) {
     if (xs.length == 0)
         throw Error(`attempt to cyclic get ${i} from empty list`);
@@ -110,7 +115,7 @@ function clearChilds(e) { while (e.firstChild)
     e.removeChild(e.firstChild); }
 // Part II: Parse
 function parseTable(text, sep = "==", sep1 = "--") {
-    return [...map(r => [...map(c => c.trim(), r.split(sep1))], source_table.value.split(sep))];
+    return [...map(r => [...map(c => c.trim(), r.split(sep1))], text.split(sep))];
 }
 const PAT_POINT = /\((\d+),\s*(\d+)\)/y;
 function* readPointTable(text) {
@@ -124,6 +129,16 @@ function* readFontTable(text) {
         font[1] = Number.parseInt(fnt[1]);
         font[3] = (fnt[3] == undefined) ? [] : drop(1, fnt[3]).split(",").map(kv => kv.split("="));
         yield font;
+    }
+}
+const PAT_CSS_URL = /\.css$|\/css2?[\/\?]/;
+function appendFont(url) {
+    if (!url.startsWith("data:") && PAT_CSS_URL.test(url)) {
+        document.head.appendChild(element("link", configured(withAttr("rel", "stylesheet"), withAttr("href", url))));
+    }
+    else {
+        let font = new window['FontFace'](font_name.value, `url(${url}) format('woff2')`);
+        font.load().then(face => document['fonts'].add(face));
     }
 }
 function withPoint(x, y) {
@@ -144,40 +159,56 @@ const [img_file, img_url, points, fonts] = elements1;
 const [font_name, font_file, font_url, source_table] = elements2;
 const images = elem("images");
 const cfg_link = elem("cfg-link");
+let imageUrl = null;
+let downloadedText;
 let params = parseURLParameters();
 const hardParams = new Set(["img-file", "font-file"]);
 const softParams = new Set(["source-table-url", "eval"]);
-for (let [name, value] of params) {
-    if (hardParams.has(name)) {
-        console.warn(`unsettable param ${name}`);
-        continue;
-    }
-    if (idMap.has(name)) {
-        idMap.get(name).value = value;
-    }
-    else {
-        if (!softParams.has(name))
-            console.warn(`unknown param ${name}`);
-    }
-} //^ set url-param values
-let imageUrl = null;
-img_file.onchange = readDataUrlThen(it => { imageUrl = it; mainUpdate(); });
-let urlFiredImg = listenKey("Enter", img_url, target => {
-    imageUrl = target.value;
-    mainUpdate();
-}); //没法反向要求更新，参数化event.target的缺陷，算了
-const PAT_CSS_URL = /(\.css$)|(\/css2?\/|\??)/g;
-function appendFont(url) {
-    if (!url.startsWith("data:") && PAT_CSS_URL.test(url)) {
-        document.head.appendChild(element("link", configured(withAttr("rel", "stylesheet"), withAttr("href", url))));
-    }
-    else {
-        let font = new window['FontFace'](font_name.value, `url(${url}) format('woff2')`);
-        font.load().then(face => document['fonts'].add(face));
+//^ global variable defs
+function fillInputValues(value_map) {
+    for (let [name, value] of params) {
+        if (hardParams.has(name)) {
+            console.warn(`unsettable param ${name}`);
+            continue;
+        }
+        if (value_map.has(name)) {
+            value_map.get(name).value = value;
+        }
+        else {
+            if (!softParams.has(name))
+                console.warn(`unknown param ${name}`);
+        }
+    } //^ set url-param values
+}
+fillInputValues(idMap);
+function applySoftParams() {
+    for (let param of softParams) {
+        if (!params.has(param))
+            continue;
+        let pvalue = params.get(param);
+        if (param == "source-table-url") {
+            xhrReadText("GET", pvalue, (status, text, xhr) => {
+                if (status != 200) {
+                    source_table.value = `从 ${pvalue} 处加载失败, code ${status}... ${xhr.response}`;
+                }
+                else {
+                    downloadedText = text;
+                    source_table.value = text;
+                    mainUpdate();
+                }
+            });
+        }
+        else if (param == "eval") {
+            let message = `你要执行此配置附带的脚本吗？这样的危险等同访问一个你不信任的链接。\n下面的代码应该简单，并且只有很少的链接：\n${pvalue}`;
+            if (window.confirm(message)) {
+                eval(pvalue);
+                mainUpdate();
+            }
+        }
     }
 }
-font_file.onchange = readDataUrlThen(appendFont);
-let urlFiredFont = listenKey("Enter", font_url, target => appendFont(target.value));
+applySoftParams();
+//v main update generation logics
 function updateLink(target = cfg_link) {
     let newParams = [];
     for (let [id, view] of idMap.entries()) {
@@ -189,8 +220,13 @@ function updateLink(target = cfg_link) {
     }
     // softParams are not automatically-exportable
     for (let [param, pvalue] of params) {
+        let inherit = () => newParams.push([param, pvalue]);
         if (param == "eval")
-            newParams.push([param, pvalue]);
+            inherit();
+        else if (param == "source-table-url" && source_table.value == downloadedText) {
+            inherit();
+            findRemove(kv => kv[0] == "source-table", newParams);
+        }
     }
     console.log(newParams);
     target.href = location.pathname + encodeURLParameters(newParams); //< convenient...
@@ -222,33 +258,22 @@ function mainUpdate() {
     }
     updateLink();
 }
-if (params.size != 0) {
-    if (font_url.value != "")
-        urlFiredFont();
-    if (img_url.value != "")
-        urlFiredImg();
+function registerImageFontInputs() {
+    img_file.onchange = readDataUrlThen(it => { imageUrl = it; mainUpdate(); });
+    let urlFiredImg = listenKey("Enter", img_url, target => {
+        imageUrl = target.value;
+        mainUpdate();
+    }); //没法反向要求更新，参数化event.target的缺陷，算了
+    font_file.onchange = readDataUrlThen(appendFont);
+    let urlFiredFont = listenKey("Enter", font_url, target => appendFont(target.value));
+    if (params.size != 0) { //< fire events after url filled
+        if (font_url.value != "")
+            urlFiredFont();
+        if (img_url.value != "")
+            urlFiredImg();
+    }
 }
+registerImageFontInputs();
 source_table.onblur = mainUpdate;
 for (let view of [points, fonts])
     listenKey("Enter", view, mainUpdate);
-for (let param of softParams) {
-    if (!params.has(param))
-        continue;
-    let pvalue = params.get(param);
-    if (param == "source-table-url") {
-        xhrReadText("GET", pvalue, (status, text, xhr) => {
-            if (status != 200) {
-                source_table.value = `从 ${pvalue} 处加载失败, code ${status}... ${xhr.response}`;
-            }
-            else {
-                source_table.value = text;
-                mainUpdate();
-            }
-        });
-    }
-    else if (param == "eval") {
-        let message = `你要执行此配置附带的脚本吗？这样的危险等同访问一个你不信任的链接。\n下面的代码应该简单，并且只有很少的链接：\n${pvalue}`;
-        if (window.confirm(message))
-            eval(pvalue);
-    }
-}

@@ -14,22 +14,18 @@
   <details id="box-settings" style="border: 1px solid yellowgreen">
     <summary>生成配置……</summary>
     <div>选择图片：<input id="img-file" type="file"></input> 或 <input id="img-url" placeholder="http://xxx.png"></input>
-      <br>加载字体：<input id="font-name" placeholder="某字体族名"></input>, <input id="font-file" type="file"></input> 或 <input id="font-url" placeholder="http://xxx.woff"></input> </div>
+      <br>加载字体：<input id="font-name" placeholder="某字体族名"></input> 加 <input id="font-file" type="file"></input> 或 <input id="font-url" placeholder="http://xxx.woff"></input> </div>
     <div>
       <br>文字起点表：<input id="points" placeholder="(x,y) (x1,y1)"></input>
       字体(族:字号,字重,color=颜色,writing-mode=方向)表：<input id="fonts" placeholder="(Arial:20,bold,color=green,writing-mode=horizontal-tb)"></input>
-      <br>文字元组列表：<textarea id="source-table" placeholder="Apple--
-An apple a day, ...
-Banana--
-A banana a day, ...
+      <br>文字元组列表：<textarea id="source-table" placeholder="Apple--An apple a day, ...--
+Banana--A banana a day, ...
 ==
-Human--
-WTF?
-Monkey--
-Yeee! Yeee!
+Human--WTF?--
+Monkey--Yeee! Yeee!
   "></textarea>
     </div>
-    <a id="cfg-link">分享配置链接</a>(只有图片/字体链接才能被<abbr title="如果内容过长，source-table-url 参数允许自动加载外部文本">自动下载</abbr>)
+    <a id="cfg-link">分享配置链接</a>(只有图片/字体链接才能被<abbr title="如果内容过长，source-table-url 参数允许自动加载外部文本；此外 eval 参数允许执行脚本">自动下载</abbr>)
   </details>
   <div id="images"></div>
 </body>
