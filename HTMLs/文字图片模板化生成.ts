@@ -15,7 +15,7 @@ type Conf = (e:HTMLElement) => any
 function configured(...configs:Conf[]): Conf {
   return e => { for (let config of configs) config(e); };
 }
-function element<TAG extends keyof(ElementTagNameMap)>(tagName:TAG, config:Conf, ...childs:HTMLElement[]): ElementTagNameMap[TAG] {
+function element<TAG extends keyof(ElementTagNameMap)>(tagName:TAG, config:Conf, ...childs:(Element|Text)[]): ElementTagNameMap[TAG] {
   let e = document.createElement(tagName); config(e);
   for (let child of childs) e.appendChild(child);
   return e as ElementTagNameMap[TAG];
@@ -156,6 +156,11 @@ function withPoint(x:number, y:number) {
   return configured(withCssAttr("position", "absolute"),
     withCssAttr("left", `${x}px`), withCssAttr("top", `${y}px`));
 }
+function withSize(w:number, h:number) {
+  return configured(
+    withCssAttr("max-width", `${w}px`), withCssAttr("max-height", `${h}px`)
+  );
+}
 function withFont(family:string, size:number, weight:string, cfgs:Iterable<[string,any]>) {
   return configured(
     withCssAttr("font-family", family),
@@ -186,7 +191,8 @@ let downloadedText: string;
 
 let params = parseURLParameters();
 const hardParams = new Set(["img-file", "font-file"]);
-const softParams = new Set(["source-table-url", "eval"]);
+const softParams = new Set(["source-table-url", "eval", "mode"]);
+let mode = params.get("mode") || "normal";
 //^ global variable defs
 
 function fillInputValues(value_map:Map<string,HTMLInputElement>) {
@@ -226,7 +232,7 @@ function updateLink(target = cfg_link) {
   // softParams are not automatically-exportable
   for (let [param, pvalue] of params) {
     let inherit = () => newParams.push([param, pvalue]);
-    if (param == "eval") inherit();
+    if (param == "eval" || param == "mode") inherit();
     else if (param == "source-table-url" && source_table.value == downloadedText) {
       inherit(); findRemove(kv => kv[0] == "source-table", newParams);
     }
@@ -254,18 +260,28 @@ function updateImageDownload(index:number, e:HTMLElement) {
   image_downloads.appendChild(item);
 }
 
+type RenderHandler = (vpoints:number[][], vfonts:FontEntry[], index:number, text:string) => any;
 let renderTextElement = (point:number[], font:FontEntry, text:string) => {
   let [x, y] = point;
   return element("text",  configured(
     withPoint(x, y),
     withFont(...font), withText(text))
   );
-};
-function renderText(vpoints:number[][], vfonts:FontEntry[], index:number, text:string) {
+}; //^ ext: rewrite this
+const renderText: RenderHandler = (vpoints, vfonts, index, text) => {
   let point = cyclicGet(vpoints, index);
   let font = cyclicGet(vfonts, index);
   return renderTextElement(point, font, text);
-}
+};
+const renderTextRect: RenderHandler = (vpoints, vfonts, index, text) => {
+  let [[x, y], [w, h]] = cyclicGetN(2, vpoints, index);
+  let font = cyclicGet(vfonts, index);
+  return element("div", configured(
+    withPoint(x, y), withSize(w, h),
+    withFont(...font),
+    withCssClass("rect-overflow")
+  ), document.createTextNode(text));
+};
 
 function mainUpdate() {
   if (imageUrl == null) return;
@@ -282,7 +298,7 @@ function mainUpdate() {
       element("img", withAttr("src", imageUrl))
     ));
     for (let [j, col] of enumerate(row)) {
-      img.appendChild(renderText(vpoints, vfonts, j, col));
+      img.appendChild((mode == "rect" ? renderTextRect : renderText)(vpoints, vfonts, j, col));
     }
     updateImageDownload(i, img);
   }

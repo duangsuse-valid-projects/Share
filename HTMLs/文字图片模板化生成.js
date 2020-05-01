@@ -151,6 +151,9 @@ function appendFont(url) {
 function withPoint(x, y) {
     return configured(withCssAttr("position", "absolute"), withCssAttr("left", `${x}px`), withCssAttr("top", `${y}px`));
 }
+function withSize(w, h) {
+    return configured(withCssAttr("max-width", `${w}px`), withCssAttr("max-height", `${h}px`));
+}
 function withFont(family, size, weight, cfgs) {
     return configured(withCssAttr("font-family", family), withCssAttr("font-size", `${size}px`), withCssAttr("font-weight", weight), ...map(kv => withCssAttr(kv[0], kv[1]), cfgs));
 }
@@ -171,7 +174,8 @@ let imageUrl = null;
 let downloadedText;
 let params = parseURLParameters();
 const hardParams = new Set(["img-file", "font-file"]);
-const softParams = new Set(["source-table-url", "eval"]);
+const softParams = new Set(["source-table-url", "eval", "mode"]);
+let mode = params.get("mode") || "normal";
 //^ global variable defs
 function fillInputValues(value_map) {
     for (let [name, value] of params) {
@@ -229,7 +233,7 @@ function updateLink(target = cfg_link) {
     // softParams are not automatically-exportable
     for (let [param, pvalue] of params) {
         let inherit = () => newParams.push([param, pvalue]);
-        if (param == "eval")
+        if (param == "eval" || param == "mode")
             inherit();
         else if (param == "source-table-url" && source_table.value == downloadedText) {
             inherit();
@@ -259,12 +263,17 @@ function updateImageDownload(index, e) {
 let renderTextElement = (point, font, text) => {
     let [x, y] = point;
     return element("text", configured(withPoint(x, y), withFont(...font), withText(text)));
-};
-function renderText(vpoints, vfonts, index, text) {
+}; //^ ext: rewrite this
+const renderText = (vpoints, vfonts, index, text) => {
     let point = cyclicGet(vpoints, index);
     let font = cyclicGet(vfonts, index);
     return renderTextElement(point, font, text);
-}
+};
+const renderTextRect = (vpoints, vfonts, index, text) => {
+    let [[x, y], [w, h]] = cyclicGetN(2, vpoints, index);
+    let font = cyclicGet(vfonts, index);
+    return element("div", configured(withPoint(x, y), withSize(w, h), withFont(...font), withCssClass("rect-overflow")), document.createTextNode(text));
+};
 function mainUpdate() {
     if (imageUrl == null)
         return;
@@ -279,7 +288,7 @@ function mainUpdate() {
     for (let [i, row] of enumerate(table)) {
         let img = images.appendChild(element("div", withCssClass("drawn-image"), element("img", withAttr("src", imageUrl))));
         for (let [j, col] of enumerate(row)) {
-            img.appendChild(renderText(vpoints, vfonts, j, col));
+            img.appendChild((mode == "rect" ? renderTextRect : renderText)(vpoints, vfonts, j, col));
         }
         updateImageDownload(i, img);
     }

@@ -7,6 +7,7 @@
   <style>
   .drawn-image { position: relative; display: inline-block; }
   .rendering-png { display: block !important; }
+  .rect-overflow { overflow-wrap: break-word; overflow: auto; }
   #images { display: grid; }
   </style>
 </head>
@@ -26,7 +27,7 @@ Human--WTF?--
 Monkey--Yeee! Yeee!
   "></textarea>
     </div>
-    <a id="cfg-link">分享配置链接</a>(只有图片/字体链接才能被<abbr title="如果内容过长，source-table-url 参数允许自动加载外部文本；此外 eval 参数允许执行脚本">自动下载</abbr>)
+    <a id="cfg-link">分享配置链接</a>(只有图片/字体链接才能被<abbr title="如果内容过长，source-table-url 参数允许自动加载外部文本；此外 eval 参数允许执行脚本，mode=rect 参数允许限制化(x,y)(w,h)">自动下载</abbr>)
   </details>
 
   <div id="images"></div>
