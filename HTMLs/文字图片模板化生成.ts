@@ -1,3 +1,5 @@
+//tsc 文字图片模板化生成.ts --downLevelIteration -t ES2015
+
 // Part I: Basics
 function withDefaults(): Conf { return (e) => {}; }
 function withText(text:string): Conf { return (e) => { e.innerText = text; }; }
@@ -34,6 +36,13 @@ function drop(n:number, s:string) {
 function cyclicGet<T>(xs:T[], i:number): T {
   if (xs.length == 0) throw Error(`attempt to cyclic get ${i} from empty list`);
   return xs[i % xs.length];
+}
+function cyclicGetN<T>(n:number, xs:T[], index:number): T[] {
+  let items = [];
+  for (let base=index*n, i=base; i<base+n; i++) {
+    items.push(cyclicGet(xs, i));
+  }
+  return items;
 }
 function* enumerate<T>(xs:Iterable<T>): Iterable<[number, T]> {
   let index = 0;
@@ -147,7 +156,7 @@ const cfg_link = elem("cfg-link");
 
 let params = parseURLParameters();
 const hardParams = new Set(["img-file", "font-file"]);
-const softParams = new Set(["source-table-url"]);
+const softParams = new Set(["source-table-url", "eval"]);
 
 for (let [name, value] of params) {
   if (hardParams.has(name)) { console.warn(`unsettable param ${name}`); continue; }
@@ -177,21 +186,31 @@ font_file.onchange = readDataUrlThen(appendFont);
 let urlFiredFont = listenKey("Enter", font_url, target => appendFont(target.value));
 
 function updateLink(target = cfg_link) {
-  let params = [];
+  let newParams = [];
   for (let [id, view] of idMap.entries()) {
     if (hardParams.has(id)) continue;
     let value = (view as HTMLInputElement).value;
-    if (value != "") params.push([id, value]);
+    if (value != "") newParams.push([id, value]);
   }
-  console.log(params);
-  (target as HTMLAnchorElement).href = location.pathname+encodeURLParameters(params); //< convenient...
+  // softParams are not automatically-exportable
+  for (let [param, pvalue] of params) {
+    if (param == "eval") newParams.push([param, pvalue]);
+  }
+  console.log(newParams);
+  (target as HTMLAnchorElement).href = location.pathname+encodeURLParameters(newParams); //< convenient...
 }
 
-function renderText(xy, font, text) {
+let renderTextElement = (point:number[], font:FontEntry, text:string) => {
+  let [x, y] = point;
   return element("text",  configured(
-    withPoint(xy[0], xy[1]),
-    withFont(font[0], font[1], font[2], font[3]), withText(text))
+    withPoint(x, y),
+    withFont(...font), withText(text))
   );
+};
+function renderText(vpoints:number[][], vfonts:FontEntry[], index:number, text:string) {
+  let point = cyclicGet(vpoints, index);
+  let font = cyclicGet(vfonts, index);
+  return renderTextElement(point, font, text);
 }
 
 function mainUpdate() {
@@ -208,9 +227,7 @@ function mainUpdate() {
       element("img", withAttr("src", imageUrl))
     ));
     for (let [i, col] of enumerate(row)) {
-      let xy = cyclicGet(vpoints, i);
-      let font = cyclicGet(vfonts, i);
-      img.appendChild(renderText(xy, font, col));
+      img.appendChild(renderText(vpoints, vfonts, i, col));
     }
   }
   updateLink();
@@ -232,5 +249,8 @@ for (let param of softParams) {
       if (status != 200) { source_table.value = `从 ${pvalue} 处加载失败, code ${status}... ${xhr.response}`; }
       else { source_table.value = text; mainUpdate(); }
     });
+  } else if (param == "eval") {
+    let message = `你要执行此配置附带的脚本吗？这样的危险等同访问一个你不信任的链接。\n下面的代码应该简单，并且只有很少的链接：\n${pvalue}`;
+    if (window.confirm(message)) eval(pvalue);
   }
 }
