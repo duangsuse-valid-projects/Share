@@ -5,10 +5,16 @@ import kotlin.test.assertEquals
 
 class TemplatorTest {
   @Test fun lexer() {
-    val pas = TemplatorParser(INPUT)
-    val list = mutableListOf<String>()
+    assertEquals(EXPECTED.split("|"), lex(INPUT))
+  }
+  private fun lex(input: String): List<String> {
+    val pas = TemplatorParser(input)
+    val list = mutableListOf(pas.lastToken.second)
     try { while (true) list.add(pas.readToken().second) } catch (_: SubseqParser.End) {}
-    assertEquals(EXPECTED.split("|"), list)
+    return list
+  }
+  @Test fun parser() {
+    assertEquals(TemplatorAst.ValRef(listOf(), "a"), TemplatorParser("-{if partyOpen}Party is opened-{if !full}, welcome!!-{end}-{end}\n").readTop()[0])
   }
   companion object {
     const val INPUT = """
