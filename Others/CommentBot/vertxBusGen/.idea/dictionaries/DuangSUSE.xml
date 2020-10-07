@@ -2,6 +2,9 @@
   <dictionary name="DuangSUSE">
     <words>
       <w>codegen</w>
+      <w>destructify</w>
+      <w>subseq</w>
+      <w>templator</w>
     </words>
   </dictionary>
 </component>

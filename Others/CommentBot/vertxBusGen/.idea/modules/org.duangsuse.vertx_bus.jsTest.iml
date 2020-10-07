@@ -4,9 +4,9 @@
     <facet type="kotlin-language" name="Kotlin">
       <configuration version="3" platform="JavaScript " allPlatforms="JS []" useProjectSettings="false" isTestModule="true" externalProjectId="vertx_bus">
         <sourceSets>
+          <sourceSet>org.duangsuse.vertx_bus.commonMain</sourceSet>
           <sourceSet>org.duangsuse.vertx_bus.jsMain</sourceSet>
           <sourceSet>org.duangsuse.vertx_bus.commonTest</sourceSet>
-          <sourceSet>org.duangsuse.vertx_bus.commonMain</sourceSet>
         </sourceSets>
         <newMppModelJpsModuleKind>COMPILATION_AND_SOURCE_SET_HOLDER</newMppModelJpsModuleKind>
         <compilerSettings />

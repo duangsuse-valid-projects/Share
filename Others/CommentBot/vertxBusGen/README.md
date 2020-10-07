@@ -25,7 +25,8 @@ Hello plain text.
 His name is -[name]
 
 Party members:
--{for name in names}name-{end}
+-{for name in names}-[name]-{end}
+-{for names do getHobby}Note, -[name] have -[n], -[hobbies] hobbies-{end}
 -{if partyOpen}Party is opened-{if !full}, welcome!!-{end}-{end}
 
 -{buildString foodList}
@@ -37,17 +38,19 @@ Foods:
 
 主要有 `for`, `if` ...`end` 以及无输出只含副作用的 `buildString` 语法，为了简单不支持表达式而只允许变量名、不支持注释。
 
+注意到我们支持 `for iter do op` 语法，因为这门语言只是用于简化代码，他会基于 `java.util.Function` 引入其外部逻辑。
+
 为了解释这门语言，实现其 `fillTo(sb: StringBuilder, map: Globals/*MutableMap<String, Any>*/)` 方法需要创建抽象语法树(AST)，这里略过。
 
 谈到解析器，了解我的人可能以为我又要用 `Feed { val peek: Char; fun consume(): Char; class End: Exception("no more") }` 这种 peek(1) 或称 LL(1) 的输入流结构，实际上这次不。
 
-之所以要用 peek(1) 主要是为了定义复用性——比如解析 JSON ，每个位置都可能是 `"", -1, 2.0e3, [], true, null` 数种情况，而解析四则运算表达式更需要处理优先级、递归 `(Expr)` 解析等问题，但在模板语言里，只有 `-[]` 和 `-{}` 里的代码才需要具体考虑(目前的情况基本 Regex 就足矣)，要区分 `-x` 还是 `-[` 最好用 peek(2) 解决(不然只有 `consume()` 掉 `-` 后才能看见后面是否是 `[`，再能决定它们到底属于文本部分还是模板代码部分)，则 `Feed` 不适用。
+之所以要用 peek(1) 主要是为了定义的复用性——比如解析 JSON ，每个位置都可能是 `"", -1, 2.0e3, [], true, null` 数种情况，而解析四则运算表达式更需要处理优先级、递归 `(Expr)` 解析等问题，但在模板语言里，只有 `-[]` 和 `-{}` 里的代码才需要具体考虑(目前的情况基本 Regex 就足矣)，要区分 `-x` 还是 `-[` 最好用 peek(2) 解决(不然只有 `consume()` 掉 `-` 后才能看见后面是否是 `[`，再能决定它们到底属于文本部分还是模板代码部分)，则 `Feed` 不适用。
 
-我们这次的基本输入流是 `subString` 法——`var text: CharSequence; fun readToken(): Pair<TokenKind, String>`
+我们这次的基本输入流是 `indexOf`+`subString` 法——`var text: CharSequence; fun readToken(): Pair<TokenKind, String>`
 
-`enum class TokenKind { Plain, Squared, Braced }`；每轮读取到 `-`，判断其后 `[`, `{` ，若是则给到其闭括号、若非则继续下次，加到正在收集的 `Plain` 文本里
+`enum class TokenKind { Plain, Squared, Braced }`；每轮读取到 `-`，判断其后 `[`, `{` ，若是则给到其闭括号、若非则跳过 `-`、继续下次，加到正在收集的 `Plain` 文本里
 
-这个过程若只能 peek(1)，则判断 `-` 后不是开括号，得将它加到当前收集的 `StringBuilder` 里，这类多字符判断会影响到递归下降法子程序的可组合性。
+这个过程若只能 peek(1)，则判断 `-` 后不是开括号，要将它加到当前收集的 `StringBuilder` 里，这类多字符的判断会影响到递归下降法子程序的可组合性。
 
 ### Block 的解析
 
@@ -65,13 +68,14 @@ If "if" '!'? Name Block
 
 形如以上 `if end` 例，本身隐含了栈的结构。比如 `if a if b end end` 和 `if a end if b end` 的 `if` 出现顺序一样，但嵌套结构是不同的。
 
-如果利用显式栈则必须让包含 `Block` 的 AST 部分化(不可能直接包含块对象，但可以由 `Block` 包含作即解析完的 `head`，而它要等待 `end` 指明全部内部项)
+如果利用显式栈则必须让包含 `Block` 的 AST 部分化(不可能直接包含块对象，但可以由 `Block` 包含即解析完的 `head`，而它要等待 `end` 指明全部内部项)
 
 实现比如，得维护一个 `Stack<Pair<BlockHead/*for-in,if,buildString,...*/, Int/*begin-pos*/>>` 和当前 `MutableList<Item>`，每次碰到 `end` 就从表末切出 `stack.last().second` 项，再把其交给 `.first` 组织好后添加到 `items`。
 
-或者更干净点， `Stack<Pair<BlockHead, MutableList<TemplatorAst>>>`，初始情况是读取 `Block`，而每次 `end` 就 `stack[stack.lastIndex-1].second.add(stack.last())`，序列读完后栈顶的 `it.second/*items*/` 就是所有项。
+或者更干净点， `Stack<Pair<BlockHead, MutableList<Item>>>`，初始情况是读取 `Block`，而每次 `end` 就 `stack[stack.lastIndex-1].second.add(stack.pop())`，序列读完后栈顶的 `it.second/*items*/` 就是所有项。
 
-你可以照上 `if a b` 例试试两种方法的有效性。不过一般，我们会用递归下降法；这种方法不能做成 `onToken` 的模式，但简单快速。
+
+你可以照上 `if a b` 例试试两种方法的有效性。不过一般我们会用递归下降法；这种方法不能做成 `onToken` 的模式，但简单快速且不必有临时结果的数据类型。
 
 以上提及的所有方法实质上都用了至少两个栈，即所有层、当前层的所有项，且第一层代表入口规则 `Block`；每层结束时将它加入父层项表。
 
@@ -126,3 +130,11 @@ chars3("sad[23[3]a]").first //[s, a, d, [2, 3, [3], a]]
 第三例递归下降法，看起来特别糟糕是因为我用的函数式无变量版本（那个 `var codes` 实际上可以写成尾递归参数的），所以一般递归下降法都会结合 `Iterator` 之类的流使用，不会手动 `String.subSequence`。
 
 另注意，如果要对无配对的 `]` 做错误提示，前二者看 items 是否仅 1 项即可；最后者只用把对 `]` 的检查和跳过换到 `'[' -> {}` 里即可，直接看到 `]` 就报错啦。
+
+## 尾记
+
+我这是怎么了（草）…… 解析一个 end 块语法居然讲了这么久，为什么要废话这么多啊……
+
+这次的实际解析器依靠 `readToken()` 来解析，所以无需维护 `subSequence` 的问题（这个问题本身也是纯函数式编程引入的“引用透明、无副作用”而已）
+
+总而言之，讲明了这些以后实现大概不困难，就不多言了。
