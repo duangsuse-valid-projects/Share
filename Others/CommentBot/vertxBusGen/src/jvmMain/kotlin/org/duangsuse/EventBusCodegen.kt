@@ -1,7 +1,7 @@
 package org.duangsuse
 
+import io.fluidsonic.meta.Meta
 import java.io.File
-import java.lang.StringBuilder
 import javax.annotation.processing.*
 import javax.lang.model.element.Element
 import javax.lang.model.element.ExecutableElement
@@ -38,6 +38,7 @@ class EventBusEndpointCodegenProcessor: AbstractCodegenProcessor(EventBusEndpoin
   private fun processInterface(interfaceElem: TypeElement) {
     val qualName = "${interfaceElem.qualifiedName}"
     val (packageName, name) = interfaceElem.packageSimpleNamePair()
+    val meta = Meta.of(interfaceElem)
     val code = StringBuilder(CODE_ENDPOINT_HEADER)
   }
   private fun TypeElement.packageSimpleNamePair(): Pair<String, String> {

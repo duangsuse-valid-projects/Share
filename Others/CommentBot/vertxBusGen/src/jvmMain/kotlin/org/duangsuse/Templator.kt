@@ -47,6 +47,17 @@ sealed class TemplatorAst {
   abstract fun fillTo(sb: Appendable, map: Globals)
 }
 
+object Templator {
+  fun fillWith(map: Map<String, Any?>, vararg templates: TemplatorAst): String {
+    val lastSb = StringBuilder()
+    val globals = map.toMutableMap()
+    templates.forEach { lastSb.clear(); it.fillTo(lastSb, globals) }
+    return lastSb.toString()
+  }
+  fun compile(code: String) = TemplatorParser(code).readTop().let { TemplatorAst.Block(it) }
+}
+
+
 abstract class SubseqParser(protected var text: CharSequence) {
   object End: Exception("no more")
   protected fun drop(n: Int) { text = text.run { subSequence(n, length) } }
@@ -55,25 +66,12 @@ abstract class SubseqParser(protected var text: CharSequence) {
   protected inline infix fun Int.minus1(op: () -> Int) = if (this == -1) op() else this
 }
 
-/**
- * ```plain
- * Top = Item*
- * Block = Item* end
- * Item = plain | ValRef | BuildString | For | If
- * ValRef = Name* Name
- * BuildString = buildString Name Block
- * For = for Name (in | do) Name Block
- * If = if ('!')? Name Block
- * ```
- *
- * Recursive descent parser.
- */
-class TemplatorParser(text: CharSequence): SubseqParser(text) {
+open class TemplatorLexer(text: CharSequence): SubseqParser(text) {
   enum class TokenKind { Plain, Squared, Braced }
   private val braceKind = mapOf('[' to TokenKind.Squared, '{' to TokenKind.Braced)
   private val sb = StringBuilder()
   private fun plainToken() = (TokenKind.Plain to sb.toString()).also { if (sb.isEmpty()) throw End; sb.clear() }
-  fun readToken(): Pair<TokenKind, String> {
+  private fun readToken(): Pair<TokenKind, String> {
     while (text.isNotEmpty()) {
       val idxMinus = text.indexOf('-') minus1 { dropTo(sb, text.length); -1 }
       if (idxMinus == text.lastIndex) break
@@ -90,56 +88,62 @@ class TemplatorParser(text: CharSequence): SubseqParser(text) {
     }
     return plainToken()
   }
-  var lastToken: Pair<TokenKind, String> = readToken() // makes readItem -{end} able to fallback to readBlock
-  private fun nextToken() { lastToken = readToken() }
-  private inline fun <T> readList(read: () -> T?, next: () -> Unit): List<T> {
-    val collected = mutableListOf<T>()
-    try { while (true) { collected.add(read() ?: break); next() } } catch (_: End) {}
-    return collected
-  }
-  private fun expect(kind: TokenKind, name: String): String {
-    val (tok, text) = lastToken
-    if (tok != kind) error("expecting $kind $name, not $tok: $text")
+  private var lastTok: Pair<TokenKind, String>? = readToken()
+  val lastToken get() = lastTok ?: error("no more")
+  fun nextToken() { try { lastTok = readToken() } catch (_: End) { lastTok = null } }
+  val isNotEnd get() = lastTok != null
+  protected fun expect(kind: TokenKind, name: String): String {
+    fun mismatch(): Nothing = error("expecting $kind $name")
+    val (tok, text) = lastTok ?: mismatch()
+    if (tok != kind) mismatch()
     return text
   }
-  private fun error(message: String): Nothing {
-    kotlin.error("$message\nNear:\n$text")
+  protected fun error(message: String): Nothing = kotlin.error(if (lastTok == null) "$message\nat EOF" else "$message\nnear $lastTok:\n$text")
+}
+
+/**
+ * ```plain
+ * Top = Item*
+ * Block = Item* end
+ * Item = plain | ValRef | BuildString | For | If
+ * ValRef = Name* Name
+ * BuildString = buildString Name Block
+ * For = for Name (in | do) Name Block
+ * If = if ('!')? Name Block
+ * ```
+ *
+ * Recursive descent parser.
+ */
+class TemplatorParser(text: CharSequence): TemplatorLexer(text) {
+  private inline fun <T> asList(read: () -> T): List<T> {
+    val collected = mutableListOf<T>()
+    try { while (isNotEnd) collected.add(read()) } catch (_: End) {}
+    return collected
   }
-  fun readTop() = readList(::readItem) { nextToken() }
-  fun readBlock(): TemplatorAst.Block {
-    val items = readList(::readItem) { if (lastToken.second != "end") nextToken() }
-    if (expect(TokenKind.Braced, "end of code block").trim() != "end") error("expecting block end")
-    try { nextToken() } catch (_: End) {} // EOF -{end}
+  fun readTop() = asList(::readItem)
+  private fun readBlock(): TemplatorAst.Block {
+    fun isEnd(s: String) = s.trim() == "end"
+    val items = asList { if (lastToken.run { first == TokenKind.Braced && isEnd(second) }) throw End; readItem() }
+    expect(TokenKind.Braced, "end of code block")/*not EOF*/; nextToken()
     return TemplatorAst.Block(items)
   }
-  fun readItem(): TemplatorAst? {
-    val (tok, text) = lastToken
-    return when (tok) {
+  fun readItem(): TemplatorAst {
+    val (tok, text) = lastToken; nextToken()
+    return try { when (tok) {
       TokenKind.Plain -> TemplatorAst.Plain(text)
-      TokenKind.Squared -> text.splitWs().let { if (it.isEmpty()) error("empty ref"); TemplatorAst.ValRef(it.subList(0, it.size-1), it.last()) }
+      TokenKind.Squared -> (text.splitWs() ?: error("empty ref")).let { val rIdx=it.size-1; TemplatorAst.ValRef(it.subList(0, rIdx), it[rIdx]) }
       TokenKind.Braced -> {
-        val parts = text.splitWs(); if (parts.isEmpty()) error("empty command brace")
-        fun t(i: Int, name: String) = try { parts[i] } catch (_: IndexOutOfBoundsException) { error("$name param required in ${parts[0]}") }
-        val command = parts[0]; if (command == "end") return null
-        nextToken() // skip statement head for readBlock()
-        when (command) {
+        val parts = text.splitWs() ?: error("empty command brace")
+        fun t(i: Int, name: String) = try { parts[i] } catch (_: IndexOutOfBoundsException) { error("$name as param $i required in ${parts[0]}") }
+        when (val command = parts[0]) {
           "buildString" -> TemplatorAst.BuildString(t(1, "name"), readBlock())
-          "for" -> { when (val mode = t(2, "mode")) { "in" -> TemplatorAst.ForIn(t(1,"name"), t(3,"varName"), readBlock()); "do" -> TemplatorAst.ForDo(t(1,"varName"), t(3,"opName"), readBlock()); else -> error("unknown mode $mode") } }
+          "for" -> { when (val mode = t(2, "mode")) { "in" -> TemplatorAst.ForIn(t(1,"name"), t(3,"varName"), readBlock()); "do" -> TemplatorAst.ForDo(t(3,"opName"), t(1,"varName"), readBlock()); else -> error("unknown for-mode $mode") } }
           "if" -> { if (parts.size == 2) t(1, "varName").let { val inverted = (it[0] == '!');
             TemplatorAst.If(inverted, it.removePrefix("!"), readBlock()) } else error("use if like {if name} or {if !name}") }
           else -> error("unknown command $command")
         }
       }
-    }
+    } } catch (e: IllegalStateException) { throw IllegalStateException("`$text': "+e.message, e.cause) }
   }
-  private fun CharSequence.splitWs() = split(' ', '\t', '\n', '\r')
-}
-
-object Templator {
-  fun fillWith(map: Map<String, Any?>, vararg templates: TemplatorAst): String {
-    val lastSb = StringBuilder()
-    val globals = map.toMutableMap()
-    templates.forEach { lastSb.clear(); it.fillTo(lastSb, globals) }
-    return lastSb.toString()
-  }
+  private fun CharSequence.splitWs() = split(' ', '\t', '\n', '\r').filter(String::isNotEmpty).takeUnless { it.isEmpty() }
 }

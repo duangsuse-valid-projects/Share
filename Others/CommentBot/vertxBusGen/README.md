@@ -165,6 +165,25 @@ chars3("sad[23[3]a]").first //[s, a, d, [2, 3, [3], a]]
 
 之前一直没有发觉，不知道所谓的「配对」闭括号对流读取子程序而言不过是看到的第一个，因为其上级 `readBlock()` 自然会消耗总第二个、第三个…… 所以递归下降法和显式栈由这样的联系啊。
 
+还有一个关于 `lastToken`/`nextToken()` 流的问题——实际上 `nextToken()` 不能抛出异常。
+
+我们希望能由 `readItem` 跳过它消耗的词条，但如果 `nextToken()` 会抛出 `End`，从而指示 `asList` 在它还未返回 `lastToken` 的解析结果前结束就不能这么做
+
+要么然像以前一样，把 `nextToken()` 做在 `asList` 里面；要么然提供 `hasNext`，这个方法很好解决，利用 `lastTok == null` 即可。
+
+```kotlin
+//before
+val list = mutableListOf(pas.lastToken.second)
+try { while (true) { pas.nextToken(); list.add(pas.lastToken.second) }} catch (_: SubseqParser.End) {}
+// after
+val list = mutableListOf<String>()
+while (pas.isNotEnd) { list.add(pas.lastToken.second); pas.nextToken() }
+```
+
+这样，循环内的子程序无需顾虑 `End` 的问题，全权由 `while` 块处理；同时也杜绝了可提前 `nextToken` 造成的顺序混乱。
+
+一般而言，解析组合子不会暴露 `End`，而是由 `item('a')` 这样的子模式将 `End` 视为 `notParsed`，`asList` 会读取出输入里能识别的前缀，但这里没有不可识别的输入，故仅处理 `End` 问题。
+
 ## 尾记
 
 我这是怎么了（草）…… 解析一个 end 块语法居然讲了这么久，为什么要废话这么多啊……
