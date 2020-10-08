@@ -2,9 +2,12 @@
   <dictionary name="DuangSUSE">
     <words>
       <w>codegen</w>
+      <w>decapitalize</w>
       <w>destructify</w>
+      <w>repl</w>
       <w>subseq</w>
       <w>templator</w>
+      <w>upvalues</w>
     </words>
   </dictionary>
 </component>

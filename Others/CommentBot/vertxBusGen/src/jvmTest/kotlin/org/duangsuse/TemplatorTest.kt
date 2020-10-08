@@ -21,7 +21,7 @@ class TemplatorTest {
   }
   @Test fun usage() {
     val party = Templator.compile(INPUT)
-    assertEquals(EXPECTED_FILL1, Templator.fillWith(fill1, party))
+    assertEquals(EXPECTED_FILL1, Templator.fillWith(Templator.createGlobal(fill1), party))
   }
   companion object {
     const val INPUT = """
@@ -67,8 +67,8 @@ Apple, Banana, Ice-cream
       "names" to listOf("Jake Wilkerson", "Rose Sunny", "Mike Dabbing"),
       "partyOpen" to true, "full" to true,
       "foods" to listOf(" Apple ", "Banana", "Ice-cream"),
-      "joinFoodList" to { it: List<String> -> it.joinToString() },
-      "eachTrim" to { it: List<String> -> it.map { s -> s.trim() } }
+      "joinFoodList" to { _:Scope, it: List<String> -> it.joinToString() },
+      "eachTrim" to { _:Scope, it: List<String> -> it.map { s -> s.trim() } }
     )
   }
 }

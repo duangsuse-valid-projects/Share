@@ -180,9 +180,72 @@ val list = mutableListOf<String>()
 while (pas.isNotEnd) { list.add(pas.lastToken.second); pas.nextToken() }
 ```
 
+前者基本等于 `while(true) { if (isEnd) break; nextToken(); add() }`；后者可以写作 `do { add(); nextToken() } while (isNotEnd)`。
+
 这样，循环内的子程序无需顾虑 `End` 的问题，全权由 `while` 块处理；同时也杜绝了可提前 `nextToken` 造成的顺序混乱。
 
 一般而言，解析组合子不会暴露 `End`，而是由 `item('a')` 这样的子模式将 `End` 视为 `notParsed`，`asList` 会读取出输入里能识别的前缀，但这里没有不可识别的输入，故仅处理 `End` 问题。
+
+### 作用域块
+
+我们的脚本语言相当简单，它不负责任何计算/访问的逻辑表达式而全部交由 `Function` 对象，但即便这样，添加相对于全局的局部作用域不需要花多少力气。
+
+如果不是在写一门 DSL(领域专属语言)，我们不得不支持词法作用域(Lexical Scoping)来允许 `lambda` 包住『上值』的局部变量，可幸运的是我们现在只需要支持 C 编译器所需的动态作用域(Dynamic Scoping)即可。
+
+基于此我们能让 `-{for names do getData}` 所解包出的值仅在其内部块可用，并且如果和外部作用域有冲突， `-{end}` 之后不会影响到外部，这使得我们有了真正的子程序。
+
+我们来描述一下这个辅助变量名解析的『作用域』对象：
+
+```kotlin
+interface Scoping {
+  operator fun get(key: String): Any?
+  operator fun set(key: String, value: Any?)
+  fun enterBlock(); fun leaveBlock()
+}
+```
+
+不需要考虑其底层是何实现，这个接口的工作方式就是， `enterBlock` 到其对应 `leaveBlock` 间，所有 `set` 覆盖的旧值都会被保存并恢复（我们不是 JavaScript，没有 `undefined` 而未定义变量默认 `null`）
+
+结合现在的情况，最好别在每层 `fillTo` 创建局部克隆的 `MutableMap`，也不可能有预先分配好每作用域变量的全局数组索引而避免冲突之类的。
+
+可以选择 `Stack<MutMap>` 或 `MutMap<String, Stack<Any?>>` 这样的方法保存某一层的值，但直觉不一定最优化；应尽量避免创建 `Map` 和其它集合对象才对。
+
+一般而言，可以选择用嵌套表——自己有惰性初始化的 `MMap`，而在自己这边查不到的情况下去 `parent` 查（亦可顺便在本层缓存）；优点查局部变量很快、缺点查全局变量死慢
+
+或者直接模拟「保存旧值」的行为（而不是「为新值分配空间」），全局只有一个表，但有一个 `Stack<MMap>` 代表所有被 `set` 替换的旧值，每次离开再换回来，这也是著名编译原理《龙书》推荐的方法
+
+这种方法重写 `set`，在空栈时直接改全局，否则初始化栈顶、旧值加到栈顶即可（变量未创建和其值 `null` 是一种情况）。
+
+尽管，在此只有 `for name in names` 和 `for names do op` 两种有可能引入其块内变量的语法可以使用到这个特性，现在实现也是个好机会。
+
+## 成果
+
+扩充后的语法（虽然还是很脚本化），试试这些：
+
+```plain
+-{let separator=: regex=/ in}-[join split HOME]-{end}
+
+-{let regex=: in}-[=cp split CLASSPATH]Java classpathes:-{let separator=$NL in}-[join cp]-{end}-{end}
+-{let n=5 item=$SPACE in}-[repeat done]-{end}
+-{let n=10 item=hello in}-[repeat done]-{end}
+
+-{let mode=lower in}-[transform HOME]-{end}
+-{let mode=lower op=$transform separator=/ in}-[map split HOME]-{end}
+
+-{let separator=/ in}-[join split HOME]-{end}
+-{let regex=\w+ subst=H in}-[replace HOME]-{end}
+
+-{let separator=/ substr=a op=$match in}-[join filter split HOME]-{end}
+-{def Hify regex=\w+ subst=H}-[replace it]-{end}
+-[Hify PATH]
+
+-{def a}1-{end}
+-{let a=1 in}-{def getA}-[a]-{end};-{let a=2 in}-[getA done]-{end}-{end}
+```
+
+关于最后一条 lexical scoping 的支持，在 global 作用域是不行的（此情况 `def` 等同 `set!`），不过这不关词法作用域的定义。
+
+很可惜，这个语言没有独立的函数调用栈帧和返回值，不过这样就能以直白的方式提供参数表了，真棒（划掉）。
 
 ## 尾记
 
