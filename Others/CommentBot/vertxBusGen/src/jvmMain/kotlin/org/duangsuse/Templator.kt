@@ -107,7 +107,7 @@ class TemplatorParser(text: CharSequence): SubseqParser(text) {
   }
   fun readTop() = readList(::readItem) { nextToken() }
   fun readBlock(): TemplatorAst.Block {
-    val items = readList(::readItem) { nextToken() }
+    val items = readList(::readItem) { if (lastToken.second != "end") nextToken() }
     if (expect(TokenKind.Braced, "end of code block").trim() != "end") error("expecting block end")
     try { nextToken() } catch (_: End) {} // EOF -{end}
     return TemplatorAst.Block(items)

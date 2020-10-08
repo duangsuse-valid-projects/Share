@@ -14,7 +14,8 @@ class TemplatorTest {
     return list
   }
   @Test fun parser() {
-    assertEquals(TemplatorAst.ValRef(listOf(), "a"), TemplatorParser("-{if partyOpen}Party is opened-{if !full}, welcome!!-{end}-{end}\n").readTop()[0])
+    val res = TemplatorParser("-{if partyOpen}Party is opened-{if !full}, welcome!!-{end}-{end}\n").readTop()
+    assertEquals(2, (res[0] as TemplatorAst.If).block.items.size)
   }
   companion object {
     const val INPUT = """

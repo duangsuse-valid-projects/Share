@@ -37,6 +37,12 @@ inteface TelegramBot {
   fun onMessage(pmsg: PosMessage)
   fun onMessageChanged(pmsg: PosMessage)
 }
+interface Telegram {
+  data class BotInfo(val username: String, val token: String) {
+    companion object Factory { fun parse(s: String): BotInfo; fun loadFromEnv(name: String = "TG_BOT_INFO"): BotInfo }
+  }
+  fun attach(bot: TelegramBot, info: BotInfo)
+}
 ```
 
 这些只是实现业务流程所需的必须抽象，还没有加入异步支持与平台特化。
@@ -60,15 +66,23 @@ interface Telegram {
 3. Inline Keyboard 的回调方法。根据上链接，我们缺了一个 `AnswerCallbackQuery` 的 ，这似乎能在客户端上显式一个短时消息，不过这里不会用到。
 4. `Chat` 是否可以并入 `Message`。 看起来是可以的。
 
-我们的抽象比底层库的抽象用了更少的 Builder 模式以及配置特例(enableMarkdown)。
+我们的抽象比底层库的抽象用了更少的 Builder 模式以及配置特例(enableMarkdown)，这可能因为底层库采用了自动代码生成，不方便提供数据参数列表或为减少临时属性。
 
 > 为什么有 `PosMessage` 这种没意义的麻烦数据类？
 
 这是自顶向下设计容易进入的误区，过分强调直觉感受到的结构——但请注意：失败是有价值且不可避免的，通过多次重写或参照同类代码，可以避免类似误解的产生。
 
-最开始通过对客户端使用上直觉，应该意识到有 `onMessage(chat, msg)`，为简化 `override fun` 定义可以合并成 `PosMessage(chat, msg)` 的形式；但从 bot handler 的角度看，整个传递的是有 chat 的 Message 信息。
+最开始通过对客户端使用上直觉，应该意识到有 `onMessage(chat, msg)`，为简化 `override fun` 定义可以合并成 `PosMessage(chat, msg)` 的形式；但从 bot handler 的角度看，整个传递的是有 `chat` 的 `Message` 信息。
 
 ## 初建 Telegram Bot
+
+创造来源于不完全的复制。许多人以为「复制」「逆向工程」是对编程的侮辱，实际上对我来说，编程只是重写「未知源代码的新程序」的代码而已，编写者理应在头脑里基于他对接口的想象或实际接口能够执行编程、思考探索到的关键细节；毕竟，__编程是一件无关语言、无关平台的，“编译期”的事情__。
+
+既然我们已经了解 JVM+lib/Webworker JS 里机器人的差别，为何不把 [EncoderBot](https://github.com/Trumeet/EncoderBot/blob/master/src/main/kotlin/moe/yuuta/encoderbot/EncoderBot.kt#L52) 和 [KickNewMemberBot](https://gist.github.com/moesoha/feb6041b85cc7a9a960ff333d5220677) 以 Kotlin/multipaltform 重写一下？
+
+重写会让你更深刻地明白应用程序特性的组成部分、了解相关 API 如何实现，并且它也是测试属于你自己的抽象框架的最好方法。
+
+提示：你可能需要为 JS 寻找另外的 `base64`, `qr` 生成库；同时要实现 `ResourceBundle` 的工厂方法 `getBundle(name)` 和实例 `getString(name)` 以支持 i18n 。
 
 ## 关系型数据库描述语言
 
