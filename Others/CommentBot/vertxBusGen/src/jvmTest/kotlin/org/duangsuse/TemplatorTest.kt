@@ -8,20 +8,28 @@ class TemplatorTest {
     assertEquals(EXPECTED.split("|"), lex(INPUT))
   }
   private fun lex(input: String): List<String> {
-    val pas = TemplatorParser(input)
+    val pas = TemplatorParser(input, Templator.LangMode.Normal)
     val list = mutableListOf<String>()
-    while (pas.isNotEnd) { list.add(pas.lastToken.second); pas.nextToken() }
+    try { while (true) { list.add(pas.token.consume().second) } } catch (_: Peek.End) {}
     return list
   }
   @Test fun parser() {
-    val res = TemplatorParser("-{if partyOpen}Party is opened-{if !full}, welcome!!-{end}-{end}\n").readTop()
-    assertEquals(2, (res[0] as TemplatorAst.If).block.items.size)
-    val res1 = TemplatorParser(INPUT).readTop()
+    val res = Templator.compile("-{if partyOpen}Party is opened-{if !full}, welcome!!-{end}-{end}\n").items
+    assertEquals(2, (res[0] as TemplatorAst.If).a.items.size)
+    val res1 = Templator.compile(INPUT).items
     assertEquals(10, res1.size)
   }
   @Test fun usage() {
     val party = Templator.compile(INPUT)
     assertEquals(EXPECTED_FILL1, Templator.fillWith(Templator.createGlobal(fill1), party))
+  }
+  @Test fun bidMap() {
+    val kws = BidirMap.identity("for", "in", "if")
+    val trans = mapOf(
+      "zh_cn" to BidirMap.of("对" to "for", "存于" to "in", "若" to "if"),
+      "bad" to BidirMap.of("对于" to "for", "在" to "in", "如果" to "if")
+    )
+    assertEquals("存于", BidirMap.translate(trans, "bad" to "zh_cn", "在"))
   }
   companion object {
     const val INPUT = """

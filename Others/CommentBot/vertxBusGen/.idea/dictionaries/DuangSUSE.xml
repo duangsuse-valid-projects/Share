@@ -4,8 +4,10 @@
       <w>codegen</w>
       <w>decapitalize</w>
       <w>destructify</w>
+      <w>proc</w>
       <w>repl</w>
       <w>subseq</w>
+      <w>substr</w>
       <w>templator</w>
       <w>upvalues</w>
     </words>

@@ -186,6 +186,10 @@ while (pas.isNotEnd) { list.add(pas.lastToken.second); pas.nextToken() }
 
 一般而言，解析组合子不会暴露 `End`，而是由 `item('a')` 这样的子模式将 `End` 视为 `notParsed`，`asList` 会读取出输入里能识别的前缀，但这里没有不可识别的输入，故仅处理 `End` 问题。
 
+如果我们添加一个 `tailConsumed`，就可以保证新 `peekToken` 一定能通过 `consume()` 跳过，在 `readItem` 返回到 `asList` 后，若读至 `EOF` 再次进入，则可按抛异常的方式结束流，无需判断 `hasNext`。
+
+其实，如果只用 `Token?` 也能实现类似的复用性，允许把 `moveToken()` 写在 `asList` 调用的子程序里，仍只用 `End` 异常标记流终止（在最后一项流移动时不立刻抛异常，允许返回当前值），只不过那样的数据视口太奇怪了，作为优化也较牵强
+
 ### 作用域块
 
 我们的脚本语言相当简单，它不负责任何计算/访问的逻辑表达式而全部交由 `Function` 对象，但即便这样，添加相对于全局的局部作用域不需要花多少力气。
@@ -225,9 +229,9 @@ interface Scoping {
 ```plain
 -{let separator=: regex=/ in}-[join split HOME]-{end}
 
--{let regex=: in}-[=cp split CLASSPATH]Java classpathes:-{let separator=$NL in}-[join cp]-{end}-{end}
--{let n=5 item=$SPACE in}-[repeat done]-{end}
--{let n=10 item=hello in}-[repeat done]-{end}
+-{let regex=: in}-[cp= split CLASSPATH]Java classpathes:-{let separator=$NL in}-[join cp]-{end}-{end}
+-{let n=5 item=$_ in}-[repeat ok]-{end}
+-{let n=10 item=hello in}-[repeat ok]-{end}
 
 -{let mode=lower in}-[transform HOME]-{end}
 -{let mode=lower op=$transform separator=/ in}-[map split HOME]-{end}
@@ -236,16 +240,52 @@ interface Scoping {
 -{let regex=\w+ subst=H in}-[replace HOME]-{end}
 
 -{let separator=/ substr=a op=$match in}-[join filter split HOME]-{end}
+-{let separator=/ in}-[split HOME]-[variables ok]-{end}
 -{def Hify regex=\w+ subst=H}-[replace it]-{end}
 -[Hify PATH]
 
 -{def a}1-{end}
--{let a=1 in}-{def getA}-[a]-{end};-{let a=2 in}-[getA done]-{end}-{end}
+-{let a=1 in}-{def getA}-[a]-{end};-{let a=2 in}-[getA ok]-{end}-{end}
+-{def y}-{def getA}-[a ok]-{end}-{def a}2-{end}-[getA ok]-{end}
+-[y ok]
+
+-{def cute? substr=喵}-[return match it]-{end}
+-{buildString meoww}-{let it=你好喵+_+不好呢 in}-[cat it]-{end}-{end}
+-{def sp separator=$_}-[return split it]-{end}
+-[meow= sp meoww]
+-{let index=1 in}-[get meow]-{end}
+-{def cuteSuffix test=$cute? suffix=?}-{def flit}-[return filter it]-{end}-{def op fmt=it+suffix}-[return cat fmt]-{end}-[return map flit it]-{end}
+-{let suffix=！ in}-[cuteSuffix meow]-{end}
 ```
 
 关于最后一条 lexical scoping 的支持，在 global 作用域是不行的（此情况 `def` 等同 `set!`），不过这不关词法作用域的定义。
 
 很可惜，这个语言没有独立的函数调用栈帧和返回值，不过这样就能以直白的方式提供参数表了，真棒（划掉）。
+
+### 再次扩充
+
+之前我们加了 let-string, let-$variable, def, assignment pipe 来扩充这门语言，使它不再仅是一个模板语言（这个项目也是蛮实验性的）
+
+Templator 脚本语言会从仅仅一个字符串填充的『模板语言』扩展到包括库定义部分的完整编程语言，为此，它的语法结构首先要扩充。
+
+我们要在目前还只支持 `String` 返回值(模板填充结果)的 `def` 里添加 `Any?` 支持，而且还要支持仅填充部分参数的调用。
+
+对于前者，我的初步考量是添加跨作用域的 `res` 变量（`leaveBlock = val k="res"; val res=get(k); super.leaveBlock(); set(k, res)`）
+
+比如，要实现 `-{def getS}-{if p}-[res= A]-{end}-{end}` 就必须采用此做法，因为 `if` 里是作用域块
+
+可是如果添加为 `-[return x]` 的 `pipe` 处理，会更好，另外同时添加 `break`, `continue` 和完整的 `if`..`else`..`end` 也是可行的，在求值时按 `ControlException` 处理即可
+
+对于后者，我们知道 JS 里你可以写 `const add = (a) => (b) => a+b`，是因为它有闭包。
+
+我们也有通过保存整个栈来实现的闭包，但 `def` 实际上仅允许了 `it` 一个参数（因为它只能选择定义一个 `Processor`，我们没有其他可调用值）
+
+如果 `-{def add1 a=1}-[return add done]` 然后 `-{let b=2 in}-[add1 done]` 的话 `b` 参数是不可能被解析到的（函数值的作用域已经在创建时被闭包了），
+初步考量是添加一个 `FailDefaultScope(a, b): Scope by a`，从而允许有闭包内查不到时查函数值被调用时的作用域（它们的全局表是相同的，但 `upvalues` 不同）
+
+最后我选择扩充 `def` 的参数表——`-{def add1 a=1 b=?}`，在执行时从外部导入 `?` 变量作为参数即可。
+
+同时，注意到同个函数值用的是单一的 `LexicalScope` 对象，这在递归时是有覆盖问题的。基于我们 `DynamicScoping` 实现的高效性，完全可以基于默认 `enterBlock` 实现调用栈上的作用域解析。
 
 ## 尾记
 
