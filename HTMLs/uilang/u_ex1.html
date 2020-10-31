@@ -1,0 +1,60 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Example</title>
+<script>COMPILED=false</script>
+<script src=uilang.js></script>
+
+<style>
+  /* Font styles, colors, etc. omitted for clarity */
+  #notification {
+    transition: .8s
+  }
+  #notification.hidden {
+    opacity: 0
+  }
+  :not(button) {
+  margin: 0;
+  padding: 0;
+}
+
+#notification {
+  position: relative;
+  width: 410px;
+  margin: 120px auto 0;
+  padding: 14px 0;
+  border: 1px solid #FFED8D;
+  border-bottom-color: #F5DC7A;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(125,112,33,.23);
+  background: #FFFADA;
+  transition: opacity .8s;
+}
+
+#notification.hidden {
+  opacity: 0;
+}
+
+#notification p {
+  font: 500 13px "helvetica neue", helvetica, arial, sans-serif;
+  text-align: center;
+  color: #1A3547;
+}
+
+#notification button {
+  position: absolute;
+  right: 11px;
+  top: 11px;
+}
+
+</style>
+
+<div id=notification>
+  <p>You have 3 unread messages.</p>
+  <button class=hide>Hide</button>
+</div>
+
+<code>
+  clicking on ".hide" adds class "hidden" on "#notification"
+</code>
+
+

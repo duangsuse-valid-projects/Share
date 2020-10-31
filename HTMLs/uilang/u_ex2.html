@@ -1,0 +1,61 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Example</title>
+<script src=uilang.js></script>
+
+<style>
+#switch, #circle {
+  height: 50px;
+  transition: .4s;
+}
+
+#switch {
+  width: 100px;
+  margin: 140px auto 0;
+  border: 2px solid #E8EAEC;
+  border-radius: 27px;
+  background: #FAFAFB;
+}
+
+#circle {
+  width: 50%;
+  border-radius: 25px;
+  box-shadow: 0 4px 4px rgba(26,53,71,.25), 0 0 0 1px rgba(26,53,71,.07);
+  background: #fff;
+}
+
+#switch.active {
+  border-color: #41C955;
+  background: #52D468;
+}
+
+#switch.active #circle {
+  -webkit-transform: translateX(100%);
+  transform: translateX(100%);
+}
+
+  #switch, #circle {
+    transition: .4s
+  }
+  #switch {
+    background: #FAFAFB /* gray */
+  }
+  #switch.active {
+    background: #52D468 /* green */
+  }
+  #circle {
+    width: 50%
+  }
+  #switch.active #circle {
+    transform: translateX(100%)
+  }
+</style>
+
+<div id=switch>
+  <div id=circle></div>
+</div>
+
+<code>
+  clicking on "#switch" toggles class "active" on "#switch"
+</code>
+

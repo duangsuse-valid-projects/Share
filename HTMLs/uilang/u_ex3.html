@@ -1,0 +1,105 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Example</title>
+<script src=uilang.js></script>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+}
+
+#nav {
+  font: 500 13px "helvetica neue", helvetica, arial, sans-serif;
+  text-align: center;
+  margin-top: 140px;
+}
+
+#nav > li {
+  position: relative;
+  display: inline-block;
+}
+
+#nav a {
+  display: block;
+  padding: 2px 12px;
+  text-decoration: none;
+  color: #1394BF;
+}
+
+#nav a:active {
+  color: #1BB3D7;
+}
+
+#nav .more {
+  background: url(blue-arrow.svg) no-repeat 100% 60%;
+}
+
+#popover {
+  position: absolute;
+  top: 30px;
+  left: 11px;
+  padding: 7px 7px 7px 1px;
+  border: 1px solid rgba(26,53,71,.12);
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(26,53,71,.1);
+  opacity: 0;
+  pointer-events: none;
+  -webkit-transform: scale(.8) translateY(-30%);
+  transform: scale(.8) translateY(-30%);
+  transition: .4s cubic-bezier(.3, 0, 0, 1.3);
+}
+
+#popover.visible {
+  opacity: 1;
+  pointer-events: auto;
+  -webkit-transform: none;
+  transform: none;
+}
+
+#popover::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: calc(50% - 7px);
+  width: 13px;
+  height: 7px;
+  background: url(popover-arrow.svg);
+}
+
+#popover li {
+  list-style: none;
+  text-align: left;
+}
+
+  #popover {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(.8) translateY(-30%);
+    transition: .4s cubic-bezier(.3, 0, 0, 1.3)
+  }
+  #popover.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none
+  }
+</style>
+
+<ul id=nav>
+  <li><a href=#>Home</a>
+  <li><a href=#>Services</a>
+  <li><a href=#>Portfolio</a>
+  <li>
+    <a href=# class=more>More</a>
+    <ul id=popover>
+      <li><a href=#>About</a>
+      <li><a href=#>Blog</a>
+      <li><a href=#>Contact</a>
+    </ul>
+</ul>
+
+<code>
+  clicking on ".more" toggles class "visible" on "#popover"
+</code>
+
+

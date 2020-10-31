@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh_CN">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Tokenizer 分词器</title>
+    </head>
+    <body>
+        <details style="border: 2px green solid">
+            <summary>词库配置</summary>
+            <textarea id="text"></textarea>
+            <div>
+                字号：<input id="slider-fontsize" type="range"></input>
+                词库：<select id="select-mode"></select>
+                显示：<select id="select-display">
+                    <option>上标(Ruby notation)</option>
+                    <option>粗体+后括号</option>
+                </select>
+                <button id="do-generate">生成</button>
+            </div>
+        </details>
+        <div id="output">你好世界</div>
+    </body>
+    <script>document.getElementById("slider-fontsize").onchange = function(v) {console.log(v)}</script>
+</html>

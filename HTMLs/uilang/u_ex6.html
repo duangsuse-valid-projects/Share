@@ -1,0 +1,181 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Example</title>
+<script src=uilang.js></script>
+
+<style>
+:not(button) {
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  font: 500 13px "helvetica neue", helvetica, arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-align: center;
+  color: #5D6D81;
+}
+
+a {
+  color: #040810;
+  color: #1394BF;
+  text-decoration: none;
+}
+
+p {
+  display: inline-block;
+  margin-top: 150px;
+  padding: 5px 7px 5px 8px;
+  border: 1px solid #E9EBED;
+  border-radius: 5px;
+}
+
+p button {
+  margin-left: 28px;
+}
+
+#overlay, #registration {
+  opacity: 0;
+  transition: .5s;
+}
+
+#overlay {
+  position: absolute;
+  overflow: hidden;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(26,53,71,.85);
+  pointer-events: none;
+}
+
+#overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#registration {
+  position: relative;
+  width: 170px;
+  margin: 100px auto 0;
+  padding: 25px;
+  border-radius: 5px;
+  box-shadow: 0 5px 12px rgba(15,27,39,.4);
+  background: #fff;
+  -webkit-transform: translateY(80%) scale(.8);
+  transform: translateY(80%) scale(.8);
+  transition-timing-function: cubic-bezier(.3, 0, 0, 1.3);
+  transition-delay: .4s;
+}
+
+.open #registration {
+  opacity: 1;
+  -webkit-transform: none;
+  transform: none;
+}
+
+#registration .close {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 7px;
+  top: 7px;
+  text-indent: -9000px;
+  background-image: url(close.png);
+}
+
+@media (-webkit-min-device-pixel-ratio: 2), (min-device-pixel-ratio: 2), (min-resolution: 2dppx) {
+  #registration .close {
+    background-image: url(close@2x.png);
+    background-size: 100% 100%;
+  }
+}
+
+#registration h1 {
+  margin-bottom: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1A3547;
+}
+
+input {
+  display: block;
+  width: 152px;
+  padding: 8px;
+  border: 1px solid #E9EBED;
+  border-radius: 5px 5px 0 0;
+  font: 500 13px "helvetica neue", helvetica, arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+input:focus {
+  outline: none;
+}
+
+[type=email] {
+  border-top: none;
+  border-radius: 0 0 5px 5px;
+}
+
+::-webkit-input-placeholder {
+  color: #AFB9BF;
+}
+
+::-moz-placeholder {
+  color: #AFB9BF;
+}
+
+:-ms-input-placeholder {
+  color: #AFB9BF;
+}
+
+.confirm {
+  display: block;
+  margin-top: 20px;
+  padding: 8px 0;
+  border: 1px solid #E9EBED;
+  border-radius: 5px;
+  background: #FAFAFB;
+}
+
+  #overlay, #registration {
+    opacity: 0;
+    transition: .5s
+  }
+  #overlay {
+    pointer-events: none
+  }
+  #overlay.open {
+    opacity: 1;
+    pointer-events: auto
+  }
+  #registration {
+    transform: translateY(80%) scale(.8);
+    transition-timing-function: cubic-bezier(.3, 0, 0, 1.3);
+    transition-delay: .4s
+  }
+  #overlay.open #registration {
+    opacity: 1;
+    transform: none
+  }
+</style>
+
+<p>Design Meetup. <button class=rsvp>RSVP</button>
+
+<div id=overlay>
+  <div id=registration>
+    <a href=# class=close>Close</a>
+    <h1>Design Meetup</h1>
+    <input placeholder=Name>
+    <input placeholder=Email type=email>
+    <a href=# class=confirm>Confirm</a>
+  </div>
+</div>
+
+<code>
+  clicking on ".rsvp" adds class "open" on "#overlay"
+  clicking on ".close, .confirm" removes class "open" on "#overlay"
+</code>
+
+

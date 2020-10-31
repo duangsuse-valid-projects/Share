@@ -1,0 +1,128 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Example</title>
+<script src=uilang.js></script>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  font: 500 13px "helvetica neue", helvetica, arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: #5D6D81;
+}
+
+a {
+  color: #040810;
+  text-decoration: none;
+}
+
+a:active {
+  color: #1BB3D7;
+}
+
+h1, p {
+  width: 400px;
+  margin: 0 auto;
+}
+
+h1, p, h1::before {
+  transition: .4s;
+}
+
+h1 {
+  position: relative;
+  font-weight: 500;
+  font-size: 13px;
+  color: #1394BF;
+  cursor: pointer;
+}
+
+h1:first-child {
+  margin-top: 100px;
+}
+
+h1:not(:first-child) {
+  padding-top: 12px;
+  border-top: 1px solid #E9EBED;
+}
+
+h1::before {
+  content: "";
+  position: absolute;
+  width: 7px;
+  height: 5px;
+  margin: 6px 0 0 -16px;
+  background: url(blue-arrow.svg);
+  -webkit-transform: rotate(-90deg);
+  transform: rotate(-90deg);
+}
+
+h1.open::before {
+  -webkit-transform: none;
+  transform: none;
+}
+
+h1.open ~ h1 {
+  -webkit-transform: translateY(24px);
+  transform: translateY(24px);
+}
+
+p {
+  opacity: 0;
+  pointer-events: none;
+}
+
+h1.open + p {
+  opacity: 1;
+  pointer-events: auto;
+  -webkit-transform: translateY(8px);
+  transform: translateY(8px);
+}
+
+  h1, h1::before, p {
+    transition: .4s
+  }
+  h1 {
+    cursor: pointer
+  }
+  h1::before {
+    background: url(blue-arrow.svg);
+    transform: rotate(-90deg)
+  }
+  h1.open::before {
+    transform: none
+  }
+  h1.open ~ h1 {
+    /* slide down all the h1 following the open one */
+    transform: translateY(24px)
+  }
+  p {
+    opacity: 0;
+    pointer-events: none
+  }
+  h1.open + p {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(8px)
+  }
+</style>
+
+<h1 class=open>About me</h1>
+<p>Hi! My name’s Ben, I’m a 30-year old interface designer.
+
+<h1>Work</h1>
+<p>You can see some of my recent work on Dribbble.
+
+<h1>Contact</h1>
+<p>Feel free to send me an email or ping me on Twitter!
+
+<code>
+  clicking on "h1" removes class "open" on dynamic "h1.open"
+  clicking on "h1" adds class "open" on "target"
+</code>
+
+

@@ -1,0 +1,93 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Example</title>
+<script src=uilang.js></script>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  padding-top: 100px;
+  font: 500 13px "helvetica neue", helvetica, arial, sans-serif;
+  color: #5D6D81;
+  text-align: center;
+}
+
+a {
+  color: #040810;
+  text-decoration: none;
+}
+
+a:active {
+  color: #1BB3D7;
+}
+
+h1 {
+  display: inline-block;
+  margin: 0 1px;
+  padding: 8px 12px;
+  border: 1px solid #E9EBED;
+  border-bottom: none;
+  border-radius: 5px 5px 0 0;
+  background: #FAFAFB;
+  font-weight: 500;
+  font-size: 13px;
+  color: #1394BF;
+  cursor: pointer;
+}
+
+h1.active {
+  position: relative;
+  z-index: 1;
+  background: #fff;
+}
+
+p {
+  position: absolute;
+  display: none;
+  width: 380px;
+  margin-top: -1px;
+  left: calc(50% - 190px);
+  padding-top: 28px;
+  border-top: 1px solid #E9EBED;
+}
+
+h1.active + p {
+  display: block;
+}
+
+  h1 {
+    background: #FAFAFB
+  }
+  h1.active {
+    background: white
+  }
+  p {
+    display: none
+  }
+  h1.active + p {
+    display: block
+  }
+</style>
+
+<h1 class=active>About me</h1>
+<p>Hi! My name’s Ben, I’m a 30-year old interface designer.
+
+<h1>Work</h1>
+<p>You can see some of my recent work on Dribbble.
+
+<h1>Contact</h1>
+<p>Feel free to send me an email or ping me on Twitter!
+
+<code>
+  <!-- start by removing the previous "open" class -->
+  clicking on "h1" removes class "active" on dynamic "h1.active"
+
+  <!-- then add it to the clicked title -->
+  clicking on "h1" adds class "active" on "target"
+</code>
+
+
