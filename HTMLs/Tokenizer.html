@@ -3,22 +3,37 @@
     <head>
         <meta charset="UTF-8" />
         <title>Tokenizer 分词器</title>
+        <meta name="description" content="利用建-值对应字典进行组合、处理文本序列、查询单词" />
     </head>
     <body>
-        <details style="border: 2px green solid">
+        <details style="border: 2px solid green">
             <summary>词库配置</summary>
-            <textarea id="text"></textarea>
+            <textarea id="text" placeholder="输入要处理的文本"></textarea>
             <div>
                 字号：<input id="slider-fontsize" type="range"></input>
                 词库：<select id="select-mode"></select>
                 显示：<select id="select-display">
                     <option>上标(Ruby notation)</option>
                     <option>粗体+后括号</option>
+                    <option>自定义HTML…</option>
                 </select>
-                <button id="do-generate">生成</button>
+                <div>
+                    <button id="do-generate">生成</button>或
+                    <button id="do-showDict">显示词库</button>
+                    <button id="do-showTrie">显示词库字典树</button>
+                    <button id="do-readDict">添加键-值到词库</button>
+                </div>
             </div>
+            <textarea id="text-word" placeholder="输入要查询的单词，回车取得对应义/表"></textarea>
         </details>
-        <div id="output">你好世界</div>
+        <div id="output">你好世界！请展开上方输入文本，生成。<br>
+            关于 <abbr title="类似 ?日语=jp.txt+jp_汉字.txt&日到拼音=jp.txt>pinyin.txt ，切分以 Dict(&) - Trie(+) - TriePipe(>)">URL 参数格式</abbr>
+            和 <abbr title="渲染法默认内建了 HTML5 Ruby 上标和粗体+括号内译文，选后者时树嵌套结构会以花括号形式输出">字典树显示方式</abbr>
+        </div>
     </body>
-    <script>document.getElementById("slider-fontsize").onchange = function(v) {console.log(v)}</script>
+    <script>
+        var output = document.getElementById("output");
+        document.getElementById("slider-fontsize").onchange = function(ev) { output.style.fontSize = ev.target.value+"pt";  }
+    </script>
+    <script src="Tokenizer.js"></script>
 </html>
