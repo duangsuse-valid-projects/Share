@@ -30,7 +30,7 @@ let trie;
 let delimiters = ["\n", "="];
 const newlines = {};
 for (let nl of ["\n", "\r", "\r\n"])
-    newlines[nl] = nl;
+    newlines[nl] = null;
 let customHTML;
 function splitTrieData(s) { return s.split(delimiters[0]).map(row => row.split(delimiters[1])); }
 document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void 0, function* () {
@@ -51,20 +51,32 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
     setTrie();
     const setDisplay = () => {
         var _a;
-        let v = sel_display.value;
-        customFmt = v.endsWith(")") ? indentFmt : bracketFmt;
-        switch (v) {
+        let vSel = sel_display.value;
+        customFmt = vSel.endsWith(")") ? indentFmt : bracketFmt;
+        switch (vSel) {
             case "上标(Ruby notation)":
-                customHTML = "<ruby>K<rt>V</rt></ruby>";
+                customHTML = (k, v) => element("ruby", withDefaults(), document.createTextNode(k), element("rt", withText(v)));
                 break;
             case "粗体+后括号":
-                customHTML = "<b>K</b>(V)";
+                customHTML = (k, v) => element("span", withDefaults(), element("b", withText(k)), document.createTextNode(`(${v})`));
+                break;
+            case "标记已识别":
+                customHTML = (k, v) => element("u", withText(k));
+                break;
+            case "替换已识别":
+                customHTML = (k, v) => element("abbr", (e) => { e.textContent = v; e.title = k; });
                 break;
             default:
-                if (v.endsWith("…"))
-                    customHTML = (_a = prompt("输入关于 K,V 的 HTML 代码：")) !== null && _a !== void 0 ? _a : "<a>K(V)</a>";
+                if (vSel.endsWith("…")) {
+                    let htmlCode = (_a = prompt("输入关于 K,V 的 HTML 代码：")) !== null && _a !== void 0 ? _a : "<a>K(V)</a>";
+                    customHTML = (k, v) => {
+                        let span = document.createElement("span");
+                        span.innerHTML = htmlCode.replace(/([KV])/g, m => (m[0] == "K") ? k : v);
+                        return span;
+                    };
+                }
                 else
-                    customHTML = null;
+                    throw Error(vSel);
         }
     };
     sel_display.onchange = setDisplay;
@@ -100,7 +112,13 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
         }
     };
     btn_showDict.onclick = () => { ta_text.value = trie.toString(); };
-    btn_showTrie.onclick = () => { customFmt.clear(); trie.formatWith(customFmt); ta_text.value = customFmt.toString(); };
+    btn_showTrie.onclick = () => {
+        for (let k of ["\n", "\r"])
+            trie.remove(k);
+        customFmt.clear();
+        trie.formatWith(customFmt);
+        ta_text.value = customFmt.toString();
+    };
     btn_readDict.onclick = () => {
         let table = splitTrieData(ta_text.value.trim());
         let failedKs = [];
@@ -124,15 +142,17 @@ function renderTokensTo(e, tokens) {
     for (let [name, desc] of tokens) {
         if (desc == null) {
             if (name in newlines)
-                e.appendChild(element("br", withDefaults()));
+                e.appendChild(document.createElement("br"));
             else
-                e.appendChild(element("a", withText(name)));
+                e.appendChild(document.createTextNode(name)); // 直接从 JS 堆提交给 DOM 吧，他们会处理好拼接
         }
         else {
-            e.innerHTML += customHTML.replace(/([KV])/g, m => (m[0] == "K") ? name : desc);
+            let eRecog = customHTML(name, desc);
+            eRecog.classList.add("recognized");
+            e.appendChild(eRecog);
         }
     }
-}
+} //^ 或许咱不必处理换行兼容 :笑哭:
 function matchAll(re, s) {
     return s.match(re).map(part => { re.lastIndex = 0; return re.exec(part); });
 }
@@ -151,9 +171,13 @@ function readDict(s) {
                     delimiters[1] = value;
                     break;
                 case "text":
-                    helem("text").textContent = value;
+                    let isUrl = value.startsWith(':');
+                    helem("text").textContent = isUrl ? yield xhrReadText(value.substr(1)) : value;
                     break;
-                default: tries[name] = yield readTrie(value);
+                default:
+                    tries[name] = yield readTrie(value);
+                    for (let k in newlines)
+                        tries[name].set(k, null);
             }
         }
         return tries;
@@ -182,7 +206,7 @@ function readTrie(s) {
 }
 function readTriePipe(s) {
     return __awaiter(this, void 0, void 0, function* () {
-        let pipes = yield Promise.all(s.split('>').map(readTrieData)).catch(([url, msg]) => { alert(`Failed get ${url}: ${msg}`); return []; });
+        let pipes = yield Promise.all(s.split('>').map(readTrieData));
         return reduceToFirst(pipes, (map, data) => {
             for (let k in map) {
                 let gotV = data[map[k]];
@@ -193,6 +217,27 @@ function readTriePipe(s) {
     });
 }
 function readTrieData(url) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let inverted = url.startsWith('~');
+        let path = inverted ? url.substr(1) : url;
+        try {
+            let text = yield xhrReadText(path);
+            let obj = {};
+            if (!inverted)
+                for (let [k, v] of splitTrieData(text))
+                    obj[k] = v; // ~invert feat.
+            else
+                for (let [k, v] of splitTrieData(text))
+                    obj[v] = k;
+            return obj;
+        }
+        catch ([url, msg]) {
+            alert(`Failed get ${url}: ${msg}`);
+            return {};
+        }
+    });
+}
+function xhrReadText(url) {
     return new Promise((resolve, reject) => {
         let xhr = new XMLHttpRequest();
         xhr.open("GET", url, true);
@@ -201,10 +246,7 @@ function readTrieData(url) {
                 return;
             if (xhr.status != 200)
                 reject([url, xhr.statusText]);
-            let res = {};
-            for (let [k, v] of splitTrieData(xhr.responseText))
-                res[k] = v;
-            resolve(res);
+            resolve(xhr.responseText);
         };
         xhr.send();
     });
@@ -221,7 +263,7 @@ class Trie {
             if (c in point)
                 point = point[c];
             else
-                throw Error(`failed getting ${ks}: no ${c} at ${point}`);
+                throw Error(`failed getting ${ks}: no ${c} at ${new Trie(point)}`);
         }
         return point;
     }
@@ -242,6 +284,11 @@ class Trie {
         return v;
     }
     set(ks, v) { this.makePath(ks).value = v; }
+    remove(ks) {
+        let iKsLast = ks.length - 1;
+        let parent = this.path(ks.substr(0, iKsLast)).routes;
+        delete parent[ks[iKsLast]];
+    }
     /** should be fully iterated since it mutates self. */
     [Symbol.iterator]() { return this._iter(this.routes, ""); }
     *_iter(path, ks_path) {
@@ -353,6 +400,7 @@ class BracketFmt extends StringBuild {
         this.append(this.separator);
     else
         this._isFirst = false; this.append(text); }
+    toString() { this._isFirst = true; return super.toString(); }
 }
 function formatRecurArrayWith(fmt, xs) {
     for (let x of xs)
