@@ -18,6 +18,11 @@ function element<TAG extends keyof(HTMLElementTagNameMap)>(tagName:TAG, config:C
 
 let dict: object;
 let trie: Trie<string>;
+let delimiters = ["\n", "="];
+const newlines = {}; for (let nl of ["\n", "\r", "\r\n"]) newlines[nl] = nl;
+let customHTML: string;
+
+function splitTrieData(s: string) { return s.split(delimiters[0]).map(row => row.split(delimiters[1])); }
 document.addEventListener("DOMContentLoaded", async () => {
   const
     ta_text = helem("text") as HTMLTextAreaElement, // 要分词的
@@ -32,19 +37,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     btn_showTrie = helem("do-showTrie"), // 看底层字典
     btn_readDict = helem("do-readDict");
   dict = await readDict(location.search);
-  let customHTML: string = null;
   const bracketFmt = new BracketFmt(["{", "}"], ", ");
   const indentFmt = new IndentationFmt();
-  let customFmt: RecurStructFmt = indentFmt;
+  let customFmt: RecurStructFmt;
 
-  for (let k in dict) sel_mode.appendChild(element("option", withText(k)));
+  for (let k in dict) sel_mode.appendChild(element("option", withText(k))); // 加字典选项.
   const setTrie = () => { trie = dict[sel_mode.value]; };
   sel_mode.onchange = setTrie; setTrie();
-  sel_display.onchange = () => {
-    if (sel_display.value.endsWith("…")) customHTML = prompt("输入关于 K,V 的 HTML 代码：") ?? "<a>K(V)</a>";
-    else customHTML = null;
-    customFmt = sel_display.value.endsWith(")")? indentFmt : bracketFmt;
+
+  const setDisplay = () => {
+    let v = sel_display.value;
+    customFmt = v.endsWith(")")? indentFmt : bracketFmt;
+    switch (v) {
+      case "上标(Ruby notation)": customHTML = "<ruby>K<rt>V</rt></ruby>"; break;
+      case "粗体+后括号": customHTML = "<b>K</b>(V)"; break;
+      default:
+        if (v.endsWith("…")) customHTML = prompt("输入关于 K,V 的 HTML 代码：") ?? "<a>K(V)</a>";
+        else customHTML = null;
+    }
   };
+  sel_display.onchange = setDisplay; setDisplay();
   ta_word.oninput = (ev:InputEvent) => { // 输入法（迫真）
     let wordz: Iterator<[string, string]>;
     let isDeleting = ev.inputType == "deleteContentBackward";
@@ -72,16 +84,30 @@ document.addEventListener("DOMContentLoaded", async () => {
   btn_showDict.onclick = () => { ta_text.value = trie.toString(); };
   btn_showTrie.onclick = () => { customFmt.clear(); trie.formatWith(customFmt); ta_text.value = customFmt.toString(); };
   btn_readDict.onclick = () => {
-    let table = ta_text.value.split('\n').map(row => row.split('='));
+    let table = splitTrieData(ta_text.value.trim());
     let failedKs = [];
     for (let [k, v] of table) {
       if (v == undefined) failedKs.push(k);
       else trie.set(k, v);
     }
-    if (failedKs.length != 0) alert(`条目导入失败：${failedKs.join("、")} ，请按每行 k=v 输入`);
+    if (failedKs.length != 0) alert(`条目导入失败：${failedKs.join("、")} ，请按每行 k${delimiters[1]}v 输入`);
     alert(`已导入 ${table.length-failedKs.length} 条词关系到词典 ${sel_mode.value}`);
   };
+  abb_word.onclick = () => { ta_text.value += abb_word.textContent; ta_word.value = ""; };
+  const generate = () => { clearChild(div_out); renderTokensTo(div_out, trie.tokenize(ta_text.value)); };
+  btn_gen.onclick = generate; if (ta_text.value.length != 0) generate();
 });
+
+function renderTokensTo(e: HTMLElement, tokens: Iterable<[string, string?]>) {
+  for (let [name, desc] of tokens) {
+    if (desc == null) {
+      if (name in newlines) e.appendChild(element("br", withDefaults()));
+      else e.appendChild(element("a", withText(name)));
+    } else {
+      e.innerHTML += customHTML.replace(/([KV])/g, m => (m[0] == "K")? name : desc);
+    }
+  }
+}
 
 function matchAll(re: RegExp, s: string): RegExpExecArray[] {
   return s.match(re).map(part => { re.lastIndex = 0; return re.exec(part) });
@@ -89,8 +115,16 @@ function matchAll(re: RegExp, s: string): RegExpExecArray[] {
 const PAT_URL_PARAM = /[?&]([^=]+)=([^&;#]+)/g;
 async function readDict(s: string) {
   let tries = {};
-  for (let m of matchAll(PAT_URL_PARAM, s))
-    tries[decodeURIComponent(m[1])] = await readTrie(decodeURIComponent(m[2]));
+  for (let m of matchAll(PAT_URL_PARAM, s)) {
+    let name = decodeURIComponent(m[1]);
+    let value = decodeURIComponent(m[2]);
+    switch (name) {
+      case "delim0": delimiters[0] = value; break;
+      case "delim1": delimiters[1] = value; break;
+      case "text": helem("text").textContent = value; break;
+      default: tries[name] = await readTrie(value);
+    }
+  }
   return tries;
 }
 function reduceToFirst<T>(xs: T[], op: (fst:T, item:T) => any): T {
@@ -122,7 +156,7 @@ function readTrieData(url: string): Promise<object> {
       if (xhr.readyState != XMLHttpRequest.DONE) return;
       if (xhr.status != 200) reject([url, xhr.statusText]);
       let res = {};
-      for (let [k, v] of xhr.responseText.split("\n").map(row => row.split("="))) res[k] = v;
+      for (let [k, v] of splitTrieData(xhr.responseText)) res[k] = v;
       resolve(res);
     };
     xhr.send();
