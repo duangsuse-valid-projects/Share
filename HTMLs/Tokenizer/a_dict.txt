@@ -1,0 +1,5 @@
+shuke=舒克
+shufu=舒服
+beita=贝塔
+贝塔=草
+bei=贝

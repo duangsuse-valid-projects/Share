@@ -4,6 +4,7 @@
         <meta charset="UTF-8" />
         <title>Tokenizer 分词器</title>
         <meta name="description" content="利用建-值对应字典进行组合、处理文本序列、查询单词" />
+        <script defer src="Tokenizer.js"></script>
     </head>
     <body>
         <details style="border: 2px solid green">
@@ -24,7 +25,8 @@
                     <button id="do-readDict">添加键-值到词库</button>
                 </div>
             </div>
-            <textarea id="text-word" placeholder="输入要查询的单词，回车取得对应义/表"></textarea>
+            <textarea id="text-word" placeholder="输入要查询的单词前缀，立即取得对应义/表"></textarea>：<abbr id="abb-word" title="它是这个意思"></abbr>
+            <ul id="list-possibleWord"></ul>
         </details>
         <div id="output">你好世界！请展开上方输入文本，生成。<br>
             关于 <abbr title="类似 ?日语=jp.txt+jp_汉字.txt&日到拼音=jp.txt>pinyin.txt ，切分以 Dict(&) - Trie(+) - TriePipe(>)">URL 参数格式</abbr>
@@ -35,5 +37,4 @@
         var output = document.getElementById("output");
         document.getElementById("slider-fontsize").onchange = function(ev) { output.style.fontSize = ev.target.value+"pt";  }
     </script>
-    <script src="Tokenizer.js"></script>
 </html>
