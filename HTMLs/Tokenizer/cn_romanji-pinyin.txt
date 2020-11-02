@@ -1,0 +1,10 @@
+ra=la
+ri=li
+ru=lu
+re=le
+ro=lo
+
+tsu=ci
+su=si
+shi=xi
+chi=qi

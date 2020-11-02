@@ -17,7 +17,7 @@ function element<TAG extends keyof(HTMLElementTagNameMap)>(tagName:TAG, config:C
   return e as HTMLElementTagNameMap[TAG];
 }
 
-let dict: object;
+let dict = {};
 let trie: Trie<string>;
 let delimiters = ["\n", "="];
 const newlines = {}; for (let nl of ["\n", "\r", "\r\n"]) newlines[nl] = null;
@@ -37,7 +37,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     btn_showDict = helem("do-showDict"),
     btn_showTrie = helem("do-showTrie"), // 看底层字典
     btn_readDict = helem("do-readDict");
-  dict = await readDict(location.search);
+  await readDictTo(dict, location.search);
   const bracketFmt = new BracketFmt(["{", "}"], ", ");
   const indentFmt = new IndentationFmt();
   let customFmt: RecurStructFmt;
@@ -127,8 +127,7 @@ function matchAll(re: RegExp, s: string): RegExpExecArray[] {
   return s.match(re).map(part => { re.lastIndex = 0; return re.exec(part) });
 }
 const PAT_URL_PARAM = /[?&]([^=]+)=([^&;#]+)/g;
-async function readDict(s: string) {
-  let tries = {};
+async function readDictTo(tries: object, s: string) {
   for (let m of matchAll(PAT_URL_PARAM, s)) {
     let name = decodeURIComponent(m[1]);
     let value = decodeURIComponent(m[2]);
@@ -144,7 +143,6 @@ async function readDict(s: string) {
         for (let k in newlines) tries[name].set(k, null);
     }
   }
-  return tries;
 }
 function reduceToFirst<T>(xs: T[], op: (fst:T, item:T) => any): T {
   let fst = xs[0];
@@ -170,13 +168,19 @@ async function readTriePipe(s: string) {
 async function readTrieData(url: string): Promise<object> {
   let inverted = url.startsWith('~');
   let path = inverted? url.substr(1) : url;
-  try {
-    let text = await xhrReadText(path);
-    let obj = {};
-    if (!inverted) for (let [k, v] of splitTrieData(text)) obj[k] = v; // ~invert feat.
-    else for (let [k, v] of splitTrieData(text)) obj[v] = k;
-    return obj;
-  } catch ([url, msg]) { alert(`Failed get ${url}: ${msg}`); return {}; }
+  let data: string[][];
+  if (path.startsWith(':')) {
+    data = [...dict[path.substr(1)] as Trie<string>];
+  } else {
+    try {
+      let text = await xhrReadText(path);
+      data = splitTrieData(text);
+    } catch ([url, msg]) { alert(`Failed get ${url}: ${msg}`); return {}; }
+  }
+  let obj = {};
+  if (!inverted) for (let [k, v] of data) obj[k] = v; // ~invert feat.
+  else for (let [k, v] of data) obj[v] = k;
+  return obj;
 }
 function xhrReadText(url: string): Promise<string> {
   return new Promise((resolve, reject) => {

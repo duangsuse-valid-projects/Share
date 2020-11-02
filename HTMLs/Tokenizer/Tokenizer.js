@@ -25,7 +25,7 @@ function element(tagName, config, ...childs) {
         e.appendChild(child);
     return e;
 }
-let dict;
+let dict = {};
 let trie;
 let delimiters = ["\n", "="];
 const newlines = {};
@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
     sel_display = helem("select-display"), // 选渲染
     btn_gen = helem("do-generate"), btn_showDict = helem("do-showDict"), btn_showTrie = helem("do-showTrie"), // 看底层字典
     btn_readDict = helem("do-readDict");
-    dict = yield readDict(location.search);
+    yield readDictTo(dict, location.search);
     const bracketFmt = new BracketFmt(["{", "}"], ", ");
     const indentFmt = new IndentationFmt();
     let customFmt;
@@ -157,9 +157,8 @@ function matchAll(re, s) {
     return s.match(re).map(part => { re.lastIndex = 0; return re.exec(part); });
 }
 const PAT_URL_PARAM = /[?&]([^=]+)=([^&;#]+)/g;
-function readDict(s) {
+function readDictTo(tries, s) {
     return __awaiter(this, void 0, void 0, function* () {
-        let tries = {};
         for (let m of matchAll(PAT_URL_PARAM, s)) {
             let name = decodeURIComponent(m[1]);
             let value = decodeURIComponent(m[2]);
@@ -180,7 +179,6 @@ function readDict(s) {
                         tries[name].set(k, null);
             }
         }
-        return tries;
     });
 }
 function reduceToFirst(xs, op) {
@@ -220,21 +218,28 @@ function readTrieData(url) {
     return __awaiter(this, void 0, void 0, function* () {
         let inverted = url.startsWith('~');
         let path = inverted ? url.substr(1) : url;
-        try {
-            let text = yield xhrReadText(path);
-            let obj = {};
-            if (!inverted)
-                for (let [k, v] of splitTrieData(text))
-                    obj[k] = v; // ~invert feat.
-            else
-                for (let [k, v] of splitTrieData(text))
-                    obj[v] = k;
-            return obj;
+        let data;
+        if (path.startsWith(':')) {
+            data = [...dict[path.substr(1)]];
         }
-        catch ([url, msg]) {
-            alert(`Failed get ${url}: ${msg}`);
-            return {};
+        else {
+            try {
+                let text = yield xhrReadText(path);
+                data = splitTrieData(text);
+            }
+            catch ([url, msg]) {
+                alert(`Failed get ${url}: ${msg}`);
+                return {};
+            }
         }
+        let obj = {};
+        if (!inverted)
+            for (let [k, v] of data)
+                obj[k] = v; // ~invert feat.
+        else
+            for (let [k, v] of data)
+                obj[v] = k;
+        return obj;
     });
 }
 function xhrReadText(url) {
