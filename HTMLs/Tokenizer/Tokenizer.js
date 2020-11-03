@@ -7,7 +7,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-const helem = id => document.getElementById(id);
+function helem(id) { return document.getElementById(id); }
 // duangsuse: 很抱歉写得如此低抽象、不可复用
 // 毕竟 TypeScript 不是特别走简洁风（无论面向对象还是方法扩展），而且要考虑 ES5/ES6 的问题，也比较纠结。
 // 而且我也不清楚该用 object 还是 Map 的说，所以就比较混淆了，实在该打（误
@@ -40,15 +40,9 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
     sel_display = helem("select-display"), // 选渲染
     btn_gen = helem("do-generate"), btn_showDict = helem("do-showDict"), btn_showTrie = helem("do-showTrie"), // 看底层字典
     btn_readDict = helem("do-readDict");
-    yield readDictTo(dict, location.search);
     const bracketFmt = new BracketFmt(["{", "}"], ", ");
     const indentFmt = new IndentationFmt();
     let customFmt;
-    for (let k in dict)
-        sel_mode.appendChild(element("option", withText(k))); // 加字典选项.
-    const setTrie = () => { trie = dict[sel_mode.value]; };
-    sel_mode.onchange = setTrie;
-    setTrie();
     const setDisplay = () => {
         var _a;
         let vSel = sel_display.value;
@@ -81,6 +75,12 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
     };
     sel_display.onchange = setDisplay;
     setDisplay();
+    let dlStatus = element("option", withText("待从配置加载！"));
+    sel_mode.appendChild(dlStatus);
+    let noTrie = new Trie({ "X": { [KZ]: "待加载" } });
+    const setTrie = () => { let name = sel_mode.value; trie = (name in dict) ? dict[name] : noTrie; };
+    sel_mode.onchange = setTrie;
+    setTrie();
     ta_word.oninput = (ev) => {
         let wordz;
         let isDeleting = ev.inputType == "deleteContentBackward";
@@ -108,13 +108,15 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
         clearChild(list_possibleWord); // 此外？的 possible list
         let word;
         while (!(word = wordz.next()).done) {
-            list_possibleWord.appendChild(element("li", withDefaults(), element("b", withText(word.value[0])), element("a", withText(word.value[1]))));
+            list_possibleWord.appendChild(element("li", withDefaults(), element("b", withText(word.value[0])), element("a", withText(word.value[1])))); // 不这么做得加 DownlevelIteration
         }
     };
+    abb_word.onclick = () => { ta_text.value += abb_word.textContent; ta_word.value = ""; };
     btn_showDict.onclick = () => { ta_text.value = trie.toString(); };
     btn_showTrie.onclick = () => {
-        for (let k of ["\n", "\r"])
-            trie.remove(k);
+        if (customFmt == bracketFmt)
+            for (let k of ["\n", "\r"])
+                trie.remove(k); // remove-CRLF tokenize feat.
         customFmt.clear();
         trie.formatWith(customFmt);
         ta_text.value = customFmt.toString();
@@ -132,7 +134,13 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
             alert(`条目导入失败：${failedKs.join("、")} ，请按每行 k${delimiters[1]}v 输入`);
         alert(`已导入 ${table.length - failedKs.length} 条词关系到词典 ${sel_mode.value}`);
     };
-    abb_word.onclick = () => { ta_text.value += abb_word.textContent; ta_word.value = ""; };
+    yield readDictTo(dict, location.search, (k) => {
+        dlStatus.textContent = `在下载 ${k}…`;
+        let opt = element("option", withText(k));
+        sel_mode.insertBefore(opt, dlStatus); // 加字典选项.
+    });
+    sel_mode.removeChild(dlStatus);
+    setTrie();
     const generate = () => { clearChild(div_out); renderTokensTo(div_out, trie.tokenize(ta_text.value)); };
     btn_gen.onclick = generate;
     if (ta_text.value.length != 0)
@@ -154,10 +162,17 @@ function renderTokensTo(e, tokens) {
     }
 } //^ 或许咱不必处理换行兼容 :笑哭:
 function matchAll(re, s) {
-    return s.match(re).map(part => { re.lastIndex = 0; return re.exec(part); });
+    var _a, _b;
+    return (_b = (_a = s.match(re)) === null || _a === void 0 ? void 0 : _a.map(part => { re.lastIndex = 0; return re.exec(part); })) !== null && _b !== void 0 ? _b : [];
 }
 const PAT_URL_PARAM = /[?&]([^=]+)=([^&;#]+)/g;
-function readDictTo(tries, s) {
+function referText(desc_url) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let isUrl = desc_url.startsWith(':');
+        return isUrl ? yield xhrReadText(desc_url.substr(1)) : desc_url;
+    });
+}
+function readDictTo(tries, s, on_load) {
     return __awaiter(this, void 0, void 0, function* () {
         for (let m of matchAll(PAT_URL_PARAM, s)) {
             let name = decodeURIComponent(m[1]);
@@ -170,13 +185,27 @@ function readDictTo(tries, s) {
                     delimiters[1] = value;
                     break;
                 case "text":
-                    let isUrl = value.startsWith(':');
-                    helem("text").textContent = isUrl ? yield xhrReadText(value.substr(1)) : value;
+                    helem("text").textContent += yield referText(value); // text concat feat.
+                    break;
+                case "mode":
+                    helem("select-mode").value = value;
+                    break;
+                case "font-size":
+                    helem("output").style.fontSize = value;
+                    break;
+                case "style":
+                    let css = yield referText(value);
+                    document.appendChild(element("style", withText(css))); // add-style feat
+                    break;
+                case "conf":
+                    let qs = yield xhrReadText(value); // conf-file feat
+                    readDictTo(tries, qs, on_load);
                     break;
                 default:
                     tries[name] = yield readTrie(value);
                     for (let k in newlines)
                         tries[name].set(k, null);
+                    on_load(name);
             }
         }
     });
@@ -187,12 +216,10 @@ function reduceToFirst(xs, op) {
         op(fst, xs[i]);
     return fst;
 }
-function shadowKey(key, a, b) {
-    if (b[key] != undefined)
-        a[key] = b[key];
-}
 function readTrie(s) {
     return __awaiter(this, void 0, void 0, function* () {
+        const shadowKey = (key, a, b) => { if (b[key] != undefined)
+            a[key] = b[key]; };
         let sources = yield Promise.all(s.split('+').map(readTriePipe));
         let fst = reduceToFirst(sources, (merged, it) => { for (let k in it)
             shadowKey(k, merged, it); });
@@ -223,7 +250,7 @@ function readTrieData(url) {
             data = [...dict[path.substr(1)]];
         }
         else {
-            try {
+            try { // download it.
                 let text = yield xhrReadText(path);
                 data = splitTrieData(text);
             }
@@ -294,7 +321,7 @@ class Trie {
         let parent = this.path(ks.substr(0, iKsLast)).routes;
         delete parent[ks[iKsLast]];
     }
-    /** should be fully iterated since it mutates self. */
+    /** This should be fully iterated since it mutates self. */
     [Symbol.iterator]() { return this._iter(this.routes, ""); }
     *_iter(path, ks_path) {
         let v_mid = path[KZ];
@@ -405,7 +432,7 @@ class BracketFmt extends StringBuild {
         this.append(this.separator);
     else
         this._isFirst = false; this.append(text); }
-    toString() { this._isFirst = true; return super.toString(); }
+    clear() { this._isFirst = true; return super.clear(); }
 }
 function formatRecurArrayWith(fmt, xs) {
     for (let x of xs)

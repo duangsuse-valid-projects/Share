@@ -1,4 +1,4 @@
-const helem = id => document.getElementById(id);
+function helem<T extends HTMLElement>(id:string) { return document.getElementById(id) as T; }
 // duangsuse: 很抱歉写得如此低抽象、不可复用
 // 毕竟 TypeScript 不是特别走简洁风（无论面向对象还是方法扩展），而且要考虑 ES5/ES6 的问题，也比较纠结。
 // 而且我也不清楚该用 object 还是 Map 的说，所以就比较混淆了，实在该打（误
@@ -8,7 +8,6 @@ function clearChild(e:HTMLElement) {
   while (e.firstChild != null) e.removeChild(e.firstChild);
 }
 type Conf = (e:HTMLElement) => any
-type CustomRender = (name:string, desc:string) => HTMLElement
 function withDefaults(): Conf { return (e) => {}; }
 function withText(text:string): Conf { return (e) => { e.innerText = text; }; }
 function element<TAG extends keyof(HTMLElementTagNameMap)>(tagName:TAG, config:Conf, ...childs:(Element|Text)[]): HTMLElementTagNameMap[TAG] {
@@ -17,6 +16,8 @@ function element<TAG extends keyof(HTMLElementTagNameMap)>(tagName:TAG, config:C
   return e as HTMLElementTagNameMap[TAG];
 }
 
+type CustomRender = (name:string, desc:string) => HTMLElement
+type PairString = [string, string];
 let dict = {};
 let trie: Trie<string>;
 let delimiters = ["\n", "="];
@@ -26,25 +27,20 @@ let customHTML: CustomRender;
 function splitTrieData(s: string) { return s.split(delimiters[0]).map(row => row.split(delimiters[1])); }
 document.addEventListener("DOMContentLoaded", async () => {
   const
-    ta_text = helem("text") as HTMLTextAreaElement, // 要分词的
-    ta_word = helem("text-word") as HTMLTextAreaElement, // 要查词的
+    ta_text = helem<HTMLTextAreaElement>("text"), // 要分词的
+    ta_word = helem<HTMLTextAreaElement>("text-word"), // 要查词的
     abb_word = helem("abb-word"),
-    list_possibleWord = helem("list-possibleWord") as HTMLUListElement,
+    list_possibleWord = helem<HTMLUListElement>("list-possibleWord"),
     div_out = helem("output"),
-    sel_mode = helem("select-mode") as HTMLSelectElement, // 选词典
-    sel_display = helem("select-display") as HTMLSelectElement, // 选渲染
+    sel_mode = helem<HTMLSelectElement>("select-mode"), // 选词典
+    sel_display = helem<HTMLSelectElement>("select-display"), // 选渲染
     btn_gen = helem("do-generate"),
     btn_showDict = helem("do-showDict"),
     btn_showTrie = helem("do-showTrie"), // 看底层字典
     btn_readDict = helem("do-readDict");
-  await readDictTo(dict, location.search);
   const bracketFmt = new BracketFmt(["{", "}"], ", ");
   const indentFmt = new IndentationFmt();
   let customFmt: RecurStructFmt;
-
-  for (let k in dict) sel_mode.appendChild(element("option", withText(k))); // 加字典选项.
-  const setTrie = () => { trie = dict[sel_mode.value]; };
-  sel_mode.onchange = setTrie; setTrie();
 
   const setDisplay = () => {
     let vSel = sel_display.value;
@@ -66,8 +62,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   };
   sel_display.onchange = setDisplay; setDisplay();
+
+  let dlStatus = element("option", withText("待从配置加载！"));
+  sel_mode.appendChild(dlStatus);
+  let noTrie = new Trie({ "X": {[KZ]:"待加载"} });
+  const setTrie = () => { let name = sel_mode.value; trie = (name in dict)? dict[name] : noTrie; };
+  sel_mode.onchange = setTrie; setTrie();
+
   ta_word.oninput = (ev:InputEvent) => { // 输入法（迫真）
-    let wordz: Iterator<[string, string]>;
+    let wordz: Iterator<PairString>;
     let isDeleting = ev.inputType == "deleteContentBackward";
     let input = ta_word.value; if (input == "") return; // 别在清空时列出全部词！
     try {
@@ -86,13 +89,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     let word; while (!(word = wordz.next()).done) {
       list_possibleWord.appendChild(element("li", withDefaults(),
         element("b", withText(word.value[0])), element("a", withText(word.value[1]))
-      ));
+      )); // 不这么做得加 DownlevelIteration
     }
   };
+  abb_word.onclick = () => { ta_text.value += abb_word.textContent; ta_word.value = ""; };
 
   btn_showDict.onclick = () => { ta_text.value = trie.toString(); };
   btn_showTrie.onclick = () => {
-    for (let k of ["\n", "\r"]) trie.remove(k);
+    if (customFmt == bracketFmt) for (let k of ["\n", "\r"]) trie.remove(k); // remove-CRLF tokenize feat.
     customFmt.clear(); trie.formatWith(customFmt); ta_text.value = customFmt.toString();
   };
   btn_readDict.onclick = () => {
@@ -105,7 +109,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (failedKs.length != 0) alert(`条目导入失败：${failedKs.join("、")} ，请按每行 k${delimiters[1]}v 输入`);
     alert(`已导入 ${table.length-failedKs.length} 条词关系到词典 ${sel_mode.value}`);
   };
-  abb_word.onclick = () => { ta_text.value += abb_word.textContent; ta_word.value = ""; };
+
+  await readDictTo(dict, location.search, (k) => {
+    dlStatus.textContent = `在下载 ${k}…`;
+    let opt = element("option", withText(k));
+    sel_mode.insertBefore(opt, dlStatus); // 加字典选项.
+  });
+  sel_mode.removeChild(dlStatus);
+  setTrie();
+
   const generate = () => { clearChild(div_out); renderTokensTo(div_out, trie.tokenize(ta_text.value)); };
   btn_gen.onclick = generate; if (ta_text.value.length != 0) generate();
 });
@@ -124,10 +136,14 @@ function renderTokensTo(e: HTMLElement, tokens: Iterable<[string, string?]>) {
 } //^ 或许咱不必处理换行兼容 :笑哭:
 
 function matchAll(re: RegExp, s: string): RegExpExecArray[] {
-  return s.match(re).map(part => { re.lastIndex = 0; return re.exec(part) });
+  return s.match(re)?.map(part => { re.lastIndex = 0; return re.exec(part) }) ?? [];
 }
 const PAT_URL_PARAM = /[?&]([^=]+)=([^&;#]+)/g;
-async function readDictTo(tries: object, s: string) {
+async function referText(desc_url: string) {
+  let isUrl = desc_url.startsWith(':');
+  return isUrl? await xhrReadText(desc_url.substr(1)) : desc_url;
+}
+async function readDictTo(tries: object, s: string, on_load: (name:string) => any) { // generator+async 是不是有点 cutting edge 了…
   for (let m of matchAll(PAT_URL_PARAM, s)) {
     let name = decodeURIComponent(m[1]);
     let value = decodeURIComponent(m[2]);
@@ -135,12 +151,26 @@ async function readDictTo(tries: object, s: string) {
       case "delim0": delimiters[0] = value; break;
       case "delim1": delimiters[1] = value; break;
       case "text":
-        let isUrl = value.startsWith(':');
-        helem("text").textContent = isUrl? await xhrReadText(value.substr(1)) : value;
+        helem("text").textContent += await referText(value); // text concat feat.
+        break;
+      case "mode":
+        helem<HTMLOptionElement>("select-mode").value = value;
+        break;
+      case "font-size":
+        helem("output").style.fontSize = value;
+        break;
+      case "style":
+        let css = await referText(value);
+        document.appendChild(element("style", withText(css))); // add-style feat
+        break;
+      case "conf":
+        let qs = await xhrReadText(value); // conf-file feat
+        readDictTo(tries, qs, on_load);
         break;
       default:
         tries[name] = await readTrie(value);
         for (let k in newlines) tries[name].set(k, null);
+        on_load(name);
     }
   }
 }
@@ -149,10 +179,8 @@ function reduceToFirst<T>(xs: T[], op: (fst:T, item:T) => any): T {
   for (let i=1; i < xs.length; i++) op(fst, xs[i]);
   return fst;
 }
-function shadowKey(key: string, a: object, b: object) {
-  if (b[key] != undefined) a[key] = b[key];
-}
 async function readTrie(s: string) {
+  const shadowKey = (key: string, a: object, b: object) => { if (b[key] != undefined) a[key] = b[key]; };
   let sources = await Promise.all(s.split('+').map(readTriePipe));
   let fst = reduceToFirst(sources, (merged, it) => { for (let k in it) shadowKey(k, merged, it); });
   let trie = new Trie;
@@ -172,7 +200,7 @@ async function readTrieData(url: string): Promise<object> {
   if (path.startsWith(':')) {
     data = [...dict[path.substr(1)] as Trie<string>];
   } else {
-    try {
+    try { // download it.
       let text = await xhrReadText(path);
       data = splitTrieData(text);
     } catch ([url, msg]) { alert(`Failed get ${url}: ${msg}`); return {}; }
@@ -196,7 +224,7 @@ function xhrReadText(url: string): Promise<string> {
 }
 
 // == Trie & Formatter Backend ==
-type Routes = object;
+type Routes = object
 const KZ = "\0"; // 1:1 value on Trie node
 class Trie<V> implements Iterable<[String, V]> {
   routes: Routes;
@@ -235,7 +263,7 @@ class Trie<V> implements Iterable<[String, V]> {
     delete parent[ks[iKsLast]];
   }
 
-  /** should be fully iterated since it mutates self. */
+  /** This should be fully iterated since it mutates self. */
   [Symbol.iterator]() { return this._iter(this.routes, ""); }
   *_iter(path: Routes, ks_path: string): Generator<[string, V]> { // rewrite as visitWith to support ES5?
     let v_mid = path[KZ]; delete path[KZ];
@@ -316,12 +344,12 @@ class IndentationFmt extends StringBuild implements RecurStructFmt {
   onItem(text: string) { this.append(this._indent); this.append(text); this.append(this.newline); }
 }
 class BracketFmt extends StringBuild implements RecurStructFmt {
-  _isFirst: boolean = true; brackets: [string, string]; separator: string;
-  constructor(brackets: [string, string], separator: string) { super(); this.brackets = brackets; this.separator = separator; }
+  _isFirst: boolean = true; brackets: PairString; separator: string;
+  constructor(brackets: PairString, separator: string) { super(); this.brackets = brackets; this.separator = separator; }
   onOpen() { this.append(this.separator); this.append(this.brackets[0]); this._isFirst = true; }
   onClose() { this.append(this.brackets[1]); }
   onItem(text: string) { if (!this._isFirst) this.append(this.separator); else this._isFirst = false; this.append(text); }
-  toString() { this._isFirst = true; return super.toString(); }
+  clear() { this._isFirst = true; return super.clear(); }
 }
 
 function formatRecurArrayWith(fmt: RecurStructFmt, xs: Array<any>) {
