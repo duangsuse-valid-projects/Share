@@ -4,6 +4,10 @@ ru=lu
 re=le
 ro=lo
 
+rya=lya
+ryu=lyu
+ryo=lyo
+
 tsu=ci
 su=si
 shi=xi

@@ -5,9 +5,14 @@
         <title>Tokenizer 分词器</title>
         <meta name="description" content="利用建-值对应字典进行组合、处理文本序列、查询单词" />
         <script defer src="Tokenizer.js"></script>
+        <style>
+        .recognized { text-rendering: optimizeLegibility; }
+        .abbr-expand { color: forestgreen; }
+        .config-panel { border: 2px solid green; }
+        </style>
     </head>
     <body>
-        <details style="border: 2px solid green">
+        <details class="config-panel">
             <summary>词库配置</summary>
             <textarea id="text" placeholder="输入要处理的文本"></textarea>
             <div>
@@ -30,13 +35,26 @@
             <textarea id="text-word" placeholder="输入要查询的单词前缀，立即取得对应义/表"></textarea>：<abbr id="abb-word" title="它是这个意思"></abbr>
             <ul id="list-possibleWord"></ul>
         </details>
-        <section><div id="output">你好世界！请展开上方输入文本，生成。<br>
-            关于 <abbr title="类似 ?日语=jp.txt+jp_汉字.txt&日到拼音=jp.txt>pinyin.txt ，切分以 Dict(&name=) - Trie(+) - TriePipe(>) (~逆向)，此外 delim0/1 和 text 参数可用">URL 参数格式</abbr>
-            和 <abbr title="渲染法默认内建了 HTML5 Ruby 上标和粗体+括号内译文，选后者时树嵌套结构会以花括号形式输出，另外！输出后不处理有\r\n符前缀的项（包括换行自动兼容）。">字典树显示方式</abbr>
-        </div></section> <!-- 没必要加 pre 因为咱自动处理 CRLF 换行跨平台 -->
+        <section><pre><div id="output">
+你好世界！请展开上方输入文本，生成。<br>
+关于 <abbr title="类似 ?日语=jp.txt+jp_汉字.txt&日到拼音=jp.txt>pinyin.txt ，切分以 Dict(&name=) - Trie(+) - TriePipe(>) (~逆向)，此外 mode 和 text, font-size=Npt 参数可用">URL 参数格式</abbr>
+和 <abbr title="渲染法默认内建了 HTML5 Ruby 上标和粗体+括号内译文，选后者时树嵌套结构会以花括号形式输出，另外！输出后不处理有\r\n符前缀的项（包括换行自动兼容）。">字典树显示方式</abbr>
+
+<details><summary>如果你想了解更多关于 <abbr title="全局资源地址，就是浏览器顶上的链接">URL</abbr> 参数的事情</summary><dl>
+    <dt>delim0/delim1</dt>
+    <dd>指示后方加载字典表的 <b>键值对/键-值</b> 切分符，这可用于兼容 换行/= 外的格式</dd>
+    <dt>style</dt>
+    <dd>加载另外的 <abbr title="层叠样式表">CSS</abbr> 样式链接(':' 起始)，或者直接的文本</dd>
+    <dt>conf</dt>
+    <dd>加载符合 ?k=v 或 &k=v 格式的参数表，参数表内亦可用此参数另再加载</dd>
+    <dt>text</dt><dd>拼接<b>主内容</b>，可以 ':' 起始引用链接</dd>
+    <dt>font-size</dt><dd>渲染结果字体大小，比如 50px, 25pt</dd>
+    <dt>mode</dt><dd>使用<b>词典名</b>，无效则不变动</dd>
+    <dt><var>name</var></dt><dd>创建名叫 <var>name</var> 的字典，其参数可以用 (a+b) (a>b) (~a) 即 以b之值优先-合并、以b解释a的所有值、反向化a 的形式组合。默认是链接，加 ':' 引用已加载字典</dd>
+</dl></details>
+
+虚下划线的东西看不了？<button>启用点击展开</button>
+感觉自己看懂了比较牛逼？<button>添加用来添加参数的按钮</button>
+        </div></pre></section> <!-- 没必要加 pre 因为咱自动处理 CRLF 换行跨平台（划掉），不还是可以加 -->
     </body>
-    <script>
-        var output = document.getElementById("output");
-        document.getElementById("slider-fontsize").onchange = function(ev) { output.style.fontSize = ev.target.value+"pt";  }
-    </script>
 </html>

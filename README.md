@@ -168,5 +168,5 @@ https://www.zhihu.com/question/366698484/answer/977959047
 + [Bilibili AV/BV](HTMLs/BV.html)
 + [文字模板图](HTMLs/文字图片模板化生成.html)
 + [Tokenizer](HTMLs/Tokenizer/?simple=a_dict.txt+a_dict.txt%3Ea_dict.txt&reverse=~a_dict.txt&text=Hello%20Rolld)
-+ [Tokenizer(日语配置)](HTMLs/Tokenizer/?日平假=jp_katakana-romanji.txt&日片假=jp_hiragana-romanji.txt&英字母假名=jp_alphabet-hiragana.txt&假名汉字=cn_jpkana-hanzi.txt&英小至大写=en_lowcase-upcase.txt&反平假=~:日平假&假名=:日平假+:日片假&反假名=~:假名&罗马至拼音=cn_romanji-pinyin.txt&假名拼音=:假名>:罗马至拼音)
++ [Tokenizer(日语配置)](HTMLs/Tokenizer/?conf=japan.ini)
 + [~~ulang~~ uilang 重写](HTMLs/uilang)
