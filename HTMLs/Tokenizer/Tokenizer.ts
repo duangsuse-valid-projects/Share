@@ -1,4 +1,8 @@
 function helem<T extends HTMLElement>(id:string) { return document.getElementById(id) as T; }
+function findElemIn(xs: HTMLCollection, p: (e:Element) => boolean) {
+  for (let e of xs) if (p(e)) return e;
+  return null;
+}
 // duangsuse: 很抱歉写得如此低抽象、不可复用
 // 毕竟 TypeScript 不是特别走简洁风（无论面向对象还是方法扩展），而且要考虑 ES5/ES6 的问题，也比较纠结。
 // 而且我也不清楚该用 object 还是 Map 的说，所以就比较混淆了，实在该打（误
@@ -16,6 +20,7 @@ function element<TAG extends keyof(HTMLElementTagNameMap)>(tagName:TAG, config:C
   return e as HTMLElementTagNameMap[TAG];
 }
 
+type TokenIter = Iterable<[string, string?]>
 type CustomRender = (name:string, desc:string) => HTMLElement
 type PairString = [string, string]
 type STrie = Trie<string>
@@ -32,6 +37,7 @@ function splitTrieData(s: string) {
     return (iDelim == -1)? [row, undefined] : [row.substr(0, iDelim), row.substr(iDelim+1, row.length)]; // split-first feat.
   });
 }
+let featureEnable: (() => void)[] = [];
 document.addEventListener("DOMContentLoaded", async () => {
   const
     ta_text = helem<HTMLTextAreaElement>("text"), // 要分词的
@@ -58,15 +64,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   const loadConfig = async (url: string) => {
     await readDictTo(dict, url, (k) => {
       dlStatus.textContent = `在下载 ${k}…`;
-      sel_mode.appendChild(element("option", withText(k))); // 加字典选项.
+      if (findElemIn(sel_mode.options, e => e.textContent == k) == null) {
+        sel_mode.appendChild(element("option", withText(k)));
+      } // 加字典选项 若还未存 feat appendOptUnion.
     });
     sel_mode.removeChild(dlStatus);
     setTrie(); // first trie
   };
 
-  //v misc in-helpDoc event.
-  const [btn_expander, btn_configer] = document.getElementById("output").getElementsByTagName("button"); // HTMLCollection mutates so.
-  btn_expander.onclick = () => {
+  //v misc in-helpDoc event, rewrite to dyn generate maybe.
+  const [btn_expander, btn_configer, btn_2ndTok] = document.getElementById("output").getElementsByTagName("button"); // HTMLCollection mutates so.
+  featureEnable[0] = () => {
     const toggle = (ev:Event) => { 
       const css = "abbr-expand";
       let e = ev.target as HTMLElement;
@@ -79,14 +87,38 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
     btn_gen.addEventListener("click", addAbbrExpand); addAbbrExpand(); // nth=1
     btn_expander.remove();
-  };
-  btn_configer.onclick = () => {
+  }; btn_expander.onclick = featureEnable[0];
+  featureEnable[1] = () => {
     const e = btn_readDict;
     let btn_import = element("button", withText("导入参数"));
     btn_import.onclick = async () => { prepLoadConfig(); await loadConfig(ta_text.value); };
     e.parentNode.insertBefore(btn_import, e.nextSibling);
     btn_configer.remove();
-  };
+  }; btn_configer.onclick = featureEnable[1];
+  featureEnable[2] = () => {
+    const joinV = (toks:TokenIter) => {
+      let vs = [];
+      for (let kv of toks) { let v = kv[1]; if (v != null && v != "") vs.push(v); }
+      return (vs.length == 0)? null : vs.join(" ");
+    };
+    const wrapRender = () => {
+      let oldRender = customHTML;
+      customHTML = (k, v) => {
+        let elem = oldRender(k, v);
+        let accumHTML = elem.innerHTML; // 2nd tokenize feat
+        let lastV = v;
+        while (true) {
+          let newV = joinV(trie.tokenize(lastV));
+          if (newV == null) break;
+          accumHTML = accumHTML.replace(lastV, newV);
+          lastV = newV;
+        }
+        if (accumHTML != elem.innerHTML) { elem.innerHTML = accumHTML; elem.classList.add("recognized-2nd"); }
+        return elem;
+      };
+    }; sel_display.addEventListener("change", wrapRender); wrapRender(); // nth=1
+    btn_2ndTok.remove();
+  }; btn_2ndTok.onclick = featureEnable[2];
 
   const bracketFmt = new BracketFmt(["{", "}"], ", ");
   const indentFmt = new IndentationFmt();
@@ -100,6 +132,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       case "粗体+后括号": customHTML = (k, v) => element("span", withDefaults(), element("b", withText(k)), document.createTextNode(`(${v})`)); break;
       case "标记已识别": customHTML = (k, v) => element("u", withText(k)); break;
       case "替换已识别": customHTML = (k, v) => element("abbr", (e) => { e.textContent = v; e.title = k; }); break;
+      case "添加释义": customHTML = (k, v) => element("abbr", (e) => { e.textContent = k; e.title = v; }); break;
       default:
         if (vSel.endsWith("…")) {
           let htmlCode = prompt("输入关于 K,V 的 HTML 代码：") ?? "<a>K(V)</a>";
@@ -111,7 +144,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else throw Error(vSel);
     } //^ update vars.
   };
-  sel_display.onchange = setDisplay; setDisplay();
+  sel_display.addEventListener("change", setDisplay); setDisplay(); // nth=0
   sel_mode.onchange = setTrie;
   prepLoadConfig();
 
@@ -135,9 +168,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     alert(`已导入 ${table.length-failedKs.length} 条词关系到词典 ${sel_mode.value}`);
   };
 
-  await loadConfig(location.search);
   const generate = () => { clearChild(div_out); renderTokensTo(div_out, trie.tokenize(ta_text.value)); };
-  btn_gen.addEventListener("click", generate); if (ta_text.value.length != 0) generate(); // nth=0
+  btn_gen.addEventListener("click", generate); // nth=0
+
+  await loadConfig(location.search);
+  if (ta_text.value.length != 0) generate();
 });
 
 function createIME(tarea: HTMLTextAreaElement, trie: () => STrie, e_fstWord: HTMLElement, ul_possibleWord: HTMLUListElement) {
@@ -167,7 +202,7 @@ function createIME(tarea: HTMLTextAreaElement, trie: () => STrie, e_fstWord: HTM
   tarea.oninput = handler;
 }
 
-function renderTokensTo(e: HTMLElement, tokens: Iterable<[string, string?]>) {
+function renderTokensTo(e: HTMLElement, tokens: TokenIter) {
   for (let [name, desc] of tokens) {
     if (desc == null) {
       if (name in newlines) e.appendChild(document.createElement("br"));
@@ -197,7 +232,7 @@ async function readDictTo(tries: object, s: string, on_load: (name:string) => an
       case "delim0": delimiters[0] = value; break;
       case "delim1": delimiters[1] = value; break;
       case "text":
-        helem("text").textContent += await referText(value); // text concat feat.
+        helem<HTMLInputElement>("text").value += await referText(value); // text concat feat.
         break;
       case "mode":
         helem<HTMLOptionElement>("select-mode").value = value;
@@ -214,6 +249,11 @@ async function readDictTo(tries: object, s: string, on_load: (name:string) => an
           let qs = await xhrReadText(value); // conf-file feat
           await readDictTo(tries, qs, on_load);
         } catch (req) { alertFailedReq(req); }
+        break;
+      case "feat":
+        let op = featureEnable[Number.parseInt(value)];
+        if (typeof op === "function") op();
+        else alert(`Failed enable feature #${value}`);
         break;
       default:
         tries[name] = await readTrie(value);

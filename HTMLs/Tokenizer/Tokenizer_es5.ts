@@ -28,6 +28,19 @@ opChain 的我记得是比较麻烦（没看过我 ParserKt InfixPattern 实现�
 
 最后，关于渲染方面我也不清楚要不要加 <pre> 让浏览器处理 #text 的换行好了，以及是不是给未识别一个 tag ，或者不加 .recognized 是不是更快；总之能用就好。
 
+以前我听说拼接 HTML 性能比操纵 DOM 好，实践后我才发现这想法真智障。
 
 第二天加几个特性，包含一个 Trie 字典数据 onprogess 下载进度的， indexOf(':') 再拼接算点百分比也容易，不过要修改 xhrReadText 的 API ，忍住了（只说在下载什么东西，连下载大小都没有）
+
+第三天还想加个 RegExp 替换(inword-grep) 的功能，大概就是在某个 char 匹配时再匹配skip/替换一段字，开始主要是解决英语空格单引号的 Tokenize，后来发现甚至可以用来支持 C Preprocessor 一样的工作（迫真）
+计划的优化是给匹配完的键到 Map<,Function> 里面去（后来发现没必要），然后那个 char 应该也可以替换，真是麻烦
+
+嗯…… 实现上就是 tokenize 提供参 (char:string) => [RegExp, string]? 然后如果结果 == c 直接跳 match 否则只能在 input 左拼接了
+（反正 `"hello 1".replace(/(\d)/, "$1a") == "hello 1a"` ）
+
+这几天有点累了，估计类似的项目以后可能还有，就暂时没有继续实现。
+
+如果有希望，我想把项目分成 triedata.ts , Tokenizer_lib.ts 多加 greaseyFork 的脚本或者 JS lyrics player 什么的。
+
+我从 https://github.com/hexenq/kuroshiro 项目拿到了日文汉字(Kanji) 到平假字典，日语部分算是完成了，大概以后也不得不处理更复杂的 grep 吧，唉。
 */

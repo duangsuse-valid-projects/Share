@@ -7,6 +7,7 @@
 キ=ki
 ク=ku
 ケ=ke
+々=ke
 コ=ko
 サ=sa
 シ=shi

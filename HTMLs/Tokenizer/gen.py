@@ -75,3 +75,9 @@ n
 d=findall("(\S+)：([^，、]+)", jpkana_hanzi)
 for k, v in d:
   for c in k.replace("/", ""): print(f"{c}={v}")
+
+def nlTrim(s): return s.replace("\n\n", "\n")
+def lines(t): return t.split("\n")
+for a, b in zip(*map(lines, [text0, text])): print(f"{a}/{b}")
+
+for k, v in findall("(\S*)\n\(\n(.*?)\n\)\n", a): print(f"{k}={v}") # 百度文库

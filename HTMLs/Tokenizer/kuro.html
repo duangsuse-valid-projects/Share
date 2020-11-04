@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <title>Kuroshiro JS</title>
+        <script src="http://lrc.o-oo.net.cn/bower_components/kuroshiro/dist/browser/kuroshiro.js"></script>
+    </head>
+    <body>
+        <script>
+kuroshiro.init()
+.then(function () {
+  document.body.append(kuroshiro.convert("感じ取れたら手を繋ごう、重なるのは人生のライン and レミリア最高！", { to: "hiragana" }));
+})
+.then(function(result){
+  console.log(result);
+}) // 最后， kuroshiro.js 内调查发现只有这两个是 Trie 字典 // async.map([ "base.dat.gz", "check.dat.gz" ]
+        </script>
+    </body>
+</html>

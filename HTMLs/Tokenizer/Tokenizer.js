@@ -8,6 +8,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 function helem(id) { return document.getElementById(id); }
+function findElemIn(xs, p) {
+    for (let e of xs)
+        if (p(e))
+            return e;
+    return null;
+}
 // duangsuse: 很抱歉写得如此低抽象、不可复用
 // 毕竟 TypeScript 不是特别走简洁风（无论面向对象还是方法扩展），而且要考虑 ES5/ES6 的问题，也比较纠结。
 // 而且我也不清楚该用 object 还是 Map 的说，所以就比较混淆了，实在该打（误
@@ -38,6 +44,7 @@ function splitTrieData(s) {
         return (iDelim == -1) ? [row, undefined] : [row.substr(0, iDelim), row.substr(iDelim + 1, row.length)]; // split-first feat.
     });
 }
+let featureEnable = [];
 document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void 0, function* () {
     const ta_text = helem("text"), // 要分词的
     ta_word = helem("text-word"), // 要查词的
@@ -56,14 +63,16 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
     const loadConfig = (url) => __awaiter(this, void 0, void 0, function* () {
         yield readDictTo(dict, url, (k) => {
             dlStatus.textContent = `在下载 ${k}…`;
-            sel_mode.appendChild(element("option", withText(k))); // 加字典选项.
+            if (findElemIn(sel_mode.options, e => e.textContent == k) == null) {
+                sel_mode.appendChild(element("option", withText(k)));
+            } // 加字典选项 若还未存 feat appendOptUnion.
         });
         sel_mode.removeChild(dlStatus);
         setTrie(); // first trie
     });
-    //v misc in-helpDoc event.
-    const [btn_expander, btn_configer] = document.getElementById("output").getElementsByTagName("button"); // HTMLCollection mutates so.
-    btn_expander.onclick = () => {
+    //v misc in-helpDoc event, rewrite to dyn generate maybe.
+    const [btn_expander, btn_configer, btn_2ndTok] = document.getElementById("output").getElementsByTagName("button"); // HTMLCollection mutates so.
+    featureEnable[0] = () => {
         const toggle = (ev) => {
             const css = "abbr-expand";
             let e = ev.target;
@@ -81,13 +90,50 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
         addAbbrExpand(); // nth=1
         btn_expander.remove();
     };
-    btn_configer.onclick = () => {
+    btn_expander.onclick = featureEnable[0];
+    featureEnable[1] = () => {
         const e = btn_readDict;
         let btn_import = element("button", withText("导入参数"));
         btn_import.onclick = () => __awaiter(this, void 0, void 0, function* () { prepLoadConfig(); yield loadConfig(ta_text.value); });
         e.parentNode.insertBefore(btn_import, e.nextSibling);
         btn_configer.remove();
     };
+    btn_configer.onclick = featureEnable[1];
+    featureEnable[2] = () => {
+        const joinV = (toks) => {
+            let vs = [];
+            for (let kv of toks) {
+                let v = kv[1];
+                if (v != null && v != "")
+                    vs.push(v);
+            }
+            return (vs.length == 0) ? null : vs.join(" ");
+        };
+        const wrapRender = () => {
+            let oldRender = customHTML;
+            customHTML = (k, v) => {
+                let elem = oldRender(k, v);
+                let accumHTML = elem.innerHTML; // 2nd tokenize feat
+                let lastV = v;
+                while (true) {
+                    let newV = joinV(trie.tokenize(lastV));
+                    if (newV == null)
+                        break;
+                    accumHTML = accumHTML.replace(lastV, newV);
+                    lastV = newV;
+                }
+                if (accumHTML != elem.innerHTML) {
+                    elem.innerHTML = accumHTML;
+                    elem.classList.add("recognized-2nd");
+                }
+                return elem;
+            };
+        };
+        sel_display.addEventListener("change", wrapRender);
+        wrapRender(); // nth=1
+        btn_2ndTok.remove();
+    };
+    btn_2ndTok.onclick = featureEnable[2];
     const bracketFmt = new BracketFmt(["{", "}"], ", ");
     const indentFmt = new IndentationFmt();
     let customFmt;
@@ -108,6 +154,9 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
             case "替换已识别":
                 customHTML = (k, v) => element("abbr", (e) => { e.textContent = v; e.title = k; });
                 break;
+            case "添加释义":
+                customHTML = (k, v) => element("abbr", (e) => { e.textContent = k; e.title = v; });
+                break;
             default:
                 if (vSel.endsWith("…")) {
                     let htmlCode = (_a = prompt("输入关于 K,V 的 HTML 代码：")) !== null && _a !== void 0 ? _a : "<a>K(V)</a>";
@@ -121,8 +170,8 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
                     throw Error(vSel);
         } //^ update vars.
     };
-    sel_display.onchange = setDisplay;
-    setDisplay();
+    sel_display.addEventListener("change", setDisplay);
+    setDisplay(); // nth=0
     sel_mode.onchange = setTrie;
     prepLoadConfig();
     createIME(ta_word, () => trie, abb_word, list_possibleWord);
@@ -150,11 +199,11 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
             alert(`条目导入失败：${failedKs.join("、")} ，请按每行 k${delimiters[1]}v 输入`);
         alert(`已导入 ${table.length - failedKs.length} 条词关系到词典 ${sel_mode.value}`);
     };
-    yield loadConfig(location.search);
     const generate = () => { clearChild(div_out); renderTokensTo(div_out, trie.tokenize(ta_text.value)); };
-    btn_gen.addEventListener("click", generate);
+    btn_gen.addEventListener("click", generate); // nth=0
+    yield loadConfig(location.search);
     if (ta_text.value.length != 0)
-        generate(); // nth=0
+        generate();
 }));
 function createIME(tarea, trie, e_fstWord, ul_possibleWord) {
     const handler = (ev) => {
@@ -234,7 +283,7 @@ function readDictTo(tries, s, on_load) {
                     delimiters[1] = value;
                     break;
                 case "text":
-                    helem("text").textContent += yield referText(value); // text concat feat.
+                    helem("text").value += yield referText(value); // text concat feat.
                     break;
                 case "mode":
                     helem("select-mode").value = value;
@@ -254,6 +303,13 @@ function readDictTo(tries, s, on_load) {
                     catch (req) {
                         alertFailedReq(req);
                     }
+                    break;
+                case "feat":
+                    let op = featureEnable[Number.parseInt(value)];
+                    if (typeof op === "function")
+                        op();
+                    else
+                        alert(`Failed enable feature #${value}`);
                     break;
                 default:
                     tries[name] = yield readTrie(value);
