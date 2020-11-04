@@ -81,3 +81,11 @@ def lines(t): return t.split("\n")
 for a, b in zip(*map(lines, [text0, text])): print(f"{a}/{b}")
 
 for k, v in findall("(\S*)\n\(\n(.*?)\n\)\n", a): print(f"{k}={v}") # 百度文库
+
+def readDict(path):
+  txt = open(path).read()
+  return [kv.split("=")[1] for kv in a.split("\n") if kv != ""]
+
+s_a, s_b = (readDict(f"jp/{k}-romaji.txt") for k in ["katakana", "hiragana"])
+
+for k in set(s_a+s_b): print(f"{k}=")

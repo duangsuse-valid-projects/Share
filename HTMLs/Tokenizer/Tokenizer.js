@@ -116,6 +116,9 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
         let btn_import = element("button", withText("导入参数"));
         btn_import.onclick = () => { prepLoadConfig(); loadConfig(ta_text.value); };
         e.parentNode.insertBefore(btn_import, e.nextSibling);
+        let btn_loadRendered = element("button", withText("叠改已渲染文本"));
+        btn_loadRendered.onclick = () => { ta_text.value = div_out.innerText; generate(); };
+        e.parentNode.insertBefore(btn_loadRendered, e.nextSibling);
         btn_configer.remove();
     };
     btn_configer.onclick = featureEnable[1];
