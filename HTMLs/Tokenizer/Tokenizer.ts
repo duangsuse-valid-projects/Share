@@ -37,14 +37,15 @@ const alertFailedReq = ([url, msg]) => alert(`Failed get ${url}: ${msg}`);
 
 type TokenIter = Iterable<[string, string?]>
 type CustomRender = (name:string, desc:string) => HTMLElement
-type PairString = [string, string]
-type STrie = Trie<string>
 
 let dict = {};
 let trie: STrie;
 let delimiters: PairString = ["\n", "="];
 const newlines = {}; for (let nl of ["\n", "\r", "\r\n"]) newlines[nl] = null;
+
+let featureEnable: (() => void)[] = [];
 let customHTML: CustomRender;
+let inwordGrep = {};
 
 function splitTrieData(s: string) {
   return s.split(delimiters[0]).map((row) => {
@@ -52,7 +53,9 @@ function splitTrieData(s: string) {
     return (iDelim == -1)? [row, undefined] : [row.substr(0, iDelim), row.substr(iDelim+1, row.length)]; // split-first feat.
   });
 }
-let featureEnable: (() => void)[] = [];
+function tokenize(input: string): TokenIter {
+  return trie.tokenize(input, c => inwordGrep[c]);
+}
 document.addEventListener("DOMContentLoaded", async () => {
   const
     ta_text = helem<HTMLTextAreaElement>("text"), // 要分词的
@@ -125,9 +128,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         let accumHTML = elem.innerHTML; // 2nd tokenize feat
         let lastV = v;
         while (true) {
-          let newV = joinV(trie.tokenize(lastV));
+          let newV = joinV(tokenize(lastV));
           if (newV == null) break;
-          accumHTML = accumHTML.replace(lastV, newV);
+          accumHTML = accumHTML.replace(lastV, newV); // replace val only
           lastV = newV;
         }
         if (accumHTML != elem.innerHTML) { elem.innerHTML = accumHTML; elem.classList.add("recognized-2nd"); }
@@ -195,7 +198,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   };
 
-  const generate = () => { clearChild(div_out); renderTokensTo(div_out, trie.tokenize(ta_text.value)); };
+  const generate = () => { clearChild(div_out); renderTokensTo(div_out, tokenize(ta_text.value)); };
   btn_gen.addEventListener("click", generate); // nth=0
 
   await loadConfig(location.search);
@@ -246,6 +249,7 @@ function matchAll(re: RegExp, s: string): RegExpExecArray[] {
   return s.match(re)?.map(part => { re.lastIndex = 0; return re.exec(part) }) ?? [];
 }
 const PAT_URL_PARAM = /[?&]([^=]+)=([^&;#\n]+)/g;
+const PAT_GREP = /(.)=([^=]+)=(.*)$/g;
 async function referText(desc: string) {
   let isUrl = desc.startsWith(':');
   try { return isUrl? await xhrReadText(desc.substr(1)) : desc; }
@@ -256,8 +260,6 @@ async function readDict(query: string, on_load: (name:string, trie:STrie) => any
     let name = decodeURIComponent(m[1]);
     let value = decodeURIComponent(m[2]);
     switch (name) {
-      case "delim0": delimiters[0] = value; break;
-      case "delim1": delimiters[1] = value; break;
       case "text":
         helem<HTMLInputElement>("text").value += await referText(value); // text concat feat.
         break;
@@ -271,6 +273,8 @@ async function readDict(query: string, on_load: (name:string, trie:STrie) => any
         let css = await referText(value);
         document.head.appendChild(element("style", withText(css))); // add-style feat
         break;
+      case "delim0": delimiters[0] = value; break;
+      case "delim1": delimiters[1] = value; break;
       case "conf":
         try {
           let qs = await xhrReadText(value); // conf-file feat
@@ -281,6 +285,12 @@ async function readDict(query: string, on_load: (name:string, trie:STrie) => any
         let op = featureEnable[Number.parseInt(value)];
         if (typeof op === "function") op();
         else alert(`Failed enable feature #${value}`);
+        break;
+      case "inword-grep":
+        let [_, c, sRe, subst] = PAT_GREP.exec(value);
+        let re = RegExp(sRe);
+        if (subst.length >= 2 && subst.indexOf(c, 1) != -1 && subst != c) { alert(`${re} 替换后，"${subst}" 不得在首含外有 "${c}"`); return; }
+        inwordGrep[c] = [re, subst];
         break;
       default:
         let trie = await readTrie(value);
@@ -326,139 +336,4 @@ async function readTrieData(expr: string): Promise<object> {
   if (!inverted) for (let [k, v] of data) obj[k] = v; // ~invert feat.
   else for (let [k, v] of data) obj[v] = k;
   return obj;
-}
-
-
-// == Trie & Formatter Backend ==
-type Routes = object
-const KZ = "\0"; // 1:1 value on Trie node
-class Trie<V> implements Iterable<[String, V]> {
-  routes: Routes;
-  constructor(m: Routes = {}) { this.routes = m; }
-  get value() { return this.routes[KZ]; }
-  set value(v) { this.routes[KZ] = v; }
-
-  // path, makePath, get, set, iter, toString, tokenize
-  _path(ks: string): Routes {
-    var point = this.routes;
-    for (let c of ks) {
-      if (c in point) point = point[c];
-      else throw Error(`failed getting ${ks}: no ${c} at ${new Trie(point)}`);
-    }
-    return point;
-  }
-  path(ks: string): Trie<V> { return new Trie(this._path(ks)); }
-  makePath(ks: string): Trie<V> {
-    var point = this.routes;
-    for (let c of ks) {
-      if (!(c in point)) point[c] = new Object;
-      point = point[c];
-    }
-    return new Trie(point);
-  }
-
-  get(ks: string): V {
-    let v = this._path(ks)[KZ];
-    if (v == undefined) throw Error("not a value path");
-    return v;
-  }
-  set(ks: string, v: V) { this.makePath(ks).value= v; }
-  remove(ks: string) {
-    let iKsLast = ks.length-1;
-    let parent = this.path(ks.substr(0, iKsLast)).routes;
-    delete parent[ks[iKsLast]];
-  }
-
-  /** This should be fully iterated since it mutates self. */
-  [Symbol.iterator]() { return this._iter(this.routes, ""); }
-  *_iter(path: Routes, ks_path: string): Generator<[string, V]> { // rewrite as visitWith to support ES5?
-    let v_mid = path[KZ]; delete path[KZ];
-    for (let k in path) {
-      let v = path[k];
-      if (v[KZ] != undefined && Object.keys(v).length == 1) yield [ks_path+k, v[KZ]]; // optimize val-only node
-      else yield* this._iter(v, ks_path+k);
-    }
-    if (v_mid != undefined) yield [ks_path, v_mid];
-    path[KZ] = v_mid; // restore.
-  }
-
-  toString() {
-    let sb = new StringBuild;
-    for (let [k, v] of this) sb.append(`${k}=${v}\n`);
-    return sb.toString();
-  }
-  formatWith(fmt: RecurStructFmt) {
-    const _visitRec = (fmt: RecurStructFmt, point: Routes) => {
-      let vz = point[KZ]; delete point[KZ]; // hide, first KZ
-      if (vz != undefined) fmt.onItem(`=${vz}`);
-      for (let k in point) {
-        fmt.onItem(k);
-        fmt.onOpen(); _visitRec(fmt, point[k]); fmt.onClose();
-      }
-      point[KZ] = vz;
-    };
-    _visitRec(fmt, this.routes);
-  }
-
-  *tokenize(input: string): Generator<[string, V?]> {
-    let recognized = new StringBuild;
-    var i = 0; let n = input.length;
-    var point = this.routes;
-    while (i < n) {
-      let c = input[i]; // trie charseq match.
-      if (c in point) {
-        point = point[c];
-        recognized.append(c);
-      } else { // stop of one word at len+1, prepare for re-match
-        if (point[KZ] != undefined) { i--; yield [recognized.toString(), point[KZ]]; }
-        else {
-          if (!recognized.isEmpty) yield [recognized.toString(), null]; // unknown prefix
-          let iUnrecog = i;
-          while (!(input[i] in this.routes) && i < n) { i++; } // optimized skip
-          let unrecog = input.substring(iUnrecog, i);
-          if (unrecog.length != 0) yield [unrecog, null];
-          i--; // =continue, to recogzd idx.
-        }
-        point = this.routes;
-        recognized.clear();
-      }; i++
-    }
-    if (point[KZ] != undefined) { yield [recognized.toString(), point[KZ]]; } // word stop at EOS
-    else if (!recognized.isEmpty) { yield [recognized.toString(), null]; }
-  }
-}
-
-interface RecurStructFmt { // bad, but usable
-  onOpen(): void
-  onClose(): void
-  onItem(text: string): void
-  clear(): void // reuse buffer
-}
-class StringBuild {
-  _buf: string[];
-  constructor() { this._buf = []; }
-  append(s: string) { this._buf.push(s); }
-  clear() { this._buf.splice(0, this._buf.length); }
-  get isEmpty() { return this._buf.length == 0; }
-  toString() { return this._buf.join(""); }
-}
-class IndentationFmt extends StringBuild implements RecurStructFmt {
-  _indent: string = ""; indentation: string; newline: string;
-  constructor(indentation: string = "  ", newline = "\n") { super(); this.indentation = indentation; this.newline = newline; }
-  onOpen() { this._indent += this.indentation; }
-  onClose() { let n = this._indent.length; this._indent = this._indent.substring(0, n-this.indentation.length); }
-  onItem(text: string) { this.append(this._indent); this.append(text); this.append(this.newline); }
-}
-class BracketFmt extends StringBuild implements RecurStructFmt {
-  _isFirst: boolean = true; brackets: PairString; separator: string;
-  constructor(brackets: PairString, separator: string) { super(); this.brackets = brackets; this.separator = separator; }
-  onOpen() { this.append(this.separator); this.append(this.brackets[0]); this._isFirst = true; }
-  onClose() { this.append(this.brackets[1]); }
-  onItem(text: string) { if (!this._isFirst) this.append(this.separator); else this._isFirst = false; this.append(text); }
-  clear() { this._isFirst = true; return super.clear(); }
-}
-
-function formatRecurArrayWith(fmt: RecurStructFmt, xs: Array<any>) {
-  for (let x of xs) if (typeof x === "object") { fmt.onOpen(); formatRecurArrayWith(fmt, x); fmt.onClose(); } else fmt.onItem(x);
-  return fmt.toString();
 }

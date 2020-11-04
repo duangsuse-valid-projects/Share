@@ -43,4 +43,6 @@ opChain 的我记得是比较麻烦（没看过我 ParserKt InfixPattern 实现�
 如果有希望，我想把项目分成 triedata.ts , Tokenizer_lib.ts 多加 greaseyFork 的脚本或者 JS lyrics player 什么的。
 
 我从 https://github.com/hexenq/kuroshiro 项目拿到了日文汉字(Kanji) 到平假字典，日语部分算是完成了，大概以后也不得不处理更复杂的 grep 吧，唉。
+
+第四天，新的 inword-grep 特性总算完成了，感觉可以替换第一匹配（发起匹配）字符的设计好奇怪啊，等于可以删掉或者保留此字符，还好最后我测试许多变绕过来了。
 */

@@ -4,6 +4,7 @@
         <meta charset="UTF-8" />
         <title>Tokenizer 分词器</title>
         <meta name="description" content="利用建-值对应字典进行组合、处理文本序列、查询单词" />
+        <script defer src="triedata.js"></script>
         <script defer src="Tokenizer.js"></script>
         <style>
         .recognized { text-rendering: optimizeLegibility; }
@@ -45,15 +46,18 @@
 <details><summary>如果你想了解更多关于 <abbr title="全局资源地址，就是浏览器顶上的链接">URL</abbr> 参数（<code>&name=value</code>）的事情</summary><dl>
     <dt>delim0/delim1</dt>
     <dd>指示后方加载字典表的 <b>键值对/键-值</b> 切分符，这可用于兼容 换行/= 外的格式</dd>
-    <dt>style</dt>
-    <dd>加载另外的 <abbr title="层叠样式表">CSS</abbr> 样式链接(':' 起始)，或者直接的文本</dd>
     <dt>conf</dt>
     <dd>加载符合 ?k=v 或 &k=v 格式的参数表，参数表内亦可用此参数另再加载</dd>
     <dt>feat</dt>
     <dd>等于自动点击文档的第 N 个(从0数)附加特性按钮</dd>
+    <dt>inword-grep</dt>
+    <dd>设置为 c=re=subst 的格式，在某单词的前缀匹配中如正处理 c 则以 re 匹配替换在解析内容。
+如果置换为 c 则优化为跳过匹配、为 %00 则不分词匹配，注意只有单词前缀匹配才替换！</dd>
     <dt>text</dt><dd>拼接<b>主内容</b>，可以 ':' 起始引用链接</dd>
-    <dt>font-size</dt><dd>渲染结果字体大小，比如 50px, 25pt</dd>
     <dt>mode</dt><dd>使用<b>词典名</b>，无效则变动到首项</dd>
+    <dt>font-size</dt><dd>渲染结果字体大小，比如 50px, 25pt</dd>
+    <dt>style</dt>
+    <dd>加载另外的 <abbr title="层叠样式表">CSS</abbr> 样式链接(':' 起始)，或者直接的文本</dd>
     <dt><var>name</var></dt><dd>创建名叫 <var>name</var> 的字典，其参数可以用 (a+b) (a>b) (~a)
 即 以b之值优先-合并、以b解释a的所有值、反向化a 的形式组合。
 默认是链接，加 ':' 引用已加载字典；你可以覆盖之前的字典名</dd>
