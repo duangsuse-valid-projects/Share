@@ -31,6 +31,21 @@ function element(tagName, config, ...childs) {
         e.appendChild(child);
     return e;
 }
+function xhrReadText(url) {
+    return new Promise((resolve, reject) => {
+        let xhr = new XMLHttpRequest();
+        xhr.open("GET", url, true);
+        xhr.onreadystatechange = () => {
+            if (xhr.readyState != XMLHttpRequest.DONE)
+                return;
+            if (xhr.status != 200)
+                reject([url, xhr.statusText]);
+            resolve(xhr.responseText);
+        };
+        xhr.send();
+    });
+}
+const alertFailedReq = ([url, msg]) => alert(`Failed get ${url}: ${msg}`);
 let dict = {};
 let trie;
 let delimiters = ["\n", "="];
@@ -51,7 +66,7 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
     abb_word = helem("abb-word"), list_possibleWord = helem("list-possibleWord"), div_out = helem("output"), sel_mode = helem("select-mode"), // 选词典
     sel_display = helem("select-display"), // 选渲染
     btn_gen = helem("do-generate"), num_fontSize = helem("slider-fontsize"), btn_showDict = helem("do-showDict"), btn_showTrie = helem("do-showTrie"), // 看底层字典
-    btn_readDict = helem("do-readDict");
+    btn_readDict = helem("do-readDict"), btn_revDict = helem("do-reverse");
     let dlStatus;
     let noTrie = new Trie({ "X": { [KZ]: "待加载" } });
     const setTrie = () => { let name = sel_mode.value; trie = (name in dict) ? dict[name] : noTrie; };
@@ -61,11 +76,12 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
         setTrie(); // noTrie
     };
     const loadConfig = (url) => __awaiter(this, void 0, void 0, function* () {
-        yield readDictTo(dict, url, (k) => {
+        yield readDict(url, (k, trie) => {
             dlStatus.textContent = `在下载 ${k}…`;
-            if (findElemIn(sel_mode.options, e => e.textContent == k) == null) {
+            if (!(k in dict)) {
                 sel_mode.appendChild(element("option", withText(k)));
             } // 加字典选项 若还未存 feat appendOptUnion.
+            dict[k] = trie;
         });
         sel_mode.removeChild(dlStatus);
         setTrie(); // first trie
@@ -92,9 +108,9 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
     };
     btn_expander.onclick = featureEnable[0];
     featureEnable[1] = () => {
-        const e = btn_readDict;
+        const e = btn_revDict;
         let btn_import = element("button", withText("导入参数"));
-        btn_import.onclick = () => __awaiter(this, void 0, void 0, function* () { prepLoadConfig(); yield loadConfig(ta_text.value); });
+        btn_import.onclick = () => { prepLoadConfig(); loadConfig(ta_text.value); };
         e.parentNode.insertBefore(btn_import, e.nextSibling);
         btn_configer.remove();
     };
@@ -199,6 +215,23 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
             alert(`条目导入失败：${failedKs.join("、")} ，请按每行 k${delimiters[1]}v 输入`);
         alert(`已导入 ${table.length - failedKs.length} 条词关系到词典 ${sel_mode.value}`);
     };
+    btn_revDict.onclick = () => {
+        let name = sel_mode.value;
+        if (name.startsWith('~')) {
+            sel_mode.value = name.substr(1);
+            setTrie();
+        } // DOM 不能把 .value= 一起 onchange 真麻烦
+        else {
+            let rName = `~${name}`;
+            const ok = () => { sel_mode.value = rName; setTrie(); };
+            if (!(rName in dict)) {
+                prepLoadConfig();
+                loadConfig(`?${rName}=~:${name}`).then(ok);
+            } // rev-trie feat.
+            else
+                ok();
+        }
+    };
     const generate = () => { clearChild(div_out); renderTokensTo(div_out, trie.tokenize(ta_text.value)); };
     btn_gen.addEventListener("click", generate); // nth=0
     yield loadConfig(location.search);
@@ -258,11 +291,11 @@ function matchAll(re, s) {
     return (_b = (_a = s.match(re)) === null || _a === void 0 ? void 0 : _a.map(part => { re.lastIndex = 0; return re.exec(part); })) !== null && _b !== void 0 ? _b : [];
 }
 const PAT_URL_PARAM = /[?&]([^=]+)=([^&;#\n]+)/g;
-function referText(desc_url) {
+function referText(desc) {
     return __awaiter(this, void 0, void 0, function* () {
-        let isUrl = desc_url.startsWith(':');
+        let isUrl = desc.startsWith(':');
         try {
-            return isUrl ? yield xhrReadText(desc_url.substr(1)) : desc_url;
+            return isUrl ? yield xhrReadText(desc.substr(1)) : desc;
         }
         catch (req) {
             alertFailedReq(req);
@@ -270,9 +303,9 @@ function referText(desc_url) {
         }
     });
 }
-function readDictTo(tries, s, on_load) {
+function readDict(query, on_load) {
     return __awaiter(this, void 0, void 0, function* () {
-        for (let m of matchAll(PAT_URL_PARAM, s)) {
+        for (let m of matchAll(PAT_URL_PARAM, query)) {
             let name = decodeURIComponent(m[1]);
             let value = decodeURIComponent(m[2]);
             switch (name) {
@@ -298,7 +331,7 @@ function readDictTo(tries, s, on_load) {
                 case "conf":
                     try {
                         let qs = yield xhrReadText(value); // conf-file feat
-                        yield readDictTo(tries, qs, on_load);
+                        yield readDict(qs, on_load);
                     }
                     catch (req) {
                         alertFailedReq(req);
@@ -312,10 +345,10 @@ function readDictTo(tries, s, on_load) {
                         alert(`Failed enable feature #${value}`);
                     break;
                 default:
-                    tries[name] = yield readTrie(value);
+                    let trie = yield readTrie(value);
                     for (let k in newlines)
-                        tries[name].set(k, null);
-                    on_load(name);
+                        trie.set(k, null);
+                    on_load(name, trie);
             }
         }
     });
@@ -326,11 +359,11 @@ function reduceToFirst(xs, op) {
         op(fst, xs[i]);
     return fst;
 }
-function readTrie(s) {
+function readTrie(expr) {
     return __awaiter(this, void 0, void 0, function* () {
         const shadowKey = (key, a, b) => { if (b[key] != undefined)
             a[key] = b[key]; };
-        let sources = yield Promise.all(s.split('+').map(readTriePipe));
+        let sources = yield Promise.all(expr.split('+').map(readTriePipe));
         let fst = reduceToFirst(sources, (merged, it) => { for (let k in it)
             shadowKey(k, merged, it); });
         let trie = new Trie;
@@ -339,9 +372,9 @@ function readTrie(s) {
         return trie;
     });
 }
-function readTriePipe(s) {
+function readTriePipe(expr) {
     return __awaiter(this, void 0, void 0, function* () {
-        let pipes = yield Promise.all(s.split('>').map(readTrieData));
+        let pipes = yield Promise.all(expr.split('>').map(readTrieData));
         return reduceToFirst(pipes, (map, data) => {
             for (let k in map) {
                 let gotV = data[map[k]];
@@ -351,10 +384,10 @@ function readTriePipe(s) {
         });
     });
 }
-function readTrieData(url) {
+function readTrieData(expr) {
     return __awaiter(this, void 0, void 0, function* () {
-        let inverted = url.startsWith('~');
-        let path = inverted ? url.substr(1) : url;
+        let inverted = expr.startsWith('~');
+        let path = inverted ? expr.substr(1) : expr;
         let data;
         if (path.startsWith(':')) {
             let name = path.substr(1);
@@ -386,21 +419,6 @@ function readTrieData(url) {
         return obj;
     });
 }
-function xhrReadText(url) {
-    return new Promise((resolve, reject) => {
-        let xhr = new XMLHttpRequest();
-        xhr.open("GET", url, true);
-        xhr.onreadystatechange = () => {
-            if (xhr.readyState != XMLHttpRequest.DONE)
-                return;
-            if (xhr.status != 200)
-                reject([url, xhr.statusText]);
-            resolve(xhr.responseText);
-        };
-        xhr.send();
-    });
-}
-const alertFailedReq = ([url, msg]) => alert(`Failed get ${url}: ${msg}`);
 const KZ = "\0"; // 1:1 value on Trie node
 class Trie {
     constructor(m = {}) { this.routes = m; }

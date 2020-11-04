@@ -20,6 +20,21 @@ function element<TAG extends keyof(HTMLElementTagNameMap)>(tagName:TAG, config:C
   return e as HTMLElementTagNameMap[TAG];
 }
 
+function xhrReadText(url: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let xhr = new XMLHttpRequest();
+    xhr.open("GET", url, true);
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState != XMLHttpRequest.DONE) return;
+      if (xhr.status != 200) reject([url, xhr.statusText]);
+      resolve(xhr.responseText);
+    };
+    xhr.send();
+  });
+}
+const alertFailedReq = ([url, msg]) => alert(`Failed get ${url}: ${msg}`);
+
+
 type TokenIter = Iterable<[string, string?]>
 type CustomRender = (name:string, desc:string) => HTMLElement
 type PairString = [string, string]
@@ -51,7 +66,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     num_fontSize = helem<HTMLInputElement>("slider-fontsize"),
     btn_showDict = helem("do-showDict"),
     btn_showTrie = helem("do-showTrie"), // 看底层字典
-    btn_readDict = helem("do-readDict");
+    btn_readDict = helem("do-readDict"),
+    btn_revDict = helem("do-reverse");
   let dlStatus: HTMLOptionElement;
 
   let noTrie = new Trie({ "X": {[KZ]:"待加载"} });
@@ -62,11 +78,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     setTrie(); // noTrie
   };
   const loadConfig = async (url: string) => {
-    await readDictTo(dict, url, (k) => {
+    await readDict(url, (k, trie) => {
       dlStatus.textContent = `在下载 ${k}…`;
-      if (findElemIn(sel_mode.options, e => e.textContent == k) == null) {
+      if (!(k in dict)) {
         sel_mode.appendChild(element("option", withText(k)));
       } // 加字典选项 若还未存 feat appendOptUnion.
+      dict[k] = trie;
     });
     sel_mode.removeChild(dlStatus);
     setTrie(); // first trie
@@ -89,9 +106,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     btn_expander.remove();
   }; btn_expander.onclick = featureEnable[0];
   featureEnable[1] = () => {
-    const e = btn_readDict;
+    const e = btn_revDict;
     let btn_import = element("button", withText("导入参数"));
-    btn_import.onclick = async () => { prepLoadConfig(); await loadConfig(ta_text.value); };
+    btn_import.onclick = () => { prepLoadConfig(); loadConfig(ta_text.value); };
     e.parentNode.insertBefore(btn_import, e.nextSibling);
     btn_configer.remove();
   }; btn_configer.onclick = featureEnable[1];
@@ -167,6 +184,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (failedKs.length != 0) alert(`条目导入失败：${failedKs.join("、")} ，请按每行 k${delimiters[1]}v 输入`);
     alert(`已导入 ${table.length-failedKs.length} 条词关系到词典 ${sel_mode.value}`);
   };
+  btn_revDict.onclick = () => {
+    let name = sel_mode.value;
+    if (name.startsWith('~')) { sel_mode.value = name.substr(1); setTrie(); } // DOM 不能把 .value= 一起 onchange 真麻烦
+    else {
+      let rName = `~${name}`;
+      const ok = () => { sel_mode.value = rName; setTrie(); };
+      if (!(rName in dict)) { prepLoadConfig(); loadConfig(`?${rName}=~:${name}`).then(ok); } // rev-trie feat.
+      else ok();
+    }
+  };
 
   const generate = () => { clearChild(div_out); renderTokensTo(div_out, trie.tokenize(ta_text.value)); };
   btn_gen.addEventListener("click", generate); // nth=0
@@ -219,13 +246,13 @@ function matchAll(re: RegExp, s: string): RegExpExecArray[] {
   return s.match(re)?.map(part => { re.lastIndex = 0; return re.exec(part) }) ?? [];
 }
 const PAT_URL_PARAM = /[?&]([^=]+)=([^&;#\n]+)/g;
-async function referText(desc_url: string) {
-  let isUrl = desc_url.startsWith(':');
-  try { return isUrl? await xhrReadText(desc_url.substr(1)) : desc_url; }
+async function referText(desc: string) {
+  let isUrl = desc.startsWith(':');
+  try { return isUrl? await xhrReadText(desc.substr(1)) : desc; }
   catch (req) { alertFailedReq(req); return ""; }
 }
-async function readDictTo(tries: object, s: string, on_load: (name:string) => any) { // generator+async 是不是有点 cutting edge 了…
-  for (let m of matchAll(PAT_URL_PARAM, s)) {
+async function readDict(query: string, on_load: (name:string, trie:STrie) => any) { // generator+async 是不是有点 cutting edge 了…
+  for (let m of matchAll(PAT_URL_PARAM, query)) {
     let name = decodeURIComponent(m[1]);
     let value = decodeURIComponent(m[2]);
     switch (name) {
@@ -247,7 +274,7 @@ async function readDictTo(tries: object, s: string, on_load: (name:string) => an
       case "conf":
         try {
           let qs = await xhrReadText(value); // conf-file feat
-          await readDictTo(tries, qs, on_load);
+          await readDict(qs, on_load);
         } catch (req) { alertFailedReq(req); }
         break;
       case "feat":
@@ -256,9 +283,9 @@ async function readDictTo(tries: object, s: string, on_load: (name:string) => an
         else alert(`Failed enable feature #${value}`);
         break;
       default:
-        tries[name] = await readTrie(value);
-        for (let k in newlines) tries[name].set(k, null);
-        on_load(name);
+        let trie = await readTrie(value);
+        for (let k in newlines) trie.set(k, null);
+        on_load(name, trie);
     }
   }
 }
@@ -267,23 +294,23 @@ function reduceToFirst<T>(xs: T[], op: (fst:T, item:T) => any): T {
   for (let i=1; i < xs.length; i++) op(fst, xs[i]);
   return fst;
 }
-async function readTrie(s: string) {
+async function readTrie(expr: string) {
   const shadowKey = (key: string, a: object, b: object) => { if (b[key] != undefined) a[key] = b[key]; };
-  let sources = await Promise.all(s.split('+').map(readTriePipe));
+  let sources = await Promise.all(expr.split('+').map(readTriePipe));
   let fst = reduceToFirst(sources, (merged, it) => { for (let k in it) shadowKey(k, merged, it); });
-  let trie = new Trie;
+  let trie: STrie = new Trie;
   for (let k in fst) trie.set(k, fst[k]);
   return trie;
 }
-async function readTriePipe(s: string) {
-  let pipes = await Promise.all(s.split('>').map(readTrieData));
+async function readTriePipe(expr: string) {
+  let pipes = await Promise.all(expr.split('>').map(readTrieData));
   return reduceToFirst(pipes, (map, data) => {
     for (let k in map) { let gotV = data[map[k]]; if (gotV != undefined) map[k] = gotV; }
   });
 }
-async function readTrieData(url: string): Promise<object> {
-  let inverted = url.startsWith('~');
-  let path = inverted? url.substr(1) : url;
+async function readTrieData(expr: string): Promise<object> {
+  let inverted = expr.startsWith('~');
+  let path = inverted? expr.substr(1) : expr;
   let data: string[][];
   if (path.startsWith(':')) {
     let name = path.substr(1);
@@ -300,19 +327,6 @@ async function readTrieData(url: string): Promise<object> {
   else for (let [k, v] of data) obj[v] = k;
   return obj;
 }
-function xhrReadText(url: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let xhr = new XMLHttpRequest();
-    xhr.open("GET", url, true);
-    xhr.onreadystatechange = () => {
-      if (xhr.readyState != XMLHttpRequest.DONE) return;
-      if (xhr.status != 200) reject([url, xhr.statusText]);
-      resolve(xhr.responseText);
-    };
-    xhr.send();
-  });
-}
-const alertFailedReq = ([url, msg]) => alert(`Failed get ${url}: ${msg}`);
 
 
 // == Trie & Formatter Backend ==
