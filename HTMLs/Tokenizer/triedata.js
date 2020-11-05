@@ -138,6 +138,15 @@ class Trie {
             yield [recognized.toString(), null];
         }
     }
+    static joinValues(toks, sep = " ") {
+        let vs = [];
+        for (let kv of toks) {
+            let v = kv[1];
+            if (v != null && v != "")
+                vs.push(v);
+        }
+        return (vs.length == 0) ? null : vs.join(sep);
+    }
 }
 class StringBuild {
     constructor() { this._buf = []; }

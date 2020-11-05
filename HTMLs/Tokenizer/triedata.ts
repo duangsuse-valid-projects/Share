@@ -115,6 +115,11 @@ class Trie<V> implements Iterable<[String, V]> {
     if (point[KZ] != undefined) { yield [recognized.toString(), point[KZ]]; } // word stop at EOS
     else if (!recognized.isEmpty) { yield [recognized.toString(), null]; }
   }
+  static joinValues(toks: TokenIter, sep: string = " ") {
+    let vs = [];
+    for (let kv of toks) { let v = kv[1]; if (v != null && v != "") vs.push(v); }
+    return (vs.length == 0)? null : vs.join(sep);
+  }
 }
 
 interface RecurStructFmt { // bad, but usable

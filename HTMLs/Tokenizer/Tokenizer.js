@@ -23,7 +23,7 @@ function clearChild(e) {
         e.removeChild(e.firstChild);
 }
 function withDefaults() { return (e) => { }; }
-function withText(text) { return (e) => { e.innerText = text; }; }
+function withText(text) { return (e) => { e.textContent = text; }; }
 function element(tagName, config, ...childs) {
     let e = document.createElement(tagName);
     config(e);
@@ -52,7 +52,6 @@ let delimiters = ["\n", "="];
 const newlines = {};
 for (let nl of ["\n", "\r", "\r\n"])
     newlines[nl] = null;
-let featureEnable = [];
 let customHTML;
 let inwordGrep = {};
 function splitTrieData(s) {
@@ -63,6 +62,17 @@ function splitTrieData(s) {
 }
 function tokenize(input) {
     return trie.tokenize(input, c => inwordGrep[c]);
+}
+function registerOneshotClicks(es, actions) {
+    let i = 0;
+    for (let e of es) {
+        let no = i; // closure upvalue!
+        e.addEventListener("click", () => { let op = actions[no]; if (op != null) {
+            op();
+            actions[no] = null;
+        } e.setAttribute("hidden", ""); });
+        i++; // zip iter
+    }
 }
 document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void 0, function* () {
     const ta_text = helem("text"), // 要分词的
@@ -90,9 +100,8 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
         sel_mode.removeChild(dlStatus);
         setTrie(); // first trie
     });
-    //v misc in-helpDoc event, rewrite to dyn generate maybe.
-    const [btn_expander, btn_configer, btn_2ndTok] = document.getElementById("output").getElementsByTagName("button"); // HTMLCollection mutates so.
-    featureEnable[0] = () => {
+    //v misc in-helpDoc button event, dyn generated.
+    let featExpander = () => {
         const toggle = (ev) => {
             const css = "abbr-expand";
             let e = ev.target;
@@ -108,10 +117,8 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
         };
         btn_gen.addEventListener("click", addAbbrExpand);
         addAbbrExpand(); // nth=1
-        btn_expander.remove();
     };
-    btn_expander.onclick = featureEnable[0];
-    featureEnable[1] = () => {
+    let featConfiger = () => {
         const e = btn_revDict;
         let btn_import = element("button", withText("导入参数"));
         btn_import.onclick = () => { prepLoadConfig(); loadConfig(ta_text.value); };
@@ -119,19 +126,8 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
         let btn_loadRendered = element("button", withText("叠改已渲染文本"));
         btn_loadRendered.onclick = () => { ta_text.value = div_out.innerText; generate(); };
         e.parentNode.insertBefore(btn_loadRendered, e.nextSibling);
-        btn_configer.remove();
     };
-    btn_configer.onclick = featureEnable[1];
-    featureEnable[2] = () => {
-        const joinV = (toks) => {
-            let vs = [];
-            for (let kv of toks) {
-                let v = kv[1];
-                if (v != null && v != "")
-                    vs.push(v);
-            }
-            return (vs.length == 0) ? null : vs.join(" ");
-        };
+    let feat2ndTokenize = () => {
         const wrapRender = () => {
             let oldRender = customHTML;
             customHTML = (k, v) => {
@@ -139,7 +135,7 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
                 let accumHTML = elem.innerHTML; // 2nd tokenize feat
                 let lastV = v;
                 while (true) {
-                    let newV = joinV(tokenize(lastV));
+                    let newV = Trie.joinValues(tokenize(lastV));
                     if (newV == null)
                         break;
                     accumHTML = accumHTML.replace(lastV, newV); // replace val only
@@ -154,9 +150,8 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
         };
         sel_display.addEventListener("change", wrapRender);
         wrapRender(); // nth=1
-        btn_2ndTok.remove();
     };
-    btn_2ndTok.onclick = featureEnable[2];
+    registerOneshotClicks(helem("output").getElementsByTagName("button"), [featExpander, featConfiger, feat2ndTokenize]);
     const bracketFmt = new BracketFmt(["{", "}"], ", ");
     const indentFmt = new IndentationFmt();
     let customFmt;
@@ -167,6 +162,9 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
         switch (vSel) {
             case "上标(Ruby notation)":
                 customHTML = (k, v) => element("ruby", withDefaults(), document.createTextNode(k), element("rt", withText(v)));
+                break;
+            case "翻转上标":
+                customHTML = (k, v) => element("ruby", withDefaults(), document.createTextNode(v), element("rt", withText(k)));
                 break;
             case "粗体+后括号":
                 customHTML = (k, v) => element("span", withDefaults(), element("b", withText(k)), document.createTextNode(`(${v})`));
@@ -185,7 +183,7 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
                     let htmlCode = (_a = prompt("输入关于 K,V 的 HTML 代码：")) !== null && _a !== void 0 ? _a : "<a>K(V)</a>";
                     customHTML = (k, v) => {
                         let span = document.createElement("span");
-                        span.innerHTML = htmlCode.replace(/([KV])/g, m => (m[0] == "K") ? k : v);
+                        span.innerHTML = htmlCode.replace(/[KV]/g, c => (c[0] == "K") ? k : v);
                         return span;
                     };
                 }
@@ -299,6 +297,7 @@ function matchAll(re, s) {
 }
 const PAT_URL_PARAM = /[?&]([^=]+)=([^&;#\n]+)/g;
 const PAT_GREP = /(.)=([^=]+)=(.*)$/g;
+const PAT_CSS_ARGUMENT = /\/\*\[\s*(\d+)\s*\]\*\//g;
 function referText(desc) {
     return __awaiter(this, void 0, void 0, function* () {
         let isUrl = desc.startsWith(':');
@@ -327,7 +326,10 @@ function readDict(query, on_load) {
                     helem("output").style.fontSize = value;
                     break;
                 case "style":
-                    let css = yield referText(value);
+                    let iArg = value.lastIndexOf('@'); // style=:a.css@cyan,yellow // style-args feat.
+                    let desc = (iArg != -1) ? value.substr(0, iArg) : value;
+                    let code = yield referText(desc);
+                    let css = (iArg != -1) ? code.replace(PAT_CSS_ARGUMENT, (_, no) => value.substr(iArg + 1).split(',')[Number.parseInt(no)]) : code;
                     document.head.appendChild(element("style", withText(css))); // add-style feat
                     break;
                 case "delim0":
@@ -346,11 +348,7 @@ function readDict(query, on_load) {
                     }
                     break;
                 case "feat":
-                    let op = featureEnable[Number.parseInt(value)];
-                    if (typeof op === "function")
-                        op();
-                    else
-                        alert(`Failed enable feature #${value}`);
+                    helem("output").getElementsByTagName("button")[Number.parseInt(value)].click();
                     break;
                 case "inword-grep":
                     let [_, c, sRe, subst] = PAT_GREP.exec(value);
@@ -380,13 +378,30 @@ function readTrie(expr) {
     return __awaiter(this, void 0, void 0, function* () {
         const shadowKey = (key, a, b) => { if (b[key] != undefined)
             a[key] = b[key]; };
-        let sources = yield Promise.all(expr.split('+').map(readTriePipe));
+        let sources = yield Promise.all(expr.split('+').map(readTriePipePlus));
         let fst = reduceToFirst(sources, (merged, it) => { for (let k in it)
             shadowKey(k, merged, it); });
         let trie = new Trie;
         for (let k in fst)
             trie.set(k, fst[k]);
         return trie;
+    });
+}
+function readTriePipePlus(expr) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let piped = yield Promise.all(expr.split(">>").map(readTriePipe));
+        return reduceToFirst(piped, (accum, rules) => {
+            let trie = new Trie;
+            for (let k in rules)
+                trie.set(k, rules[k]);
+            if (accum[""] == undefined)
+                delete accum[""];
+            for (let k in accum) {
+                let v = Trie.joinValues(trie.tokenize(accum[k]));
+                if (v != null)
+                    accum[k] = v;
+            }
+        });
     });
 }
 function readTriePipe(expr) {

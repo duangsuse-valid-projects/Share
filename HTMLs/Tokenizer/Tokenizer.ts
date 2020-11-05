@@ -13,7 +13,7 @@ function clearChild(e:HTMLElement) {
 }
 type Conf = (e:HTMLElement) => any
 function withDefaults(): Conf { return (e) => {}; }
-function withText(text:string): Conf { return (e) => { e.innerText = text; }; }
+function withText(text:string): Conf { return (e) => { e.textContent = text; }; }
 function element<TAG extends keyof(HTMLElementTagNameMap)>(tagName:TAG, config:Conf, ...childs:(Element|Text)[]): HTMLElementTagNameMap[TAG] {
   let e = document.createElement(tagName); config(e);
   for (let child of childs) e.appendChild(child);
@@ -43,7 +43,6 @@ let trie: STrie;
 let delimiters: PairString = ["\n", "="];
 const newlines = {}; for (let nl of ["\n", "\r", "\r\n"]) newlines[nl] = null;
 
-let featureEnable: (() => void)[] = [];
 let customHTML: CustomRender;
 let inwordGrep = {};
 
@@ -55,6 +54,14 @@ function splitTrieData(s: string) {
 }
 function tokenize(input: string): TokenIter {
   return trie.tokenize(input, c => inwordGrep[c]);
+}
+function registerOneshotClicks(es: HTMLCollection, actions: (() => any)[]) { // "feat=" oneshot feat.
+  let i = 0;
+  for (let e of es) {
+    let no = i; // closure upvalue!
+    e.addEventListener("click", () => { let op = actions[no]; if (op != null) { op(); actions[no] = null; } e.setAttribute("hidden", ""); });
+    i++; // zip iter
+  }
 }
 document.addEventListener("DOMContentLoaded", async () => {
   const
@@ -92,9 +99,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     setTrie(); // first trie
   };
 
-  //v misc in-helpDoc event, rewrite to dyn generate maybe.
-  const [btn_expander, btn_configer, btn_2ndTok] = document.getElementById("output").getElementsByTagName("button"); // HTMLCollection mutates so.
-  featureEnable[0] = () => {
+  //v misc in-helpDoc button event, dyn generated.
+  let featExpander = () => {
     const toggle = (ev:Event) => { 
       const css = "abbr-expand";
       let e = ev.target as HTMLElement;
@@ -106,9 +112,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       for (let abbr of div_out.getElementsByTagName("abbr")) abbr.onclick = toggle;
     };
     btn_gen.addEventListener("click", addAbbrExpand); addAbbrExpand(); // nth=1
-    btn_expander.remove();
-  }; btn_expander.onclick = featureEnable[0];
-  featureEnable[1] = () => {
+  };
+  let featConfiger = () => {
     const e = btn_revDict;
     let btn_import = element("button", withText("导入参数"));
     btn_import.onclick = () => { prepLoadConfig(); loadConfig(ta_text.value); };
@@ -116,14 +121,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     let btn_loadRendered = element("button", withText("叠改已渲染文本"));
     btn_loadRendered.onclick = () => { ta_text.value = div_out.innerText; generate(); };
     e.parentNode.insertBefore(btn_loadRendered, e.nextSibling);
-    btn_configer.remove();
-  }; btn_configer.onclick = featureEnable[1];
-  featureEnable[2] = () => {
-    const joinV = (toks:TokenIter) => {
-      let vs = [];
-      for (let kv of toks) { let v = kv[1]; if (v != null && v != "") vs.push(v); }
-      return (vs.length == 0)? null : vs.join(" ");
-    };
+  };
+  let feat2ndTokenize = () => {
     const wrapRender = () => {
       let oldRender = customHTML;
       customHTML = (k, v) => {
@@ -131,7 +130,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         let accumHTML = elem.innerHTML; // 2nd tokenize feat
         let lastV = v;
         while (true) {
-          let newV = joinV(tokenize(lastV));
+          let newV = Trie.joinValues(tokenize(lastV));
           if (newV == null) break;
           accumHTML = accumHTML.replace(lastV, newV); // replace val only
           lastV = newV;
@@ -140,8 +139,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         return elem;
       };
     }; sel_display.addEventListener("change", wrapRender); wrapRender(); // nth=1
-    btn_2ndTok.remove();
-  }; btn_2ndTok.onclick = featureEnable[2];
+  };
+  registerOneshotClicks(helem("output").getElementsByTagName("button"), [featExpander, featConfiger, feat2ndTokenize]);
 
   const bracketFmt = new BracketFmt(["{", "}"], ", ");
   const indentFmt = new IndentationFmt();
@@ -152,6 +151,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     customFmt = vSel.endsWith(")")? indentFmt : bracketFmt;
     switch (vSel) {
       case "上标(Ruby notation)": customHTML = (k, v) => element("ruby", withDefaults(), document.createTextNode(k), element("rt", withText(v))); break;
+      case "翻转上标": customHTML = (k, v) => element("ruby", withDefaults(), document.createTextNode(v), element("rt", withText(k))); break;
       case "粗体+后括号": customHTML = (k, v) => element("span", withDefaults(), element("b", withText(k)), document.createTextNode(`(${v})`)); break;
       case "标记已识别": customHTML = (k, v) => element("u", withText(k)); break;
       case "替换已识别": customHTML = (k, v) => element("abbr", (e) => { e.textContent = v; e.title = k; }); break;
@@ -161,7 +161,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           let htmlCode = prompt("输入关于 K,V 的 HTML 代码：") ?? "<a>K(V)</a>";
           customHTML = (k, v) => {
             let span = document.createElement("span");
-            span.innerHTML = htmlCode.replace(/([KV])/g, m => (m[0] == "K")? k : v);
+            span.innerHTML = htmlCode.replace(/[KV]/g, c => (c[0] == "K")? k : v);
             return span;
           };
         } else throw Error(vSel);
@@ -253,6 +253,7 @@ function matchAll(re: RegExp, s: string): RegExpExecArray[] {
 }
 const PAT_URL_PARAM = /[?&]([^=]+)=([^&;#\n]+)/g;
 const PAT_GREP = /(.)=([^=]+)=(.*)$/g;
+const PAT_CSS_ARGUMENT = /\/\*\[\s*(\d+)\s*\]\*\//g;
 async function referText(desc: string) {
   let isUrl = desc.startsWith(':');
   try { return isUrl? await xhrReadText(desc.substr(1)) : desc; }
@@ -273,7 +274,10 @@ async function readDict(query: string, on_load: (name:string, trie:STrie) => any
         helem("output").style.fontSize = value;
         break;
       case "style":
-        let css = await referText(value);
+        let iArg = value.lastIndexOf('@'); // style=:a.css@cyan,yellow
+        let desc = (iArg != -1)? value.substr(0, iArg) : value; // style-args feat.
+        let code = await referText(desc);
+        let css = (iArg != -1)? code.replace(PAT_CSS_ARGUMENT, (_, no) => value.substr(iArg+1).split(',')[Number.parseInt(no)] ) : code;
         document.head.appendChild(element("style", withText(css))); // add-style feat
         break;
       case "delim0": delimiters[0] = value; break;
@@ -285,9 +289,7 @@ async function readDict(query: string, on_load: (name:string, trie:STrie) => any
         } catch (req) { alertFailedReq(req); }
         break;
       case "feat":
-        let op = featureEnable[Number.parseInt(value)];
-        if (typeof op === "function") op();
-        else alert(`Failed enable feature #${value}`);
+        helem("output").getElementsByTagName("button")[Number.parseInt(value)].click();
         break;
       case "inword-grep":
         let [_, c, sRe, subst] = PAT_GREP.exec(value);
@@ -309,11 +311,23 @@ function reduceToFirst<T>(xs: T[], op: (fst:T, item:T) => any): T {
 }
 async function readTrie(expr: string) {
   const shadowKey = (key: string, a: object, b: object) => { if (b[key] != undefined) a[key] = b[key]; };
-  let sources = await Promise.all(expr.split('+').map(readTriePipe));
+  let sources = await Promise.all(expr.split('+').map(readTriePipePlus));
   let fst = reduceToFirst(sources, (merged, it) => { for (let k in it) shadowKey(k, merged, it); });
   let trie: STrie = new Trie;
   for (let k in fst) trie.set(k, fst[k]);
   return trie;
+}
+async function readTriePipePlus(expr: string) { // tokenize-dict feat.
+  let piped = await Promise.all(expr.split(">>").map(readTriePipe));
+  return reduceToFirst(piped, (accum, rules) => {
+    let trie: STrie = new Trie;
+    for (let k in rules) trie.set(k, rules[k]);
+    if (accum[""] == undefined) delete accum[""];
+    for (let k in accum) {
+      let v = Trie.joinValues(trie.tokenize(accum[k]));
+      if (v != null) accum[k] = v;
+    }
+  });
 }
 async function readTriePipe(expr: string) {
   let pipes = await Promise.all(expr.split('>').map(readTrieData));
