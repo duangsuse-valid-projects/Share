@@ -100,7 +100,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   //v misc in-helpDoc button event, dyn generated.
-  let featExpander = () => {
+  const featExpander = () => {
     const toggle = (ev:Event) => { 
       const css = "abbr-expand";
       let e = ev.target as HTMLElement;
@@ -113,7 +113,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
     btn_gen.addEventListener("click", addAbbrExpand); addAbbrExpand(); // nth=1
   };
-  let featConfiger = () => {
+  const featConfiger = () => {
     const e = btn_revDict;
     let btn_import = element("button", withText("导入参数"));
     btn_import.onclick = () => { prepLoadConfig(); loadConfig(ta_text.value); };
@@ -122,7 +122,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     btn_loadRendered.onclick = () => { ta_text.value = div_out.innerText; generate(); };
     e.parentNode.insertBefore(btn_loadRendered, e.nextSibling);
   };
-  let feat2ndTokenize = () => {
+  const feat2ndTokenize = () => {
     const wrapRender = () => {
       let oldRender = customHTML;
       customHTML = (k, v) => {

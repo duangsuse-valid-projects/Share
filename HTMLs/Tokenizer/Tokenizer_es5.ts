@@ -49,4 +49,8 @@ opChain 的我记得是比较麻烦（没看过我 ParserKt InfixPattern 实现�
 第五天，我又支持了原来因为性能问题（读 (+) 的那层解析器收的还是 Map 而 (>>) 显然不可能比它大所以要临时 Trie） 不打算加而是支持了 2nd-tokenize 的 (>>)
 
 真的不想进行最终的重构了（虽然估计可以支持 ES5 ，也能为萌娘百科什么的做贡献），唉
+
+https://github.com/haochi/annotate-pinyin-with-chinese/blob/master/src/browser/pinyin.ts
+
+这个大佬写的代码真好看，简直找不出可以重构的地方，会以他的 API 模板实现浏览器插件。
 */

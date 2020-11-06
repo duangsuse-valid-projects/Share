@@ -101,7 +101,7 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
         setTrie(); // first trie
     });
     //v misc in-helpDoc button event, dyn generated.
-    let featExpander = () => {
+    const featExpander = () => {
         const toggle = (ev) => {
             const css = "abbr-expand";
             let e = ev.target;
@@ -118,7 +118,7 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
         btn_gen.addEventListener("click", addAbbrExpand);
         addAbbrExpand(); // nth=1
     };
-    let featConfiger = () => {
+    const featConfiger = () => {
         const e = btn_revDict;
         let btn_import = element("button", withText("导入参数"));
         btn_import.onclick = () => { prepLoadConfig(); loadConfig(ta_text.value); };
@@ -127,7 +127,7 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
         btn_loadRendered.onclick = () => { ta_text.value = div_out.innerText; generate(); };
         e.parentNode.insertBefore(btn_loadRendered, e.nextSibling);
     };
-    let feat2ndTokenize = () => {
+    const feat2ndTokenize = () => {
         const wrapRender = () => {
             let oldRender = customHTML;
             customHTML = (k, v) => {
@@ -326,8 +326,8 @@ function readDict(query, on_load) {
                     helem("output").style.fontSize = value;
                     break;
                 case "style":
-                    let iArg = value.lastIndexOf('@'); // style=:a.css@cyan,yellow // style-args feat.
-                    let desc = (iArg != -1) ? value.substr(0, iArg) : value;
+                    let iArg = value.lastIndexOf('@'); // style=:a.css@cyan,yellow
+                    let desc = (iArg != -1) ? value.substr(0, iArg) : value; // style-args feat.
                     let code = yield referText(desc);
                     let css = (iArg != -1) ? code.replace(PAT_CSS_ARGUMENT, (_, no) => value.substr(iArg + 1).split(',')[Number.parseInt(no)]) : code;
                     document.head.appendChild(element("style", withText(css))); // add-style feat
