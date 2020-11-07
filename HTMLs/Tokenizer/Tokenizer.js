@@ -49,6 +49,7 @@ const alertFailedReq = ([url, msg]) => alert(`Failed get ${url}: ${msg}`);
 let dict = {};
 let trie;
 let delimiters = ["\n", "="];
+const SEP = " ";
 const newlines = {};
 for (let nl of ["\n", "\r", "\r\n"])
     newlines[nl] = null;
@@ -82,7 +83,8 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
     btn_gen = helem("do-generate"), num_fontSize = helem("slider-fontsize"), btn_showDict = helem("do-showDict"), btn_showTrie = helem("do-showTrie"), // 看底层字典
     btn_readDict = helem("do-readDict"), btn_revDict = helem("do-reverse");
     let dlStatus;
-    let noTrie = new Trie({ "X": { [KZ]: "待加载" } });
+    let noTrie = new Trie;
+    noTrie.set("X", "待加载");
     const setTrie = () => { let name = sel_mode.value; trie = (name in dict) ? dict[name] : noTrie; };
     const prepLoadConfig = () => {
         dlStatus = element("option", withText("待从配置加载！"));
@@ -135,7 +137,7 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
                 let accumHTML = elem.innerHTML; // 2nd tokenize feat
                 let lastV = v;
                 while (true) {
-                    let newV = Trie.joinValues(tokenize(lastV));
+                    let newV = Trie.joinValues(tokenize(lastV), SEP);
                     if (newV == null)
                         break;
                     accumHTML = accumHTML.replace(lastV, newV); // replace val only
@@ -203,9 +205,9 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
         if (customFmt == bracketFmt)
             for (let k of ["\n", "\r"])
                 trie.remove(k); // remove-CRLF tokenize feat.
-        customFmt.clear();
         trie.formatWith(customFmt);
         ta_text.value = customFmt.toString();
+        customFmt.clear();
     };
     btn_readDict.onclick = () => {
         let table = splitTrieData(ta_text.value.trim());
@@ -383,7 +385,8 @@ function readTrie(expr) {
             shadowKey(k, merged, it); });
         let trie = new Trie;
         for (let k in fst)
-            trie.set(k, fst[k]);
+            if (k !== "")
+                trie.set(k, fst[k]); // check
         return trie;
     });
 }
@@ -393,11 +396,12 @@ function readTriePipePlus(expr) {
         return reduceToFirst(piped, (accum, rules) => {
             let trie = new Trie;
             for (let k in rules)
-                trie.set(k, rules[k]);
+                if (k !== "")
+                    trie.set(k, rules[k]); // check
             if (accum[""] == undefined)
                 delete accum[""];
             for (let k in accum) {
-                let v = Trie.joinValues(trie.tokenize(accum[k]));
+                let v = Trie.joinValues(trie.tokenize(accum[k]), SEP);
                 if (v != null)
                     accum[k] = v;
             }

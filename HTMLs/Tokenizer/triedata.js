@@ -1,56 +1,69 @@
 const KZ = "\0"; // 1:1 value on Trie node
 class Trie {
-    constructor(m = {}) { this.routes = m; }
-    get value() { return this.routes[KZ]; }
-    set value(v) { this.routes[KZ] = v; }
+    constructor(m = new Map) { this.routes = m; }
+    get value() { return Trie.valueAt(this.routes); }
+    set value(v) { this.routes.set(KZ, v); }
     // path, makePath, get, set, iter, toString, tokenize
-    _path(ks) {
+    _makePath(ks, has_create) {
         var point = this.routes;
+        var point0;
+        var c0;
         for (let c of ks) {
-            if (c in point)
-                point = point[c];
-            else
-                throw Error(`failed getting ${ks}: no ${c} at ${new Trie(point)}`);
+            c0 = c;
+            point0 = point; // store parent pt.
+            let pvalue = point.get(c);
+            if (pvalue !== undefined) {
+                point = pvalue;
+            }
+            else {
+                if (has_create) {
+                    let newPt = new Map;
+                    point.set(c, newPt);
+                    point = newPt;
+                }
+                else {
+                    throw Error(`failed getting ${ks}: no ${c} at ${new Trie(point)}`);
+                }
+            }
+        }
+        if (!(point instanceof Map)) { // lazy waypoint split
+            let point1 = new Map;
+            point1.set(KZ, point);
+            point0.set(c0, point1);
+            point = point1;
         }
         return point;
     }
-    path(ks) { return new Trie(this._path(ks)); }
-    makePath(ks) {
-        var point = this.routes;
-        for (let c of ks) {
-            if (!(c in point))
-                point[c] = new Object;
-            point = point[c];
-        }
-        return new Trie(point);
-    }
+    path(ks) { return new Trie(this._makePath(ks, false)); }
+    makePath(ks) { return new Trie(this._makePath(ks, true)); }
     get(ks) {
-        let v = this._path(ks)[KZ];
+        let v = Trie.valueAt(this._makePath(ks, false));
         if (v == undefined)
             throw Error("not a value path");
         return v;
     }
-    set(ks, v) { this.makePath(ks).value = v; }
+    set(ks, v) { this._makePath(ks, true).set(KZ, v); }
     remove(ks) {
-        let iKsLast = ks.length - 1;
-        let parent = this.path(ks.substr(0, iKsLast)).routes;
-        delete parent[ks[iKsLast]];
+        let iKsLast = ks.length - 1; // unchecked
+        let parent = this._makePath(ks.substr(0, iKsLast), false);
+        parent.delete(ks[iKsLast]);
     }
     /** This should be fully iterated since it mutates self. */
     [Symbol.iterator]() { return this._iter(this.routes, ""); }
     *_iter(path, ks_path) {
-        let v_mid = path[KZ];
-        delete path[KZ];
-        for (let k in path) {
-            let v = path[k];
-            if (v[KZ] != undefined && Object.keys(v).length == 1)
-                yield [ks_path + k, v[KZ]]; // optimize val-only node
+        let vz = path.get(KZ);
+        path.delete(KZ);
+        for (let [k, v] of path.entries()) {
+            let pv = Trie.valueAt(v);
+            let isMap = v instanceof Map;
+            if (pv !== undefined && (!isMap || isMap && v.size == 1))
+                yield [ks_path + k, pv]; // optimize val-only node
             else
                 yield* this._iter(v, ks_path + k);
         }
-        if (v_mid != undefined)
-            yield [ks_path, v_mid];
-        path[KZ] = v_mid; // restore.
+        if (vz !== undefined)
+            yield [ks_path, vz]; // post-order
+        path.set(KZ, vz); // restore.
     }
     toString() {
         let sb = new StringBuild;
@@ -60,17 +73,17 @@ class Trie {
     }
     formatWith(fmt) {
         const _visitRec = (fmt, point) => {
-            let vz = point[KZ];
-            delete point[KZ]; // hide, first KZ
+            let vz = point.get(KZ);
+            point.delete(KZ); // hide, first KZ
             if (vz != undefined)
                 fmt.onItem(`=${vz}`);
-            for (let k in point) {
+            for (let [k, v] of point.entries()) {
                 fmt.onItem(k);
                 fmt.onOpen();
-                _visitRec(fmt, point[k]);
+                _visitRec(fmt, v);
                 fmt.onClose();
             }
-            point[KZ] = vz;
+            point.set(KZ, vz);
         };
         _visitRec(fmt, this.routes);
     }
@@ -82,7 +95,8 @@ class Trie {
         var point = this.routes;
         while (i < n) {
             let c = input[i]; // trie charseq match.
-            if (c in point) {
+            let pvalue = point.get(c);
+            if (pvalue != undefined) {
                 let grep = inword_grep(c); // in-word grep feat.
                 let m;
                 if (grep != null && (m = grep[0].exec(input.substr(i))) != null) {
@@ -105,19 +119,21 @@ class Trie {
                         }
                     }
                 }
-                point = point[c];
+                point = pvalue;
                 recognized.append(c);
             }
             else { // stop of one word at len+1, prepare for re-match
-                if (point[KZ] != undefined) {
+                let pv = Trie.valueAt(point);
+                let state0 = this.routes; // initial match state
+                if (pv != undefined) {
                     i--;
-                    yield [recognized.toString(), point[KZ]];
+                    yield [recognized.toString(), pv];
                 }
                 else {
                     if (!recognized.isEmpty)
                         yield [recognized.toString(), null]; // unknown prefix
                     let iUnrecog = i;
-                    while (!(input[i] in this.routes) && i < n) {
+                    while (!state0.has(input[i]) && i < n) {
                         i++;
                     } // optimized skip
                     let unrecog = input.substring(iUnrecog, i);
@@ -125,20 +141,21 @@ class Trie {
                         yield [unrecog, null];
                     i--; // =continue, to recogzd idx.
                 }
-                point = this.routes;
+                point = state0;
                 recognized.clear();
             }
             ;
             i++;
         }
-        if (point[KZ] != undefined) {
-            yield [recognized.toString(), point[KZ]];
+        let pv = Trie.valueAt(point);
+        if (pv != undefined) {
+            yield [recognized.toString(), pv];
         } // word stop at EOS
         else if (!recognized.isEmpty) {
             yield [recognized.toString(), null];
         }
     }
-    static joinValues(toks, sep = " ") {
+    static joinValues(toks, sep) {
         let vs = [];
         for (let kv of toks) {
             let v = kv[1];
@@ -147,6 +164,7 @@ class Trie {
         }
         return (vs.length == 0) ? null : vs.join(sep);
     }
+    static valueAt(point) { return ((point instanceof Map) ? point.get(KZ) : point); }
 }
 class StringBuild {
     constructor() { this._buf = []; }
@@ -180,15 +198,4 @@ class BracketFmt extends StringBuild {
     else
         this._isFirst = false; this.append(text); }
     clear() { this._isFirst = true; return super.clear(); }
-}
-function formatRecurArrayWith(fmt, xs) {
-    for (let x of xs)
-        if (typeof x === "object") {
-            fmt.onOpen();
-            formatRecurArrayWith(fmt, x);
-            fmt.onClose();
-        }
-        else
-            fmt.onItem(x);
-    return fmt.toString();
 }

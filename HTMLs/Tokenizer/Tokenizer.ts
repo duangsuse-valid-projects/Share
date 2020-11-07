@@ -34,13 +34,13 @@ function xhrReadText(url: string): Promise<string> {
 }
 const alertFailedReq = ([url, msg]) => alert(`Failed get ${url}: ${msg}`);
 
-
 type TokenIter = Iterable<[string, string?]>
 type CustomRender = (name:string, desc:string) => HTMLElement
 
 let dict = {};
 let trie: STrie;
 let delimiters: PairString = ["\n", "="];
+const SEP = " ";
 const newlines = {}; for (let nl of ["\n", "\r", "\r\n"]) newlines[nl] = null;
 
 let customHTML: CustomRender;
@@ -80,7 +80,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     btn_revDict = helem("do-reverse");
   let dlStatus: HTMLOptionElement;
 
-  let noTrie = new Trie({ "X": {[KZ]:"待加载"} });
+  let noTrie = new Trie; noTrie.set("X", "待加载");
   const setTrie = () => { let name = sel_mode.value; trie = (name in dict)? dict[name] : noTrie; };
   const prepLoadConfig = () => { // conf-add feat.
     dlStatus = element("option", withText("待从配置加载！"));
@@ -130,7 +130,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         let accumHTML = elem.innerHTML; // 2nd tokenize feat
         let lastV = v;
         while (true) {
-          let newV = Trie.joinValues(tokenize(lastV));
+          let newV = Trie.joinValues(tokenize(lastV), SEP);
           if (newV == null) break;
           accumHTML = accumHTML.replace(lastV, newV); // replace val only
           lastV = newV;
@@ -178,7 +178,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   btn_showDict.onclick = () => { ta_text.value = trie.toString(); };
   btn_showTrie.onclick = () => {
     if (customFmt == bracketFmt) for (let k of ["\n", "\r"]) trie.remove(k); // remove-CRLF tokenize feat.
-    customFmt.clear(); trie.formatWith(customFmt); ta_text.value = customFmt.toString();
+    trie.formatWith(customFmt); ta_text.value = customFmt.toString(); customFmt.clear();
   };
   btn_readDict.onclick = () => {
     let table = splitTrieData(ta_text.value.trim());
@@ -314,17 +314,17 @@ async function readTrie(expr: string) {
   let sources = await Promise.all(expr.split('+').map(readTriePipePlus));
   let fst = reduceToFirst(sources, (merged, it) => { for (let k in it) shadowKey(k, merged, it); });
   let trie: STrie = new Trie;
-  for (let k in fst) trie.set(k, fst[k]);
+  for (let k in fst) if (k !== "") trie.set(k, fst[k]); // check
   return trie;
 }
 async function readTriePipePlus(expr: string) { // tokenize-dict feat.
   let piped = await Promise.all(expr.split(">>").map(readTriePipe));
   return reduceToFirst(piped, (accum, rules) => {
     let trie: STrie = new Trie;
-    for (let k in rules) trie.set(k, rules[k]);
+    for (let k in rules) if (k !== "") trie.set(k, rules[k]); // check
     if (accum[""] == undefined) delete accum[""];
     for (let k in accum) {
-      let v = Trie.joinValues(trie.tokenize(accum[k]));
+      let v = Trie.joinValues(trie.tokenize(accum[k]), SEP);
       if (v != null) accum[k] = v;
     }
   });

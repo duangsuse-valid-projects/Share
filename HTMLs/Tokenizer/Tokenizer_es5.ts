@@ -53,4 +53,46 @@ opChain 的我记得是比较麻烦（没看过我 ParserKt InfixPattern 实现�
 https://github.com/haochi/annotate-pinyin-with-chinese/blob/master/src/browser/pinyin.ts
 
 这个大佬写的代码真好看，简直找不出可以重构的地方，会以他的 API 模板实现浏览器插件。
+
+--- 导入了 Unicode CJK 数据后，脚本的性能暴露出了严重问题（其中有一部分是内存分配过度），开始咱策划的是用压缩前缀树(Radix) 而不是字典树(Trie)
+后来发现咱的 Tokenizer 算法如果用压缩前缀得从 m[pt] 的 O(1) 变成 for (let [k, v] in m.entries) if (s.startsWith(k)) 的 O(n) ，反而不利于性能（但优点是不必创建哈希表）
+于是咱提出了三个优化点：
+1. ES6 的把 Object in delete [] []= 改成 Map 对象的操作
+2. 惰性初始化 Trie 的 Bin ，也就是允许 route 里直接存值的情况，有添加再替换（比较类似前缀树了）
+3. 惰性从 K-V 初始化 Trie ，尽可能避免创建冗余对象（比如 LittleDict 的 dictGen js 也是用 readline event 而不是 split("\n") 的）
+还有，尽可能降低抽象开销，例如用 T.prototype.op 不 new 调用方法
+
+但咱还是设计了一下前缀树，感觉有很大不同。
+
+Trie 的每个节点有三种情况： Path (仅路径没有值)、Bin (有值和路径)、 Tip(只有值)
+这些都可以用 Map/Object 来表示（路径本身的值就是 KZ = "\u0000" ）
+Radix 也是必须有 KZ (Bin) 的，但是它可以压缩内存使用
+set 时， Radix 默认（无当前键）是直接存在 root 的
+如果有的话就要进行切分操作
+_split(k, ins_k, v) {
+  let oldV = routes[k]; delete routes[k];
+  let newK = k.substr(k.length-ins_k.length)
+  routes[newK] = { [KZ]: v, [k.substr(ins_k.length)]: oldV };
+}
+
+get 时，必须遍历然后找前缀继续递归 pt.substr(k.length) 拿值
+
+```js
+let iKsLast = ks.length -1; // unchecked
+let parent = this._makePath(ks.substr(0, iKsLast), true);
+let lastK = ks[iKsLast];
+if (!parent.has(lastK)) { parent.set(lastK, v as unknown as Routes<V>); }
+else {
+  let newPoint = new Map; // lazy split
+  let oldV = parent.get(lastK);
+  newPoint.set(KZ, oldV); newPoint.set(lastK, v);
+  parent.set(lastK, newPoint);
+}
+```
+
+一开始是这么写的，后来发现 get 的时候肯定也要有处理，就合并化了 _makePath 与 _path ，加了个 boolean flag
+
+其实这个性能瓶颈本来也是咱写的不对（value 应该是直接关联在 Trie 对象而非 Map 上的），不过这样也有好处（不会有多余的 Trie 实例）
+
+…… 第二个特性实现的时候出现了很多小问题，卡了整整一天。
 */
