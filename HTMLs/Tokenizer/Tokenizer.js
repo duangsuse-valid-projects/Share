@@ -58,6 +58,8 @@ function reduceToFirst(xs, op) {
 }
 let dict = new Map;
 let trie;
+let noTrie = new Trie;
+noTrie.set(["X"], "待加载");
 let delimiters = ["\n", "="];
 const SEP = " ";
 const newlines = {};
@@ -93,8 +95,6 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
     btn_gen = helem("do-generate"), num_fontSize = helem("slider-fontsize"), btn_showDict = helem("do-showDict"), btn_showTrie = helem("do-showTrie"), // 看底层字典
     btn_readDict = helem("do-readDict"), btn_revDict = helem("do-reverse");
     let dlStatus;
-    let noTrie = new Trie;
-    noTrie.set(["X"], "待加载");
     const setTrie = () => { let name = sel_mode.value; trie = dict.has(name) ? dict.get(name)() : noTrie; };
     const prepLoadConfig = () => {
         dlStatus = element("option", withText("待从配置加载！"));
@@ -102,12 +102,16 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
         setTrie(); // noTrie
     };
     const loadConfig = (url) => __awaiter(this, void 0, void 0, function* () {
-        yield readDict(url, (k, trie) => {
+        yield readDict(url, (k, mk_trie) => {
             dlStatus.textContent = `在下载 ${k}…`;
             if (!dict.has(k)) {
                 sel_mode.appendChild(element("option", withText(k)));
             } // 加字典选项 若还未存 feat appendOptUnion.
-            dict.set(k, trie);
+            dict.set(k, mk_trie);
+            setTrie();
+            if (trie !== noTrie) {
+                doGenerate();
+            } // start rendering as early as possible
         });
         sel_mode.removeChild(dlStatus);
         setTrie(); // first trie
@@ -128,9 +132,10 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
     initDisplayOnChange(sel_display, customFmtRef);
     sel_mode.onchange = setTrie;
     prepLoadConfig();
-    createIME(ta_word, () => trie, abb_word, list_possibleWord);
-    abb_word.onclick = () => { ta_text.value += abb_word.textContent; ta_word.value = ""; };
-    num_fontSize.onchange = () => { div_out.style.fontSize = `${num_fontSize.value}pt`; };
+    createIME((text) => { ta_text.value += text; }, ta_word, () => trie, abb_word, list_possibleWord);
+    num_fontSize.onchange = () => { div_out.style.fontSize = `${num_fontSize.value}pt`; }; // convenient shortcut methods
+    ta_text.addEventListener("keydown", (ev) => { if (ev.ctrlKey && ev.key == "Enter")
+        doGenerate(); });
     btn_showDict.onclick = () => { ta_text.value = trie.toString(); };
     btn_showTrie.onclick = () => {
         if (sel_display.selectedIndex == 1)
@@ -265,7 +270,7 @@ function initDisplayOnChange(sel_display, customFmtRef) {
     sel_display.addEventListener("change", setDisplay);
     setDisplay(); // nth=0
 }
-function createIME(tarea, trie, e_fstWord, ul_possibleWord) {
+function createIME(op_out, tarea, get_trie, e_fstWord, ul_possibleWord) {
     const handler = (ev) => {
         let wordz;
         let isDeleting = ev.inputType == "deleteContentBackward";
@@ -273,7 +278,7 @@ function createIME(tarea, trie, e_fstWord, ul_possibleWord) {
         if (input == "")
             return; // 别在清空时列出全部词！
         try {
-            let point = trie().path(chars(input));
+            let point = get_trie().path(chars(input));
             if (isDeleting)
                 e_fstWord.textContent = point.value || "见下表"; // 靠删除确定前缀子串
             wordz = joinIterate(point)[Symbol.iterator]();
@@ -293,10 +298,15 @@ function createIME(tarea, trie, e_fstWord, ul_possibleWord) {
         clearChild(ul_possibleWord); // 此外？的 possible list
         let word;
         while (!(word = wordz.next()).done) {
-            ul_possibleWord.appendChild(element("li", withDefaults(), element("b", withText(word.value[0])), element("a", withText(word.value[1]))));
+            let item = element("li", withDefaults(), element("b", withText(word.value[0])), element("a", withText(word.value[1])));
+            item.firstChild.addEventListener("click", () => {
+                op_out(item.lastChild.textContent);
+            });
+            ul_possibleWord.appendChild(item);
         } // 不这么做得加 DownlevelIteration
     };
     tarea.oninput = handler;
+    e_fstWord.onclick = () => { op_out(e_fstWord.textContent); tarea.value = ""; };
 }
 function renderTokensTo(e, tokens) {
     for (let [name, desc] of tokens) {

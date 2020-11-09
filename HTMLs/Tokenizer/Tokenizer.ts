@@ -48,6 +48,7 @@ function reduceToFirst<T>(xs: T[], op: (fst:T, item:T) => any): T {
 
 let dict: Map<String, ()=>STrie> = new Map;
 let trie: STrie;
+let noTrie: STrie = new Trie; noTrie.set(["X"], "待加载");
 let delimiters: PairString = ["\n", "="];
 const SEP = " ";
 const newlines = {}; for (let nl of ["\n", "\r", "\r\n"]) newlines[nl] = null;
@@ -89,7 +90,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     btn_revDict = helem("do-reverse");
 
   let dlStatus: HTMLOptionElement;
-  let noTrie: STrie = new Trie; noTrie.set(["X"], "待加载");
   const setTrie = () => { let name = sel_mode.value; trie = dict.has(name)? dict.get(name)() : noTrie; };
   const prepLoadConfig = () => { // conf-add feat.
     dlStatus = element("option", withText("待从配置加载！"));
@@ -97,12 +97,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     setTrie(); // noTrie
   };
   const loadConfig = async (url: string) => {
-    await readDict(url, (k, trie) => {
+    await readDict(url, (k, mk_trie) => {
       dlStatus.textContent = `在下载 ${k}…`;
       if (!dict.has(k)) {
         sel_mode.appendChild(element("option", withText(k)));
       } // 加字典选项 若还未存 feat appendOptUnion.
-      dict.set(k, trie);
+      dict.set(k, mk_trie);
+      setTrie(); if (trie !== noTrie) { doGenerate(); } // start rendering as early as possible
     });
     sel_mode.removeChild(dlStatus);
     setTrie(); // first trie
@@ -126,10 +127,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   sel_mode.onchange = setTrie;
   prepLoadConfig();
-  createIME(ta_word, () => trie, abb_word, list_possibleWord);
+  createIME((text) => { ta_text.value += text; }, ta_word, () => trie, abb_word, list_possibleWord);
 
-  abb_word.onclick = () => { ta_text.value += abb_word.textContent; ta_word.value = ""; };
-  num_fontSize.onchange = () => { div_out.style.fontSize = `${num_fontSize.value}pt`; };
+  num_fontSize.onchange = () => { div_out.style.fontSize = `${num_fontSize.value}pt`; }; // convenient shortcut methods
+  ta_text.addEventListener("keydown", (ev:KeyboardEvent) => { if (ev.ctrlKey && ev.key == "Enter") doGenerate(); });
+
   btn_showDict.onclick = () => { ta_text.value = trie.toString(); };
   btn_showTrie.onclick = () => {
     if (sel_display.selectedIndex == 1) for (let k of ["\n", "\r"]) trie.remove([k]); // remove-CRLF tokenize feat.
@@ -229,13 +231,13 @@ function initDisplayOnChange(sel_display: HTMLSelectElement, customFmtRef: [Recu
   sel_display.addEventListener("change", setDisplay); setDisplay(); // nth=0
 }
 
-function createIME(tarea: HTMLTextAreaElement, trie: () => STrie, e_fstWord: HTMLElement, ul_possibleWord: HTMLUListElement) {
+function createIME(op_out: (s:string) => void, tarea: HTMLTextAreaElement, get_trie: () => STrie, e_fstWord: HTMLElement, ul_possibleWord: HTMLUListElement) {
   const handler = (ev:InputEvent) => { // 输入法（迫真）
     let wordz: Iterator<PairString>;
     let isDeleting = ev.inputType == "deleteContentBackward";
     let input = tarea.value; if (input == "") return; // 别在清空时列出全部词！
     try {
-      let point = trie().path(chars(input));
+      let point = get_trie().path(chars(input));
       if (isDeleting) e_fstWord.textContent = point.value || "见下表"; // 靠删除确定前缀子串
       wordz = joinIterate(point)[Symbol.iterator]();
     } catch (e) { e_fstWord.textContent = "?"; return; }
@@ -248,12 +250,17 @@ function createIME(tarea: HTMLTextAreaElement, trie: () => STrie, e_fstWord: HTM
     }
     clearChild(ul_possibleWord); // 此外？的 possible list
     let word; while (!(word = wordz.next()).done) {
-      ul_possibleWord.appendChild(element("li", withDefaults(),
+      let item = element("li", withDefaults(),
         element("b", withText(word.value[0])), element("a", withText(word.value[1]))
-      ));
+      );
+      item.firstChild.addEventListener("click", () => {
+        op_out(item.lastChild.textContent);
+      });
+      ul_possibleWord.appendChild(item);
     } // 不这么做得加 DownlevelIteration
   };
   tarea.oninput = handler;
+  e_fstWord.onclick = () => { op_out(e_fstWord.textContent); tarea.value = ""; };
 }
 
 function renderTokensTo(e: HTMLElement, tokens: TokenIter) {
