@@ -95,4 +95,29 @@ else {
 其实这个性能瓶颈本来也是咱写的不对（value 应该是直接关联在 Trie 对象而非 Map 上的），不过这样也有好处（不会有多余的 Trie 实例）
 
 …… 第二个特性实现的时候出现了很多小问题，卡了整整一天。
-*/
+
+想想也就是 Tip 自动转 Bin 的问题而已，其它实现看了下，有的有『合并后缀』的优化，但不是想要的。
+
+在有了 Trie.asBin 和 pvalue/pnext/pv 这些统一化缩写，终于知道该怎么实现 lazy init 了，也替换了一些难看的逻辑：
+```
+  let pv = Trie.valueAt(v);
+  let isMap = v instanceof Map;
+  if (pv !== undefined && (!isMap || isMap && (v as Routes<V>).size == 1)) yield [ks_path+k, pv];
+  else yield* this._iter(v as Routes<V>, ks_path+k);
+```
+到更清晰的
+```
+for (let [k, v] of path.entries()) {
+  let pnext = Trie.asBin(v); //v optimize val-only node
+  if (pnext === undefined || pnext !== undefined && pnext.size == 1) { yield [ks_path+k, Trie.valueAt(v)]; }
+  else { yield* this._iter(pnext, ks_path+k); }
+}
+```
+
+马上实现了 Ext 版后，咱考虑下弄个 GenUI 代码生成生成库，写支持 Native Spannable 的 Android 版的说！
+
+在靠着自己的编程习惯和代码质量，终于解决性能瓶颈的第二天，修复了 iter 和 tokenize(索引计算盲目优化) 的 bug ，终于迁移到了惰性树，跑得贼鸡儿快！
+
+之前发现了一个修理方法可以解决无尽循环的 bug（tokenize 里面 else Trie.valueAt(point) 改成 pvalue ），但后来 tokenize 漏词的时候最终发现是这个导致的（修好后不会无尽循环）
+原来一些 bug 是可以导致本来错写的东西看起来正常运行的…… 现实工程还是难，各种条件各种程序路径和数据变化
+ */
