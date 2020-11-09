@@ -17,8 +17,8 @@ class Trie<V> implements Iterable<[string, V]> {
     var point: Routes<V> = this.routes;
     for (let c of ks) {
       let pvalue = point.get(c);
-      let pnext = Trie.asBin(pvalue);
       if (pvalue !== undefined) {
+        let pnext = Trie.asBin(pvalue);
         if (pnext !== undefined) { point = pnext; }
         else {
           let point1: Routes<V> = new Map; // lazy waypoint split
@@ -37,28 +37,29 @@ class Trie<V> implements Iterable<[string, V]> {
   makePath(ks: string): Trie<V> { return new Trie(this._makePath(ks, true)); }
 
   _getPath(ks: string): Waypoint<V> { // don't do lazy split
-    var point: Waypoint<V> = this.routes;
-    for (let c of ks) {
-      let pnext = Trie.asBin(point);
-      if (pnext !== undefined) { point = pnext.get(c); }
-      else {
-        let pv = point as V;
-        if (pv !== undefined) { return pv; }
-        else { throw Error(`failed getting ${ks}: at ${c}`); }
-      }
-    }
-    return point;
-  }
-  getPrefix(text: string): V|null { // just like above^^^
     var point = this.routes;
-    var pvalue: Waypoint<V>;
-    for (let c of text) {
+    var pvalue: Waypoint<V> = this.routes;
+    const desc = (c:string) => `failed getting ${ks}:  ${((pvalue !== undefined)? "end of route" : "no index")} when '${c}'`;
+    for (let c of ks) {
+      if (point == null) { throw Error(desc(c)); }
       pvalue = point.get(c);
       let pnext = Trie.asBin(pvalue);
       if (pnext !== undefined) { point = pnext; }
-      else { break; }
+      else { point = null; } // delay one round.
     }
-    let pv = Trie.valueAt(pvalue);
+    if (pvalue === undefined) { throw Error(desc(ks[ks.length -1])); }
+    return pvalue;
+  }
+  getPrefix(text: string): V|null {
+    var point = this.routes;
+    for (let c of text) {
+      let pvalue = point.get(c);
+      let pnext = Trie.asBin(pvalue);
+      if (pnext !== undefined) { point = pnext; }
+      else if (pvalue !== undefined) { return pvalue as V; }
+      else { break; } // just like [tokenize] below
+    }
+    let pv = Trie.valueAt(point);
     return (pv !== undefined)? pv : null;
   }
   get(ks: string): V {
@@ -107,6 +108,7 @@ class Trie<V> implements Iterable<[string, V]> {
     for (let [k, v] of this) sb.append(`${k}=${v}\n`);
     return sb.toString();
   }
+  /** pre-order tree format */
   formatWith(fmt: RecurStructFmt) {
     const _visitRec = (fmt: RecurStructFmt, point: Routes<V>) => {
       let vz = point.get(KZ) as V; point.delete(KZ); // hide, first KZ
@@ -174,6 +176,7 @@ class Trie<V> implements Iterable<[string, V]> {
     if (pv !== undefined) { yield [recognized.toString(), pv]; } // word stop at EOS
     else if (!recognized.isEmpty) { yield [recognized.toString(), null]; }
   }
+
   static joinValues(toks: Iterable<[string, any?]>, sep: string) {
     let vs = [];
     for (let kv of toks) { let v = kv[1]; if (v !== null && v != "") vs.push(v); }
@@ -199,17 +202,27 @@ class StringBuild {
 }
 
 class IndentationFmt extends StringBuild implements RecurStructFmt {
-  _indent: string = ""; indentation: string; newline: string;
+  indentation: string; newline: string; _indent: string = "";
   constructor(indentation: string = "  ", newline = "\n") { super(); this.indentation = indentation; this.newline = newline; }
   onOpen() { this._indent += this.indentation; }
-  onClose() { let n = this._indent.length; this._indent = this._indent.substring(0, n-this.indentation.length); }
+  onClose() {
+    let n = this._indent.length;
+    this._indent = this._indent.substring(0, n - this.indentation.length);
+  }
   onItem(text: string) { this.append(this._indent); this.append(text); this.append(this.newline); }
 }
 class BracketFmt extends StringBuild implements RecurStructFmt {
-  _isFirst: boolean = true; brackets: PairString; separator: string;
+  brackets: PairString; separator: string; _isFirst: boolean = true;
   constructor(brackets: PairString, separator: string) { super(); this.brackets = brackets; this.separator = separator; }
-  onOpen() { this.append(this.separator); this.append(this.brackets[0]); this._isFirst = true; }
+  onOpen() {
+    this.append(this.separator); this.append(this.brackets[0]);
+    this._isFirst = true;
+  }
   onClose() { this.append(this.brackets[1]); }
-  onItem(text: string) { if (!this._isFirst) this.append(this.separator); else this._isFirst = false; this.append(text); }
+  onItem(text: string) {
+    if (!this._isFirst) { this.append(this.separator); }
+    else { this._isFirst = false; } // switcher
+    this.append(text);
+  }
   clear() { this._isFirst = true; return super.clear(); }
 }

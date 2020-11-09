@@ -324,8 +324,9 @@ async function readTriePipePlus(expr: string) { // tokenize-dict feat.
     for (let k in rules) if (k !== "") trie.set(k, rules[k]); // check
     if (accum[""] == undefined) delete accum[""];
     for (let k in accum) {
-      let v = Trie.joinValues(trie.tokenize(accum[k]), SEP);
-      if (v != null) accum[k] = v;
+      let v = accum[k];
+      let v1 = (v == null)? null : Trie.joinValues(trie.tokenize(v), SEP);
+      if (v1 != null) accum[k] = v1;
     }
   });
 }

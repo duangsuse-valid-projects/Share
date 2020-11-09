@@ -8,8 +8,8 @@ class Trie {
         var point = this.routes;
         for (let c of ks) {
             let pvalue = point.get(c);
-            let pnext = Trie.asBin(pvalue);
             if (pvalue !== undefined) {
+                let pnext = Trie.asBin(pvalue);
                 if (pnext !== undefined) {
                     point = pnext;
                 }
@@ -37,37 +37,42 @@ class Trie {
     makePath(ks) { return new Trie(this._makePath(ks, true)); }
     _getPath(ks) {
         var point = this.routes;
+        var pvalue = this.routes;
+        const desc = (c) => `failed getting ${ks}:  ${((pvalue !== undefined) ? "end of route" : "no index")} when '${c}'`;
         for (let c of ks) {
-            let pnext = Trie.asBin(point);
-            if (pnext !== undefined) {
-                point = pnext.get(c);
+            if (point == null) {
+                throw Error(desc(c));
             }
-            else {
-                let pv = point;
-                if (pv !== undefined) {
-                    return pv;
-                }
-                else {
-                    throw Error(`failed getting ${ks}: at ${c}`);
-                }
-            }
-        }
-        return point;
-    }
-    getPrefix(text) {
-        var point = this.routes;
-        var pvalue;
-        for (let c of text) {
             pvalue = point.get(c);
             let pnext = Trie.asBin(pvalue);
             if (pnext !== undefined) {
                 point = pnext;
             }
             else {
-                break;
-            }
+                point = null;
+            } // delay one round.
         }
-        let pv = Trie.valueAt(pvalue);
+        if (pvalue === undefined) {
+            throw Error(desc(ks[ks.length - 1]));
+        }
+        return pvalue;
+    }
+    getPrefix(text) {
+        var point = this.routes;
+        for (let c of text) {
+            let pvalue = point.get(c);
+            let pnext = Trie.asBin(pvalue);
+            if (pnext !== undefined) {
+                point = pnext;
+            }
+            else if (pvalue !== undefined) {
+                return pvalue;
+            }
+            else {
+                break;
+            } // just like [tokenize] below
+        }
+        let pv = Trie.valueAt(point);
         return (pv !== undefined) ? pv : null;
     }
     get(ks) {
@@ -126,6 +131,7 @@ class Trie {
             sb.append(`${k}=${v}\n`);
         return sb.toString();
     }
+    /** pre-order tree format */
     formatWith(fmt) {
         const _visitRec = (fmt, point) => {
             let vz = point.get(KZ);
@@ -249,7 +255,10 @@ class IndentationFmt extends StringBuild {
         this.newline = newline;
     }
     onOpen() { this._indent += this.indentation; }
-    onClose() { let n = this._indent.length; this._indent = this._indent.substring(0, n - this.indentation.length); }
+    onClose() {
+        let n = this._indent.length;
+        this._indent = this._indent.substring(0, n - this.indentation.length);
+    }
     onItem(text) { this.append(this._indent); this.append(text); this.append(this.newline); }
 }
 class BracketFmt extends StringBuild {
@@ -259,11 +268,20 @@ class BracketFmt extends StringBuild {
         this.brackets = brackets;
         this.separator = separator;
     }
-    onOpen() { this.append(this.separator); this.append(this.brackets[0]); this._isFirst = true; }
-    onClose() { this.append(this.brackets[1]); }
-    onItem(text) { if (!this._isFirst)
+    onOpen() {
         this.append(this.separator);
-    else
-        this._isFirst = false; this.append(text); }
+        this.append(this.brackets[0]);
+        this._isFirst = true;
+    }
+    onClose() { this.append(this.brackets[1]); }
+    onItem(text) {
+        if (!this._isFirst) {
+            this.append(this.separator);
+        }
+        else {
+            this._isFirst = false;
+        } // switcher
+        this.append(text);
+    }
     clear() { this._isFirst = true; return super.clear(); }
 }
