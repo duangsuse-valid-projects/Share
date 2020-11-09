@@ -158,6 +158,13 @@ class Trie {
     }
     static valueAt(point) { return ((point instanceof Map) ? point.get(KZ) : point); }
     static asBin(point) { return (point instanceof Map) ? point : undefined; }
+    static fromMap(map) {
+        let trie = new Trie;
+        for (let [k, v] of map.entries())
+            if (k !== "" && k != null)
+                trie.set(chars(k), v); // check
+        return trie;
+    } //^ Typescript is bad at overloading...
 }
 function chars(s) { return [...s]; }
 function* joinIterate(iter) {

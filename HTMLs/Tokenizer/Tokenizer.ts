@@ -36,8 +36,17 @@ const alertFailedReq = ([url, msg]) => alert(`Failed get ${url}: ${msg}`);
 
 type TokenIter = Iterable<[string, string?]>
 type CustomRender = (name:string, desc:string) => HTMLElement
+type SMap = Map<string, string>
+function matchAll(re: RegExp, s: string): RegExpExecArray[] {
+  return s.match(re)?.map(part => { re.lastIndex = 0; return re.exec(part) }) ?? [];
+}
+function reduceToFirst<T>(xs: T[], op: (fst:T, item:T) => any): T {
+  let fst = xs[0];
+  for (let i=1; i < xs.length; i++) op(fst, xs[i]);
+  return fst;
+}
 
-let dict: Map<String, STrie> = new Map;
+let dict: Map<String, ()=>STrie> = new Map;
 let trie: STrie;
 let delimiters: PairString = ["\n", "="];
 const SEP = " ";
@@ -81,7 +90,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let dlStatus: HTMLOptionElement;
   let noTrie: STrie = new Trie; noTrie.set(["X"], "待加载");
-  const setTrie = () => { let name = sel_mode.value; trie = (name in dict)? dict[name] : noTrie; };
+  const setTrie = () => { let name = sel_mode.value; trie = dict.has(name)? dict.get(name)() : noTrie; };
   const prepLoadConfig = () => { // conf-add feat.
     dlStatus = element("option", withText("待从配置加载！"));
     sel_mode.appendChild(dlStatus);
@@ -90,10 +99,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const loadConfig = async (url: string) => {
     await readDict(url, (k, trie) => {
       dlStatus.textContent = `在下载 ${k}…`;
-      if (!(k in dict)) {
+      if (!dict.has(k)) {
         sel_mode.appendChild(element("option", withText(k)));
       } // 加字典选项 若还未存 feat appendOptUnion.
-      dict[k] = trie;
+      dict.set(k, trie);
     });
     sel_mode.removeChild(dlStatus);
     setTrie(); // first trie
@@ -146,7 +155,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     else {
       let rName = `~${name}`;
       const ok = () => { e.value = rName; setTrie(); };
-      if (!(rName in dict)) { prepLoadConfig(); loadConfig(`?${rName}=~:${name}`).then(ok); } // rev-trie feat.
+      if (!dict.has(rName)) { prepLoadConfig(); loadConfig(`?${rName}=~:${name}`).then(ok); } // rev-trie feat.
       else ok();
     }
   };
@@ -260,9 +269,6 @@ function renderTokensTo(e: HTMLElement, tokens: TokenIter) {
   }
 } //^ 或许咱不必处理换行兼容 :笑哭:
 
-function matchAll(re: RegExp, s: string): RegExpExecArray[] {
-  return s.match(re)?.map(part => { re.lastIndex = 0; return re.exec(part) }) ?? [];
-}
 const PAT_URL_PARAM = /[?&]([^=]+)=([^&;#\n]+)/g;
 const PAT_GREP = /(.)=([^=]+)=(.*)$/g;
 const PAT_CSS_ARGUMENT = /\/\*\[\s*(\d+)\s*\]\*\//g;
@@ -271,7 +277,7 @@ async function referText(desc: string) {
   try { return isUrl? await xhrReadText(desc.substr(1)) : desc; }
   catch (req) { alertFailedReq(req); return ""; }
 }
-async function readDict(query: string, on_load: (name:string, trie:STrie) => any) { // generator+async 是不是有点 cutting edge 了…
+async function readDict(query: string, on_load: (name:string, trie:()=>STrie) => any) { // generator+async 是不是有点 cutting edge 了…
   for (let m of matchAll(PAT_URL_PARAM, query)) {
     let name = decodeURIComponent(m[1]);
     let value = decodeURIComponent(m[2]);
@@ -311,35 +317,26 @@ async function readDict(query: string, on_load: (name:string, trie:STrie) => any
         break;
       default:
         let trie = await readTrie(value);
-        for (let k in newlines) trie.set(chars(k), null);
         on_load(name, trie);
     }
   }
 }
 
-type SMap = Map<string, string>
-function reduceToFirst<T>(xs: T[], op: (fst:T, item:T) => any): T {
-  let fst = xs[0];
-  for (let i=1; i < xs.length; i++) op(fst, xs[i]);
-  return fst;
-}
-async function readTrie(expr: string) {
+async function readTrie(expr: string): Promise<()=>STrie> {
   const shadowKey = (key: string, a: SMap, b: SMap) => { if (b.has(key)) a.set(key, b.get(key)); };
   let sources = await Promise.all(expr.split('+').map(readTriePipePlus));
   let fst = reduceToFirst(sources, (merged, it) => { for (let k of it.keys()) shadowKey(k, merged, it); });
-  let trie: STrie = new Trie;
-  for (let [k, v] of fst.entries()) if (k !== "") trie.set(chars(k), v); // check
-  return trie;
+  for (let k in newlines) fst.set(k, null); // append CRLF
+  let loaded: STrie = null;
+  return () => { if (loaded == null) { loaded = Trie.fromMap(fst); } return loaded; } // lazy-load trie feat.
 }
 async function readTriePipePlus(expr: string) { // tokenize-dict feat.
   let piped = await Promise.all(expr.split(">>").map(readTriePipe));
   return reduceToFirst(piped, (accum, rules) => {
-    let trie: STrie = new Trie;
-    for (let [k, v] of rules.entries()) if (k !== "") trie.set(chars(k), v); // check
     if (accum.get("") === undefined) accum.delete("");
     for (let [k, v] of accum.entries()) {
-      let v1 = (v == null)? null : joinValues(tokenizeTrie(trie, v), SEP);
-      if (v1 != null) accum[k] = v1;
+      if (v == null) continue;
+      accum[k] = joinValues(tokenizeTrie(Trie.fromMap(rules), v), SEP);
     }
   });
 }
@@ -353,10 +350,10 @@ async function readTrieData(expr: string): Promise<SMap> {
   let inverted = expr.startsWith('~');
   let path = inverted? expr.substr(1) : expr;
   let data: string[][];
-  let map = new Map;
+  let map: SMap = new Map;
   if (path.startsWith(':')) {
     let name = path.substr(1);
-    if (name in dict) { data = [...joinIterate(dict[name] as STrie)]; }
+    if (dict.has(name)) { data = [...joinIterate(dict.get(name)() as STrie)]; }
     else { alert(`No trie ${name} in dict`); return map; }
   } else {
     try { // download it.

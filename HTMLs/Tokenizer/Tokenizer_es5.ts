@@ -120,4 +120,6 @@ for (let [k, v] of path.entries()) {
 
 之前发现了一个修理方法可以解决无尽循环的 bug（tokenize 里面 else Trie.valueAt(point) 改成 pvalue ），但后来 tokenize 漏词的时候最终发现是这个导致的（修好后不会无尽循环）
 原来一些 bug 是可以导致本来错写的东西看起来正常运行的…… 现实工程还是难，各种条件各种程序路径和数据变化
+
+算是了解了，日语 は 作助词读 wa ，难怪几乎都这么唱……
  */

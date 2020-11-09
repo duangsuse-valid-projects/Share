@@ -3,5 +3,5 @@
     "target": "ES6",
     "lib": ["ES2015", "DOM", "DOM.Iterable"]
   },
-  "include": ["triedata.ts", "Tokenizer.ts"]
+  "include": ["triedata.ts", "Tokenizer.ts"],
 }

@@ -46,6 +46,16 @@ function xhrReadText(url) {
     });
 }
 const alertFailedReq = ([url, msg]) => alert(`Failed get ${url}: ${msg}`);
+function matchAll(re, s) {
+    var _a, _b;
+    return (_b = (_a = s.match(re)) === null || _a === void 0 ? void 0 : _a.map(part => { re.lastIndex = 0; return re.exec(part); })) !== null && _b !== void 0 ? _b : [];
+}
+function reduceToFirst(xs, op) {
+    let fst = xs[0];
+    for (let i = 1; i < xs.length; i++)
+        op(fst, xs[i]);
+    return fst;
+}
 let dict = new Map;
 let trie;
 let delimiters = ["\n", "="];
@@ -85,7 +95,7 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
     let dlStatus;
     let noTrie = new Trie;
     noTrie.set(["X"], "待加载");
-    const setTrie = () => { let name = sel_mode.value; trie = (name in dict) ? dict[name] : noTrie; };
+    const setTrie = () => { let name = sel_mode.value; trie = dict.has(name) ? dict.get(name)() : noTrie; };
     const prepLoadConfig = () => {
         dlStatus = element("option", withText("待从配置加载！"));
         sel_mode.appendChild(dlStatus);
@@ -94,10 +104,10 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
     const loadConfig = (url) => __awaiter(this, void 0, void 0, function* () {
         yield readDict(url, (k, trie) => {
             dlStatus.textContent = `在下载 ${k}…`;
-            if (!(k in dict)) {
+            if (!dict.has(k)) {
                 sel_mode.appendChild(element("option", withText(k)));
             } // 加字典选项 若还未存 feat appendOptUnion.
-            dict[k] = trie;
+            dict.set(k, trie);
         });
         sel_mode.removeChild(dlStatus);
         setTrie(); // first trie
@@ -155,7 +165,7 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
         else {
             let rName = `~${name}`;
             const ok = () => { e.value = rName; setTrie(); };
-            if (!(rName in dict)) {
+            if (!dict.has(rName)) {
                 prepLoadConfig();
                 loadConfig(`?${rName}=~:${name}`).then(ok);
             } // rev-trie feat.
@@ -303,10 +313,6 @@ function renderTokensTo(e, tokens) {
         }
     }
 } //^ 或许咱不必处理换行兼容 :笑哭:
-function matchAll(re, s) {
-    var _a, _b;
-    return (_b = (_a = s.match(re)) === null || _a === void 0 ? void 0 : _a.map(part => { re.lastIndex = 0; return re.exec(part); })) !== null && _b !== void 0 ? _b : [];
-}
 const PAT_URL_PARAM = /[?&]([^=]+)=([^&;#\n]+)/g;
 const PAT_GREP = /(.)=([^=]+)=(.*)$/g;
 const PAT_CSS_ARGUMENT = /\/\*\[\s*(\d+)\s*\]\*\//g;
@@ -373,18 +379,10 @@ function readDict(query, on_load) {
                     break;
                 default:
                     let trie = yield readTrie(value);
-                    for (let k in newlines)
-                        trie.set(chars(k), null);
                     on_load(name, trie);
             }
         }
     });
-}
-function reduceToFirst(xs, op) {
-    let fst = xs[0];
-    for (let i = 1; i < xs.length; i++)
-        op(fst, xs[i]);
-    return fst;
 }
 function readTrie(expr) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -393,27 +391,24 @@ function readTrie(expr) {
         let sources = yield Promise.all(expr.split('+').map(readTriePipePlus));
         let fst = reduceToFirst(sources, (merged, it) => { for (let k of it.keys())
             shadowKey(k, merged, it); });
-        let trie = new Trie;
-        for (let [k, v] of fst.entries())
-            if (k !== "")
-                trie.set(chars(k), v); // check
-        return trie;
+        for (let k in newlines)
+            fst.set(k, null); // append CRLF
+        let loaded = null;
+        return () => { if (loaded == null) {
+            loaded = Trie.fromMap(fst);
+        } return loaded; }; // lazy-load trie feat.
     });
 }
 function readTriePipePlus(expr) {
     return __awaiter(this, void 0, void 0, function* () {
         let piped = yield Promise.all(expr.split(">>").map(readTriePipe));
         return reduceToFirst(piped, (accum, rules) => {
-            let trie = new Trie;
-            for (let [k, v] of rules.entries())
-                if (k !== "")
-                    trie.set(chars(k), v); // check
             if (accum.get("") === undefined)
                 accum.delete("");
             for (let [k, v] of accum.entries()) {
-                let v1 = (v == null) ? null : joinValues(tokenizeTrie(trie, v), SEP);
-                if (v1 != null)
-                    accum[k] = v1;
+                if (v == null)
+                    continue;
+                accum[k] = joinValues(tokenizeTrie(Trie.fromMap(rules), v), SEP);
             }
         });
     });
@@ -438,8 +433,8 @@ function readTrieData(expr) {
         let map = new Map;
         if (path.startsWith(':')) {
             let name = path.substr(1);
-            if (name in dict) {
-                data = [...joinIterate(dict[name])];
+            if (dict.has(name)) {
+                data = [...joinIterate(dict.get(name)())];
             }
             else {
                 alert(`No trie ${name} in dict`);

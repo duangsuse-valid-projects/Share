@@ -127,6 +127,11 @@ class Trie<K, V> implements Iterable<[K[], V]> {
 
   static valueAt<K, V>(point: Waypoint<K, V>) { return ((point instanceof Map)? point.get(KZ) : point) as V; }
   static asBin<K, V>(point: Waypoint<K, V>): Routes<K, V>|undefined { return (point instanceof Map)? point : undefined; }
+  static fromMap<V>(map: Map<string, V>) {
+    let trie: Trie<string, V> = new Trie;
+    for (let [k, v] of map.entries()) if (k !== "" && k != null) trie.set(chars(k), v); // check
+    return trie;
+  } //^ Typescript is bad at overloading...
 }
 
 function chars(s: string): string[] { return [...s]; }
