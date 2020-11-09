@@ -53,7 +53,7 @@ function splitTrieData(s: string) {
   });
 }
 function tokenize(input: string): TokenIter {
-  return trie.tokenize(input, c => inwordGrep[c]);
+  return tokenizeTrie(trie, input, c => inwordGrep[c]);
 }
 function registerOneshotClicks(es: HTMLCollection, actions: (() => any)[]) { // "feat=" oneshot feat.
   let i = 0;
@@ -80,7 +80,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     btn_revDict = helem("do-reverse");
   let dlStatus: HTMLOptionElement;
 
-  let noTrie = new Trie; noTrie.set("X", "待加载");
+  let noTrie: STrie = new Trie; noTrie.set(["X"], "待加载");
   const setTrie = () => { let name = sel_mode.value; trie = (name in dict)? dict[name] : noTrie; };
   const prepLoadConfig = () => { // conf-add feat.
     dlStatus = element("option", withText("待从配置加载！"));
@@ -130,7 +130,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         let accumHTML = elem.innerHTML; // 2nd tokenize feat
         let lastV = v;
         while (true) {
-          let newV = Trie.joinValues(tokenize(lastV), SEP);
+          let newV = joinValues(tokenize(lastV), SEP);
           if (newV == null) break;
           accumHTML = accumHTML.replace(lastV, newV); // replace val only
           lastV = newV;
@@ -177,15 +177,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   num_fontSize.onchange = () => { div_out.style.fontSize = `${num_fontSize.value}pt`; };
   btn_showDict.onclick = () => { ta_text.value = trie.toString(); };
   btn_showTrie.onclick = () => {
-    if (customFmt == bracketFmt) for (let k of ["\n", "\r"]) trie.remove(k); // remove-CRLF tokenize feat.
+    if (customFmt == bracketFmt) for (let k of ["\n", "\r"]) trie.remove([k]); // remove-CRLF tokenize feat.
     trie.formatWith(customFmt); ta_text.value = customFmt.toString(); customFmt.clear();
   };
   btn_readDict.onclick = () => {
     let table = splitTrieData(ta_text.value.trim());
     let failedKs = [];
     for (let [k, v] of table) {
-      if (v == undefined) failedKs.push(k);
-      else trie.set(k, v);
+      if (v === undefined) failedKs.push(k);
+      else trie.set(chars(k), v);
     }
     if (failedKs.length != 0) alert(`条目导入失败：${failedKs.join("、")} ，请按每行 k${delimiters[1]}v 输入`);
     alert(`已导入 ${table.length-failedKs.length} 条词关系到词典 ${sel_mode.value}`);
@@ -214,9 +214,9 @@ function createIME(tarea: HTMLTextAreaElement, trie: () => STrie, e_fstWord: HTM
     let isDeleting = ev.inputType == "deleteContentBackward";
     let input = tarea.value; if (input == "") return; // 别在清空时列出全部词！
     try {
-      let point = trie().path(input);
+      let point = trie().path(chars(input));
       if (isDeleting) e_fstWord.textContent = point.value || "见下表"; // 靠删除确定前缀子串
-      wordz = point[Symbol.iterator]();
+      wordz = joinIterate(point)[Symbol.iterator]();
     } catch (e) { e_fstWord.textContent = "?"; return; }
     if (!isDeleting) {
       let possible = wordz.next().value; // 显示 longest word
@@ -299,7 +299,7 @@ async function readDict(query: string, on_load: (name:string, trie:STrie) => any
         break;
       default:
         let trie = await readTrie(value);
-        for (let k in newlines) trie.set(k, null);
+        for (let k in newlines) trie.set(chars(k), null);
         on_load(name, trie);
     }
   }
@@ -314,18 +314,18 @@ async function readTrie(expr: string) {
   let sources = await Promise.all(expr.split('+').map(readTriePipePlus));
   let fst = reduceToFirst(sources, (merged, it) => { for (let k in it) shadowKey(k, merged, it); });
   let trie: STrie = new Trie;
-  for (let k in fst) if (k !== "") trie.set(k, fst[k]); // check
+  for (let k in fst) if (k !== "") trie.set(chars(k), fst[k]); // check
   return trie;
 }
 async function readTriePipePlus(expr: string) { // tokenize-dict feat.
   let piped = await Promise.all(expr.split(">>").map(readTriePipe));
   return reduceToFirst(piped, (accum, rules) => {
     let trie: STrie = new Trie;
-    for (let k in rules) if (k !== "") trie.set(k, rules[k]); // check
+    for (let k in rules) if (k !== "") trie.set(chars(k), rules[k]); // check
     if (accum[""] == undefined) delete accum[""];
     for (let k in accum) {
       let v = accum[k];
-      let v1 = (v == null)? null : Trie.joinValues(trie.tokenize(v), SEP);
+      let v1 = (v == null)? null : joinValues(tokenizeTrie(trie, v), SEP);
       if (v1 != null) accum[k] = v1;
     }
   });
@@ -342,7 +342,7 @@ async function readTrieData(expr: string): Promise<object> {
   let data: string[][];
   if (path.startsWith(':')) {
     let name = path.substr(1);
-    if (name in dict) { data = [...dict[name] as STrie]; }
+    if (name in dict) { data = [...joinIterate(dict[name] as STrie)]; }
     else { alert(`No trie ${name} in dict`); return {}; }
   } else {
     try { // download it.

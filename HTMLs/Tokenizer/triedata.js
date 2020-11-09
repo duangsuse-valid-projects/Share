@@ -1,4 +1,4 @@
-const KZ = "\0"; // 1:1 value on Trie node
+const KZ = undefined; // 1:1 value on Trie node
 class Trie {
     constructor(m = new Map) { this.routes = m; }
     get value() { return Trie.valueAt(this.routes); }
@@ -28,7 +28,7 @@ class Trie {
                 }
                 else {
                     throw Error(`failed getting ${ks}: no ${c} at ${new Trie(point)}`);
-                }
+                } // error performance?
             }
         }
         return point;
@@ -38,10 +38,10 @@ class Trie {
     _getPath(ks) {
         var point = this.routes;
         var pvalue = this.routes;
-        const desc = (c) => `failed getting ${ks}:  ${((pvalue !== undefined) ? "end of route" : "no index")} when '${c}'`;
+        const desc = (hit, c) => `failed getting ${ks}:  ${((pvalue !== undefined) ? "end of route" : "no index")} ${hit} '${c}'`;
         for (let c of ks) {
             if (point == null) {
-                throw Error(desc(c));
+                throw Error(desc("before", c));
             }
             pvalue = point.get(c);
             let pnext = Trie.asBin(pvalue);
@@ -53,13 +53,13 @@ class Trie {
             } // delay one round.
         }
         if (pvalue === undefined) {
-            throw Error(desc(ks[ks.length - 1]));
+            throw Error(desc("when", ks[ks.length - 1]));
         }
         return pvalue;
     }
-    getPrefix(text) {
+    getPrefix(ks) {
         var point = this.routes;
-        for (let c of text) {
+        for (let c of ks) {
             let pvalue = point.get(c);
             let pnext = Trie.asBin(pvalue);
             if (pnext !== undefined) {
@@ -83,7 +83,7 @@ class Trie {
     }
     set(ks, v) {
         let iKsLast = ks.length - 1; // unchecked
-        let point = this._makePath(ks.substr(0, iKsLast), true);
+        let point = this._makePath(ks.slice(0, iKsLast), true);
         let k = ks[iKsLast];
         let pvalue = point.get(k);
         if (pvalue !== undefined) {
@@ -104,22 +104,24 @@ class Trie {
     }
     remove(ks) {
         let iKsLast = ks.length - 1; // unchecked
-        let parent = this._makePath(ks.substr(0, iKsLast), false);
+        let parent = this._makePath(ks.slice(0, iKsLast), false);
         parent.delete(ks[iKsLast]);
     }
-    [Symbol.iterator]() { return this._iter(this.routes, ""); }
+    [Symbol.iterator]() { return this._iter(new Array(), this.routes); }
     /** This post-order traversal should be fully iterated since it mutates self. */
-    *_iter(path, ks_path) {
+    *_iter(ks_path, path) {
         let vz = path.get(KZ);
         path.delete(KZ);
         for (let [k, v] of path.entries()) {
             let pnext = Trie.asBin(v);
+            ks_path.push(k);
             if (pnext === undefined || pnext !== undefined && pnext.size == 1 && pnext.get(KZ) !== undefined) {
-                yield [ks_path + k, Trie.valueAt(v)]; //< optimize val-only node
+                yield [ks_path, Trie.valueAt(v)]; //< optimize val-only node
             }
             else {
-                yield* this._iter(pnext, ks_path + k);
+                yield* this._iter(ks_path, pnext);
             } //< size != 1
+            ks_path.pop();
         }
         if (vz !== undefined)
             yield [ks_path, vz];
@@ -128,7 +130,7 @@ class Trie {
     toString() {
         let sb = new StringBuild;
         for (let [k, v] of this)
-            sb.append(`${k}=${v}\n`);
+            sb.append(`${k.join("")}=${v}\n`);
         return sb.toString();
     }
     /** pre-order tree format */
@@ -141,7 +143,7 @@ class Trie {
             for (let [k, v] of point.entries()) {
                 let pnext = Trie.asBin(v);
                 if (pnext !== undefined) {
-                    fmt.onItem(k);
+                    fmt.onItem((`${k}`));
                     fmt.onOpen();
                     _visitRec(fmt, pnext);
                     fmt.onClose();
@@ -154,91 +156,97 @@ class Trie {
         };
         _visitRec(fmt, this.routes);
     }
-    /** WARN: may get stuck when [inword_grep] replaced to matching sequence, when re subst is "\0", means match treated as unknown  */
-    *tokenize(input, inword_grep = () => null) {
-        let recognized = new StringBuild; // cannot use getPrefix&substring (feat inword grep)
-        var i = 0;
-        let n = input.length;
-        var point = this.routes;
-        while (i < n) {
-            let c = input[i]; // trie charseq match.
-            let pvalue = point.get(c);
-            let pnext = Trie.asBin(pvalue);
-            if (pvalue !== undefined) {
-                let grep = inword_grep(c); // in-word grep feat.
-                let m;
-                if (grep != null && (m = grep[0].exec(input.substr(i))) != null) {
-                    let [re, subst] = grep;
-                    if (subst == c) {
-                        i += m[0].length - 1 /*for c*/;
-                    }
-                    else if (subst == "\0") {
-                        yield [input.substr(i, m[0].length), null];
-                        i += m[0].length - 1 /*for c*/; //< copycat!
-                        i++;
-                        continue;
-                    }
-                    else {
-                        input = m[0].replace(re, subst) + input.substr(i + m[0].length);
-                        i = 0; // reset view at/after c
-                        if (subst[0] == c) { /*accept*/ }
-                        else {
-                            continue;
-                        }
-                    }
-                } //^ inword grep first, always
-                recognized.append(c);
-                i++;
-                if (pnext !== undefined) {
-                    point = pnext;
+    static valueAt(point) { return ((point instanceof Map) ? point.get(KZ) : point); }
+    static asBin(point) { return (point instanceof Map) ? point : undefined; }
+}
+function chars(s) { return [...s]; }
+function* joinIterate(iter) {
+    for (let [ks, v] of iter)
+        yield [ks.join(""), v];
+}
+function joinValues(toks, sep) {
+    let vs = [];
+    for (let kv of toks) {
+        let v = kv[1];
+        if (v !== null && v != "")
+            vs.push(v);
+    }
+    return (vs.length == 0) ? null : vs.join(sep);
+}
+/** WARN: may get stuck when [inword_grep] replaced to matching sequence, when re subst is "\0", means match treated as unknown  */
+function* tokenizeTrie(trie, input, inword_grep = () => null) {
+    trie.routes.delete(KZ); // force remove unchecked UB data that cause infinte loop
+    let recognized = new StringBuild; // cannot use getPrefix&substring (feat inword grep)
+    var i = 0;
+    let n = input.length;
+    var point = trie.routes;
+    while (i < n) {
+        let c = input[i]; // trie charseq match.
+        let pvalue = point.get(c);
+        let pnext = Trie.asBin(pvalue);
+        if (pvalue !== undefined) {
+            let grep = inword_grep(c); // in-word grep feat.
+            let m;
+            if (grep != null && (m = grep[0].exec(input.substr(i))) != null) {
+                let [re, subst] = grep;
+                if (subst == c) {
+                    i += m[0].length - 1 /*for c*/;
                 }
-                else { // lazy value-Tip waypoint
-                    yield [recognized.toString(), pvalue];
-                    point = this.routes;
-                    recognized.clear();
-                }
-            }
-            else { // STOP(pvalue=undef) of one word at its len+1, prepare for re-match
-                let state0 = this.routes; // cache initial match state
-                let pv = Trie.valueAt(point);
-                if (pv !== undefined) {
-                    yield [recognized.toString(), pv];
+                else if (subst == "\0") {
+                    yield [input.substr(i, m[0].length), null];
+                    i += m[0].length - 1 /*for c*/; //< copycat!
+                    i++;
+                    continue;
                 }
                 else {
-                    if (!recognized.isEmpty)
-                        yield [recognized.toString(), null]; // unknown prefix
-                    let iUnrecog = i;
-                    while (!state0.has(input[i]) && i < n) {
-                        i++;
+                    input = m[0].replace(re, subst) + input.substr(i + m[0].length);
+                    i = 0; // reset view at/after c
+                    if (subst[0] == c) { /*accept*/ }
+                    else {
+                        continue;
                     }
-                    ; // optimized skip
-                    let unrecog = input.substring(iUnrecog, i);
-                    if (unrecog != "")
-                        yield [unrecog, null];
                 }
-                point = state0;
+            } //^ inword grep first, always
+            recognized.append(c);
+            i++;
+            if (pnext !== undefined) {
+                point = pnext;
+            }
+            else { // lazy value-Tip waypoint
+                yield [recognized.toString(), pvalue];
+                point = trie.routes;
                 recognized.clear();
             }
         }
-        let pv = Trie.valueAt(point);
-        if (pv !== undefined) {
-            yield [recognized.toString(), pv];
-        } // word stop at EOS
-        else if (!recognized.isEmpty) {
-            yield [recognized.toString(), null];
+        else { // STOP(pvalue=undef) of one word at its len+1, prepare for re-match
+            let state0 = trie.routes; // cache initial match state
+            let pv = Trie.valueAt(point);
+            if (pv !== undefined) {
+                yield [recognized.toString(), pv];
+            }
+            else {
+                if (!recognized.isEmpty)
+                    yield [recognized.toString(), null]; // unknown prefix
+                let iUnrecog = i;
+                while (!state0.has(input[i]) && i < n) {
+                    i++;
+                }
+                ; // optimized skip
+                let unrecog = input.substring(iUnrecog, i);
+                if (unrecog != "")
+                    yield [unrecog, null];
+            }
+            point = state0;
+            recognized.clear();
         }
     }
-    static joinValues(toks, sep) {
-        let vs = [];
-        for (let kv of toks) {
-            let v = kv[1];
-            if (v !== null && v != "")
-                vs.push(v);
-        }
-        return (vs.length == 0) ? null : vs.join(sep);
+    let pv = Trie.valueAt(point);
+    if (pv !== undefined) {
+        yield [recognized.toString(), pv];
+    } // word stop at EOS
+    else if (!recognized.isEmpty) {
+        yield [recognized.toString(), null];
     }
-    static valueAt(point) { return ((point instanceof Map) ? point.get(KZ) : point); }
-    static asBin(point) { return (point instanceof Map) ? point : undefined; }
 }
 class StringBuild {
     constructor() { this._buf = []; }

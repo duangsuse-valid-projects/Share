@@ -62,7 +62,7 @@ function splitTrieData(s) {
     });
 }
 function tokenize(input) {
-    return trie.tokenize(input, c => inwordGrep[c]);
+    return tokenizeTrie(trie, input, c => inwordGrep[c]);
 }
 function registerOneshotClicks(es, actions) {
     let i = 0;
@@ -84,7 +84,7 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
     btn_readDict = helem("do-readDict"), btn_revDict = helem("do-reverse");
     let dlStatus;
     let noTrie = new Trie;
-    noTrie.set("X", "待加载");
+    noTrie.set(["X"], "待加载");
     const setTrie = () => { let name = sel_mode.value; trie = (name in dict) ? dict[name] : noTrie; };
     const prepLoadConfig = () => {
         dlStatus = element("option", withText("待从配置加载！"));
@@ -137,7 +137,7 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
                 let accumHTML = elem.innerHTML; // 2nd tokenize feat
                 let lastV = v;
                 while (true) {
-                    let newV = Trie.joinValues(tokenize(lastV), SEP);
+                    let newV = joinValues(tokenize(lastV), SEP);
                     if (newV == null)
                         break;
                     accumHTML = accumHTML.replace(lastV, newV); // replace val only
@@ -204,7 +204,7 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
     btn_showTrie.onclick = () => {
         if (customFmt == bracketFmt)
             for (let k of ["\n", "\r"])
-                trie.remove(k); // remove-CRLF tokenize feat.
+                trie.remove([k]); // remove-CRLF tokenize feat.
         trie.formatWith(customFmt);
         ta_text.value = customFmt.toString();
         customFmt.clear();
@@ -213,10 +213,10 @@ document.addEventListener("DOMContentLoaded", () => __awaiter(this, void 0, void
         let table = splitTrieData(ta_text.value.trim());
         let failedKs = [];
         for (let [k, v] of table) {
-            if (v == undefined)
+            if (v === undefined)
                 failedKs.push(k);
             else
-                trie.set(k, v);
+                trie.set(chars(k), v);
         }
         if (failedKs.length != 0)
             alert(`条目导入失败：${failedKs.join("、")} ，请按每行 k${delimiters[1]}v 输入`);
@@ -253,10 +253,10 @@ function createIME(tarea, trie, e_fstWord, ul_possibleWord) {
         if (input == "")
             return; // 别在清空时列出全部词！
         try {
-            let point = trie().path(input);
+            let point = trie().path(chars(input));
             if (isDeleting)
                 e_fstWord.textContent = point.value || "见下表"; // 靠删除确定前缀子串
-            wordz = point[Symbol.iterator]();
+            wordz = joinIterate(point)[Symbol.iterator]();
         }
         catch (e) {
             e_fstWord.textContent = "?";
@@ -364,7 +364,7 @@ function readDict(query, on_load) {
                 default:
                     let trie = yield readTrie(value);
                     for (let k in newlines)
-                        trie.set(k, null);
+                        trie.set(chars(k), null);
                     on_load(name, trie);
             }
         }
@@ -386,7 +386,7 @@ function readTrie(expr) {
         let trie = new Trie;
         for (let k in fst)
             if (k !== "")
-                trie.set(k, fst[k]); // check
+                trie.set(chars(k), fst[k]); // check
         return trie;
     });
 }
@@ -397,12 +397,12 @@ function readTriePipePlus(expr) {
             let trie = new Trie;
             for (let k in rules)
                 if (k !== "")
-                    trie.set(k, rules[k]); // check
+                    trie.set(chars(k), rules[k]); // check
             if (accum[""] == undefined)
                 delete accum[""];
             for (let k in accum) {
                 let v = accum[k];
-                let v1 = (v == null) ? null : Trie.joinValues(trie.tokenize(v), SEP);
+                let v1 = (v == null) ? null : joinValues(tokenizeTrie(trie, v), SEP);
                 if (v1 != null)
                     accum[k] = v1;
             }
@@ -429,7 +429,7 @@ function readTrieData(expr) {
         if (path.startsWith(':')) {
             let name = path.substr(1);
             if (name in dict) {
-                data = [...dict[name]];
+                data = [...joinIterate(dict[name])];
             }
             else {
                 alert(`No trie ${name} in dict`);
