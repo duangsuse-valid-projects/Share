@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8"/>
+  <title>多字模板图生成</title>
+  <meta name="description" content="用单张图片和文字（位置、色彩、字号）生成图片，附赠大学『青年大学习』便利性"/>
+  <script src="qndxx.js"></script>
+</head>
+
+<body>
+  <label>上传图片</label><input id="file-img" type="file" accept="image/*"/>
+  <div>
+    <img id="img-loaded" alt="" hidden></img>
+    <canvas id="paint" hidden></canvas> <!-- 2 backend helper node -->
+    <label>X</label><input id="slider-img-w" type="range"/>
+    <label>Y</label><input id="slider-img-h" type="range"/>
+  </div>
+  <div>
+    <img id="img-out" alt="Output"></img>
+    <div id="pan-config">
+      <textarea id="text" placeholder="在此输入文字内容……"></textarea>
+      <label>色彩</label><input id="text-color" value="#000000"/>
+      <label>字号</label><input id="text-size" type="number" value="20"/>
+    </div>
+  </div>
+<script>[].slice.call(document.getElementsByTagName("LABEL")).forEach(function(e) { e.textContent += "："; e.setAttribute("for", e.nextElementSibling.id); });</script>
+
+<br>
+<section>
+<a href="https://dxx.wwwtop.top/">青年大学习完成图—某工具站</a><br>
+不要问！问就是雷锋，不谢！😗<br>
+<p>
+<a href="https://mp.weixin.qq.com/s/dY95ABd9ohBHK9XWZ-iDSQ">共产党青年团团中央关于青年团建之强制性的要求</a>
+<blockquote><pre>
+<span style="color: green"><u><b>“青年大学习”网上团课不强求普通青年参与。</b></u></span>即使是对于共青团员，各级团组织也应当采用倡导和动员的方法，而<b>不可以强行摊派。</b>
+什么算强行摊派呢？比如，在考核中对下级团组织搞所谓的“一票否决”；
+比如，对于搞得不好的下级团干部，要求写检查；
+比如，要求参加学习的共青团员实名留言；再比如，要求参加学习的共青团员截图上报，等等。
+<span style="color:red"><b>这些方法都是不可取的。</b></span>
+</pre></blockquote>
+</p>
+</section>
+</body>
+</html>
