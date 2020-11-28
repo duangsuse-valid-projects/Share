@@ -7,20 +7,63 @@ var __spreadArrays = (this && this.__spreadArrays) || function () {
 };
 var makeTagConfig = {
     eventNames: { IMG: "load" },
-    antiGitter: { TEXTAREA: function (e) { return 300; } /*ms*/ }
+    antiGitter: { TEXTAREA: function (e) { return 300; } /*ms*/ },
+    groups: {},
+    _launchBr: document.createElement("br") //unique
 };
 function addMakeOperation(dst, srcs, op) {
-    var defaultUpdate = function (ev) { op(dst, srcs); };
+    var isGroup = function (x) { return typeof x === "string"; };
+    var addUpdater = function (e, op) {
+        e.addEventListener(makeTagConfig.eventNames[e.tagName] || "change", op);
+    };
+    var esrcs = srcs; //lazy
+    var defaultUpdate = function (ev) { op(dst, esrcs); };
     var makeAntiGitter = function (ms) {
         var lastTimer;
-        return function (ev) { clearTimeout(lastTimer); lastTimer = setTimeout(op.bind(null, dst, srcs), ms); };
+        return function (ev) { clearTimeout(lastTimer); lastTimer = setTimeout(op.bind(null, dst, esrcs), ms); };
     }; // unnecessary?...
     for (var _i = 0, srcs_1 = srcs; _i < srcs_1.length; _i++) {
         var src = srcs_1[_i];
+        if (isGroup(src)) {
+            if (esrcs === srcs) {
+                esrcs = srcs.filter(function (it) { return !isGroup(it); });
+            } //lazied
+            var name_1 = src;
+            var update = launchMakeGroup.bind(null, name_1);
+            for (var _a = 0, _b = makeTagConfig.groups[name_1]; _a < _b.length; _a++) {
+                var e = _b[_a];
+                if (e !== makeTagConfig._launchBr) {
+                    addUpdater(e, update);
+                } // makeGroup feat.
+            }
+            ;
+            continue;
+        }
+        src = src;
         var getAntiGitter = makeTagConfig.antiGitter[src.tagName];
-        var update = (getAntiGitter == undefined) ? defaultUpdate : makeAntiGitter(getAntiGitter(src));
-        src.addEventListener(makeTagConfig.eventNames[src.tagName] || "change", update);
+        addUpdater(src, (getAntiGitter == undefined) ? defaultUpdate : makeAntiGitter(getAntiGitter(src)));
     } // done
+}
+function addMakeOperationToGroup(name, dst, srcs, op) {
+    var _a;
+    var gs = makeTagConfig.groups;
+    if (!(name in gs))
+        gs[name] = [];
+    (_a = gs[name]).push.apply(_a, __spreadArrays([makeTagConfig._launchBr], srcs)); // makeGroup add
+    return addMakeOperation(dst, srcs, op);
+}
+function addMakeAttributeOperationToGroup(name, dst, attr, value, src, op) { }
+function launchMakeGroup(name) {
+    var es = makeTagConfig.groups[name];
+    for (var i = 0; i < es.length; i++) {
+        if (es[i] === makeTagConfig._launchBr) {
+            invalidateRemake(es[i + 1]);
+            i++;
+        }
+    }
+}
+function invalidateRemake(e_src) {
+    e_src.dispatchEvent(new Event(makeTagConfig.eventNames[e_src.tagName] || "change"));
 }
 function callDOMReader(input, reader_code, on_done) {
     var _a = reader_code.split('.'), name = _a[0], op_name = _a[1];
@@ -28,17 +71,65 @@ function callDOMReader(input, reader_code, on_done) {
     reader[op_name].apply(reader, [input]);
     reader.onload = function () { on_done(reader.result); };
 }
-var ValuePresistence = /** @class */ (function () {
-    function ValuePresistence() {
+function deepClone(node) {
+    var childs = node.childNodes;
+    if (childs.length == 0)
+        return node.cloneNode();
+    var copy = node.cloneNode();
+    for (var i = 0; i < childs.length; i++) {
+        var child = childs.item(i);
+        copy.appendChild(deepClone(child));
     }
-    ValuePresistence.prototype.add = function (e) {
+    return copy;
+}
+/** Make a tabular element presistent on its all input fields */
+var ValuePresistence = /** @class */ (function () {
+    function ValuePresistence(e0, indices, storage) {
+        this._eOriginal = e0;
+        this._indices = indices;
+        this._sto = storage;
+        this._no = 0;
+    }
+    ValuePresistence.prototype._registerOnItem = function (e) {
+        var _this = this;
         if (e.id == undefined)
             throw Error("presistent <input> " + e + " w/o const id");
-        e.value = localStorage[e.id] || e.value;
-        e.onchange = function (ev) { var evt = ev.target; localStorage[evt.id] = evt.value; };
+        if (this._no != 0 && e.id in this._sto) {
+            e.id = ValuePresistence.succ(e.id, this._no);
+        }
+        var load = function () { e.value = _this._sto[e.id] || e.value; };
+        e.addEventListener("load", load);
+        load(); // fuzzy
+        e.onchange = function (ev) { var evt = ev.target; _this._sto[evt.id] = evt.value; };
     };
-    ValuePresistence.prototype.done = function () { if (typeof this.on_done === "function")
-        this.on_done(); };
+    ValuePresistence.prototype._registerOn = function (e0) { for (var _i = 0, _a = this._indices; _i < _a.length; _i++) {
+        var i = _a[_i];
+        this._registerOnItem(e0.children.item(i));
+    } this._no++; };
+    ValuePresistence.prototype.appendOneTo = function (e0) {
+        var e = deepClone(this._eOriginal);
+        e0.appendChild(e);
+        this._registerOn(e);
+    };
+    ValuePresistence.prototype.done = function () {
+        var eO = this._eOriginal;
+        var epO = eO.parentElement;
+        this._registerOn(eO);
+        var fstId = eO.firstElementChild.id;
+        for (var no = 1; "" + fstId + no in this._sto; no++) {
+            this.appendOneTo(epO); // must be separated, since we provide appendOneTo
+        }
+        if (typeof this.on_done === "function")
+            this.on_done();
+    };
+    ValuePresistence.succ = function (numed_str, dist) {
+        var ma = ValuePresistence.RE_SUCC.exec(numed_str);
+        if (ma == null)
+            return "" + numed_str + dist;
+        var m = ma[0], prefix = ma[1], ns = ma[2];
+        return "" + prefix + (parseInt(ns) + dist);
+    };
+    ValuePresistence.RE_SUCC = /^(\D*)(\d+)$/;
     return ValuePresistence;
 }());
 function createCycleSeq(xs) {
@@ -60,6 +151,7 @@ function forEachChunked(n, xs, op) {
 }
 // == Begin app part ==
 function helem(id) { return document.getElementById(id); }
+function aryQuerySelector(css, e) { return Array.prototype.slice.call(e.querySelectorAll(css)); }
 function drawTextOn(ctx, text, x, y) {
     var font = ctx.font;
     var hText = parseInt(font.substr(0, font.indexOf('p'))); //parse!
@@ -71,28 +163,30 @@ function drawTextOn(ctx, text, x, y) {
     } // bad DOM canvas API...
 }
 makeTagConfig.eventNames["TEXTAREA"] = "input";
-makeTagConfig.antiGitter["INPUT"] = (function (e) { return (e.type == "number") ? 200 : 0; });
-document.addEventListener("DOMContentLoaded", function () {
-    var fileImg = helem("file-img"), imgLoaded = helem("img-loaded"), ePaint = helem("paint"), imgOut = helem("img-out");
-    var vp = new ValuePresistence();
-    var add = function (id) { return vp.add(helem(id)); };
-    add("text");
-    add("text-color");
-    add("text-size");
-    vp.done();
+makeTagConfig.antiGitter["INPUT"] = (function (e) { return (e.type == "number" || e.type == "slider") ? 200 : 0; });
+var vp;
+function mainLogic() {
+    var fileImg = helem("file-img"), imgLoaded = helem("img-loaded"), ePaint = helem("paint"), imgOut = helem("img-out"), listConfig = helem("list-config");
     var canvas = ePaint.getContext("2d");
-    var sXY = ["w", "h"].map(function (c) { return helem("slider-img-" + c); });
-    var setXY_ = function (no, n) { sXY[no].max = String(n); };
-    var updateXY = function (ev) { var img = ev.target; setXY_(0, img.width); setXY_(1, img.height); };
+    var updateXY = function (ev) {
+        var img = ev.target;
+        forEachChunked(2, aryQuerySelector("input[type=\"range\"]", listConfig), function (sXY) {
+            var sX = sXY[0], sY = sXY[1];
+            sX.max = String(img.width);
+            sY.max = String(img.height);
+            sXY.forEach(function (it) { return it.dispatchEvent(new Event("load")); });
+            sY.dispatchEvent(new Event("change"));
+        });
+    };
     addMakeOperation(imgLoaded, [fileImg], function (dst, srcs) {
-        dst.addEventListener("load", updateXY); // TODO make XY text -- 1:1
+        dst.addEventListener("load", updateXY);
         callDOMReader(srcs[0].files[0], "FileReader.readAsDataURL", function (durl) { dst.src = durl; });
     }); // MAKE#1 imgLoaded
-    var esConfig = Array.prototype.slice.call(helem("pan-config").querySelectorAll("input, textarea"));
-    forEachChunked(3, esConfig, function (es) {
-        var srcs = __spreadArrays(es, [imgLoaded], sXY); //dytype!
+    var esConfig = aryQuerySelector("input, textarea", listConfig);
+    forEachChunked(2 /*XY*/ + 3, esConfig, function (es) {
+        var srcs = __spreadArrays(es, [imgLoaded]); //dytype!
         addMakeOperation(imgOut, srcs, function (img, _a) {
-            var eText = _a[0], eColor = _a[1], eSize = _a[2], img0 = _a[3], sX = _a[4], sY = _a[5];
+            var eText = _a[0], sX = _a[1], sY = _a[2], eColor = _a[3], eSize = _a[4], img0 = _a[5];
             if (img0.src == "")
                 return;
             ePaint.width = img0.width;
@@ -100,10 +194,15 @@ document.addEventListener("DOMContentLoaded", function () {
             canvas.drawImage(img0, 0, 0);
             canvas.font = eSize.value + "px sans";
             canvas.fillStyle = eColor.value;
-            drawTextOn(canvas, eText.value, parseInt(sX.value), parseInt(sY.value));
+            drawTextOn(canvas, eText.value, sX.valueAsNumber, sY.valueAsNumber);
             img.src = ePaint.toDataURL("image/png"); // TODO extract to make group dst.
         }); // MAKE#2 imgOut
     });
+}
+document.addEventListener("DOMContentLoaded", function () {
+    vp = new ValuePresistence(helem("list-config").getElementsByClassName("persist-cfg").item(0), [0 /*text*/, 2 /*color*/, 4 /*size*/], localStorage);
+    vp.on_done = mainLogic;
+    vp.done();
 });
 function enableTextAdderOn(e, insert_panel /*popup*/) {
     if (insert_panel === void 0) { insert_panel = null; }

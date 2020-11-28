@@ -1,18 +1,54 @@
-var makeTagConfig = {
+var makeTagConfig: {
+  eventNames: {[tag:string]: string},
+  antiGitter: {[tag:string]: (e:HTMLElement) => number},
+  groups: {[k:string]: HTMLElement[]},
+  _launchBr: HTMLElement
+} = {
   eventNames: {IMG: "load"},
-  antiGitter: {TEXTAREA: (e:HTMLElement) => 300/*ms*/}
+  antiGitter: {TEXTAREA: e => 300/*ms*/},
+  groups: {},
+  _launchBr: document.createElement("br") //unique
 };
-function addMakeOperation<A, B extends HTMLElement>(dst: A, srcs: B[], op: (dst:A, srcs:B[])=>void) {
-  const defaultUpdate = (ev:Event) => { op(dst, srcs); };
+function addMakeOperation<A, B extends HTMLElement>(dst: A, srcs: (B|string)[], op: (dst:A, srcs:B[])=>void) {
+  const isGroup = (x: (B|string)) => typeof x === "string";
+  const addUpdater = (e: HTMLElement, op: (ev:Event)=>void) => {
+    e.addEventListener(makeTagConfig.eventNames[e.tagName] || "change", op);
+  };
+  let esrcs = srcs as B[]; //lazy
+  const defaultUpdate = (ev:Event) => { op(dst, esrcs); };
   const makeAntiGitter = (ms:number) => {
     var lastTimer: number;
-    return (ev:Event) => { clearTimeout(lastTimer); lastTimer = setTimeout(op.bind(null, dst, srcs), ms); };
+    return (ev:Event) => { clearTimeout(lastTimer); lastTimer = setTimeout(op.bind(null, dst, esrcs), ms); };
   }; // unnecessary?...
   for (let src of srcs) {
+    if (isGroup(src)) {
+      if (esrcs === srcs) { esrcs = srcs.filter(it => !isGroup(it)) as B[]; } //lazied
+      let name = src as string;
+      let update = launchMakeGroup.bind(null, name);
+      for (let e of makeTagConfig.groups[name]) {
+        if (e !== makeTagConfig._launchBr) { addUpdater(e, update); } // makeGroup feat.
+      }; continue;
+    }
+    src = src as B;
     let getAntiGitter = makeTagConfig.antiGitter[src.tagName];
-    let update = (getAntiGitter == undefined)? defaultUpdate : makeAntiGitter(getAntiGitter(src));
-    src.addEventListener(makeTagConfig.eventNames[src.tagName] || "change", update);
+    addUpdater(src, (getAntiGitter == undefined)? defaultUpdate : makeAntiGitter(getAntiGitter(src)) );
   } // done
+}
+function addMakeOperationToGroup<A, B extends HTMLElement>(name: string, dst: A, srcs: B[], op: (dst:A, srcs:B[])=>void) {
+  let gs = makeTagConfig.groups;
+  if (!(name in gs)) gs[name] = [];
+  gs[name].push(makeTagConfig._launchBr, ...srcs); // makeGroup add
+  return addMakeOperation(dst, srcs, op);
+}
+function addMakeAttributeOperationToGroup<A extends HTMLElement, B extends HTMLElement>(name: string, dst: A, attr: string, value: string, src: B, op: (dst:A, src:B)=>void) {}
+function launchMakeGroup(name: string) {
+  let es = makeTagConfig.groups[name];
+  for (let i=0; i<es.length; i++) {
+    if (es[i] === makeTagConfig._launchBr) { invalidateRemake(es[i+1]); i++; }
+  }
+}
+function invalidateRemake(e_src: HTMLElement) {
+  e_src.dispatchEvent(new Event(makeTagConfig.eventNames[e_src.tagName] || "change"));
 }
 
 function callDOMReader(input, reader_code, on_done) {
@@ -22,15 +58,51 @@ function callDOMReader(input, reader_code, on_done) {
   reader.onload = () => { on_done(reader.result); };
 }
 
-class ValuePresistence {
-  on_done: ()=>void;
-  constructor() {}
-  add(e: HTMLInputElement) {
-    if (e.id == undefined) throw Error(`presistent <input> ${e} w/o const id`);
-    e.value = localStorage[e.id] || e.value;
-    e.onchange = (ev:Event) => { let evt = (ev.target as HTMLInputElement); localStorage[evt.id] = evt.value; };
+function deepClone(node: Node) {
+  let childs = node.childNodes;
+  if (childs.length == 0) return node.cloneNode();
+  let copy = node.cloneNode();
+  for (let i=0; i<childs.length; i++) {
+    let child = childs.item(i);
+    copy.appendChild(deepClone(child));
   }
-  done() { if (typeof this.on_done === "function") this.on_done(); }
+  return copy;
+}
+
+/** Make a tabular element presistent on its all input fields */
+class ValuePresistence {
+  _eOriginal: Element; _indices: number[];
+  _sto: Storage; _no: number;
+  on_done: ()=>void;
+  constructor(e0: Element, indices: number[], storage: Storage) { this._eOriginal = e0; this._indices = indices; this._sto = storage; this._no = 0; }
+  _registerOnItem(e: HTMLInputElement) {
+    if (e.id == undefined) throw Error(`presistent <input> ${e} w/o const id`);
+    if (this._no != 0 && e.id in this._sto) { e.id = ValuePresistence.succ(e.id, this._no); }
+    const load = () => { e.value = this._sto[e.id] || e.value; };
+    e.addEventListener("load", load); load(); // fuzzy
+    e.onchange = (ev:Event) => { let evt = (ev.target as HTMLInputElement); this._sto[evt.id] = evt.value; };
+  }
+  _registerOn(e0: Element) { for (let i of this._indices) { this._registerOnItem(e0.children.item(i) as HTMLInputElement); } this._no++; }
+  appendOneTo(e0: Element) {
+    let e = deepClone(this._eOriginal) as Element;
+    e0.appendChild(e); this._registerOn(e);
+  }
+  done() {
+    let eO = this._eOriginal; let epO = eO.parentElement;
+    this._registerOn(eO);
+    let fstId = eO.firstElementChild.id;
+    for (let no = 1; `${fstId}${no}` in this._sto; no++) {
+      this.appendOneTo(epO); // must be separated, since we provide appendOneTo
+    }
+    if (typeof this.on_done === "function") this.on_done();
+ }
+ static RE_SUCC = /^(\D*)(\d+)$/;
+ static succ(numed_str: string, dist: number) { // unnecessary?
+   let ma = ValuePresistence.RE_SUCC.exec(numed_str);
+   if (ma == null) return `${numed_str}${dist}`;
+   let [m, prefix, ns] = ma;
+   return `${prefix}${parseInt(ns)+dist}`;
+ }
 }
 
 function createCycleSeq<T>(xs: T[]) {
@@ -45,6 +117,7 @@ function forEachChunked<T>(n: number, xs: T[], op:(xz:T[])=>void) {
 
 // == Begin app part ==
 function helem<T extends Element>(id:string) { return document.getElementById(id) as unknown as T; }
+function aryQuerySelector<RH extends HTMLElement>(css: string, e: HTMLElement) { return Array.prototype.slice.call(e.querySelectorAll(css)) as RH[]; }
 
 function drawTextOn(ctx:CanvasRenderingContext2D, text:string, x:number, y:number) {
   let font = ctx.font;
@@ -57,41 +130,50 @@ function drawTextOn(ctx:CanvasRenderingContext2D, text:string, x:number, y:numbe
 }
 
 makeTagConfig.eventNames["TEXTAREA"] = "input";
-makeTagConfig.antiGitter["INPUT"] = ((e:HTMLInputElement) => (e.type == "number")? 200 : 0);
+makeTagConfig.antiGitter["INPUT"] = ((e:HTMLInputElement) => (e.type == "number" || e.type == "slider")? 200 : 0);
 
-document.addEventListener("DOMContentLoaded", () => {
+var vp: ValuePresistence;
+function mainLogic() {
   const
   fileImg = helem<HTMLInputElement>("file-img"),
   imgLoaded = helem<HTMLImageElement>("img-loaded"),
   ePaint = helem<HTMLCanvasElement>("paint"),
-  imgOut = helem<HTMLImageElement>("img-out");
-
-  let vp = new ValuePresistence();
-  const add = (id:string) => vp.add(helem<HTMLInputElement>(id));
-  add("text"); add("text-color"); add("text-size");
-  vp.done();
+  imgOut = helem<HTMLImageElement>("img-out"),
+  listConfig = helem<HTMLDivElement>("list-config");
 
   let canvas = ePaint.getContext("2d");
-  let sXY = ["w", "h"].map(c => helem<HTMLInputElement>("slider-img-"+c));
-  const setXY_ = (no:number, n:number) => { sXY[no].max = String(n); };
-  const updateXY = (ev:Event) => { let img = ev.target as HTMLImageElement; setXY_(0, img.width); setXY_(1, img.height); };
+  const updateXY = (ev:Event) => {
+    let img = ev.target as HTMLImageElement;
+    forEachChunked(2, aryQuerySelector<HTMLInputElement>("input[type=\"range\"]", listConfig), (sXY) => {
+      let [sX, sY] = sXY;
+      sX.max = String(img.width);
+      sY.max = String(img.height);
+      sXY.forEach(it => it.dispatchEvent(new Event("load")));
+      sY.dispatchEvent(new Event("change"));
+    });
+  };
   addMakeOperation(imgLoaded, [fileImg], (dst, srcs) => {
-    dst.addEventListener("load", updateXY); // TODO make XY text -- 1:1
+    dst.addEventListener("load", updateXY);
     callDOMReader(srcs[0].files[0], "FileReader.readAsDataURL", (durl) => { dst.src = durl; });
   }); // MAKE#1 imgLoaded
 
-  let esConfig = Array.prototype.slice.call(helem<HTMLDivElement>("pan-config").querySelectorAll("input, textarea"));
-  forEachChunked(3, esConfig, (es) => {
-    let srcs = [...es, imgLoaded, ...sXY] as HTMLInputElement[]; //dytype!
-    addMakeOperation(imgOut, srcs, (img, [eText, eColor, eSize, img0, sX, sY]) => {
+  let esConfig = aryQuerySelector("input, textarea", listConfig);
+  forEachChunked(2/*XY*/+3, esConfig, (es) => {
+    let srcs = [...es, imgLoaded] as HTMLInputElement[]; //dytype!
+    addMakeOperation(imgOut, srcs, (img, [eText, sX, sY, eColor, eSize, img0]) => {
       if (img0.src == "") return;
       ePaint.width = img0.width; ePaint.height = img0.height;
       canvas.drawImage(img0 as unknown as HTMLImageElement, 0, 0);
       canvas.font = `${eSize.value}px sans`; canvas.fillStyle = eColor.value;
-      drawTextOn(canvas, eText.value, parseInt(sX.value), parseInt(sY.value));
+      drawTextOn(canvas, eText.value, sX.valueAsNumber, sY.valueAsNumber);
       img.src = ePaint.toDataURL("image/png"); // TODO extract to make group dst.
     }); // MAKE#2 imgOut
   });
+}
+document.addEventListener("DOMContentLoaded", () => {
+  vp = new ValuePresistence(helem("list-config").getElementsByClassName("persist-cfg").item(0), [0/*text*/, 2/*color*/, 4/*size*/], localStorage);
+  vp.on_done = mainLogic;
+  vp.done();
 });
 
 function enableTextAdderOn(e:HTMLElement, insert_panel:(e_pan:HTMLElement)=>void = null/*popup*/) {/*TODO*/}

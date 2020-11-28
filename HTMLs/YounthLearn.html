@@ -9,36 +9,37 @@
 
 <body>
   <label>上传图片</label><input id="file-img" type="file" accept="image/*"/>
-  <div>
+  <div><!-- 2 backend helper node -->
     <img id="img-loaded" alt="" hidden></img>
-    <canvas id="paint" hidden></canvas> <!-- 2 backend helper node -->
-    <label>X</label><input id="slider-img-w" type="range"/>
-    <label>Y</label><input id="slider-img-h" type="range"/>
+    <canvas id="paint" style="display:none"></canvas>
   </div>
   <div>
     <img id="img-out" alt="Output"></img>
-    <div id="pan-config">
-      <textarea id="text" placeholder="在此输入文字内容……"></textarea>
-      <label>色彩</label><input id="text-color" value="#000000"/>
-      <label>字号</label><input id="text-size" type="number" value="20"/>
-    </div>
+    <ul id="list-config">
+      <li class="persist-cfg"><textarea id="text" placeholder="在此输入文字内容……"></textarea>
+      <label>X</label><input id="text-x" type="range"/>
+      <label>Y</label><input id="text-y" type="range"/>
+      <label>色彩</label><input id="text-color" value="black"/>
+      <label>字号</label><input id="text-size" type="number" value="80"/></li>
+    </ul>
   </div>
-<script>[].slice.call(document.getElementsByTagName("LABEL")).forEach(function(e) { e.textContent += "："; e.setAttribute("for", e.nextElementSibling.id); });</script>
-
 <br>
 <section>
 <a href="https://dxx.wwwtop.top/">青年大学习完成图—某工具站</a><br>
 不要问！问就是雷锋，不谢！😗<br>
 <p>
-<a href="https://mp.weixin.qq.com/s/dY95ABd9ohBHK9XWZ-iDSQ">共产党青年团团中央关于青年团建之强制性的要求</a>
+<a href="https://mp.weixin.qq.com/s/dY95ABd9ohBHK9XWZ-iDSQ">共产党青年团团中央关于青年大学习团建之强制性的要求</a>
 <blockquote><pre>
-<span style="color: green"><u><b>“青年大学习”网上团课不强求普通青年参与。</b></u></span>即使是对于共青团员，各级团组织也应当采用倡导和动员的方法，而<b>不可以强行摊派。</b>
+<span style="color:green"><u><b>“青年大学习”网上团课不强求普通青年参与。</b></u></span>即使是对于共青团员，各级团组织也应当采用倡导和动员的方法，而<b>不可以强行摊派。</b>
 什么算强行摊派呢？比如，在考核中对下级团组织搞所谓的“一票否决”；
 比如，对于搞得不好的下级团干部，要求写检查；
-比如，要求参加学习的共青团员实名留言；再比如，要求参加学习的共青团员截图上报，等等。
-<span style="color:red"><b>这些方法都是不可取的。</b></span>
+比如，要求参加学习的共青团员实名留言；<span style="color:red">再比如，要求参加学习的共青团员<s>截图上报</s></span>，等等。
+<span style="color:red"><b>这些方法都是<b>不可取</b>的。</b></span>
 </pre></blockquote>
 </p>
 </section>
+
+<label>批量处理</label><input type="file" accept="image/*"/>
+<script>[].slice.call(document.getElementsByTagName("LABEL")).forEach(function(e) { e.textContent += "："; e.setAttribute("for", e.nextElementSibling.id); });</script>
 </body>
 </html>
