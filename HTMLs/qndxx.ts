@@ -7,40 +7,63 @@ var makeTagConfig: {
   eventNames: {IMG: "load"},
   antiGitter: {TEXTAREA: e => 300/*ms*/},
   groups: {},
-  _launchBr: document.createElement("br") //unique
+  _launchBr: document.createElement("br") //unique // TODO replace with null
 };
+
+function addMakeUpdater(e_src: HTMLElement, op: (ev:Event)=>void) {
+  e_src.addEventListener(makeTagConfig.eventNames[e_src.tagName] || "change", op);
+}
+function getMakeGroup(name: string) {
+  let gs = makeTagConfig.groups;
+  if (!(name in gs)) gs[name] = [];
+  return gs[name];
+}
 function addMakeOperation<A, B extends HTMLElement>(dst: A, srcs: (B|string)[], op: (dst:A, srcs:B[])=>void) {
   const isGroup = (x: (B|string)) => typeof x === "string";
   const addUpdater = (e: HTMLElement, op: (ev:Event)=>void) => {
     e.addEventListener(makeTagConfig.eventNames[e.tagName] || "change", op);
   };
   let esrcs = srcs as B[]; //lazy
-  const defaultUpdate = (ev:Event) => { op(dst, esrcs); };
+  let groups: string[] = null; //lazy
+  const defaultUpdate = (ev:Event) => {
+    groups?.forEach(launchMakeGroup); op(dst, esrcs);
+  };
   const makeAntiGitter = (ms:number) => {
     var lastTimer: number;
-    return (ev:Event) => { clearTimeout(lastTimer); lastTimer = setTimeout(op.bind(null, dst, esrcs), ms); };
+    const refresh = defaultUpdate.bind(null, undefined);
+    return (ev:Event) => { clearTimeout(lastTimer); lastTimer = setTimeout(refresh, ms); };
   }; // unnecessary?...
   for (let src of srcs) {
     if (isGroup(src)) {
-      if (esrcs === srcs) { esrcs = srcs.filter(it => !isGroup(it)) as B[]; } //lazied
-      let name = src as string;
-      let update = launchMakeGroup.bind(null, name);
-      for (let e of makeTagConfig.groups[name]) {
-        if (e !== makeTagConfig._launchBr) { addUpdater(e, update); } // makeGroup feat.
-      }; continue;
+      if (esrcs === srcs) { esrcs = srcs.filter(it => !isGroup(it)) as B[]; groups = []; } //lazied
+      groups.push(src as string);
+      continue;
     }
     src = src as B;
     let getAntiGitter = makeTagConfig.antiGitter[src.tagName];
-    addUpdater(src, (getAntiGitter == undefined)? defaultUpdate : makeAntiGitter(getAntiGitter(src)) );
+    addMakeUpdater(src, (getAntiGitter == undefined)? defaultUpdate : makeAntiGitter(getAntiGitter(src)) );
   } // done
 }
 function addMakeOperationToGroup<A, B extends HTMLElement>(name: string, dst: A, srcs: B[], op: (dst:A, srcs:B[])=>void) {
-  let gs = makeTagConfig.groups;
-  if (!(name in gs)) gs[name] = [];
-  gs[name].push(makeTagConfig._launchBr, ...srcs); // makeGroup add
+  getMakeGroup(name).push(makeTagConfig._launchBr, ...srcs); // makeGroup add
+  var isRunning = false;
+  const noRecur = (ev:Event) => {
+    if (isRunning) return; // since we have to "remake" one src in order to call actual op.
+    isRunning = true;
+    launchMakeGroup(name);
+    isRunning = false;
+  };
+  for (let e of srcs) { addMakeUpdater(e, noRecur); } // makeGroup feat.
   return addMakeOperation(dst, srcs, op);
 }
-function addMakeAttributeOperationToGroup<A extends HTMLElement, B extends HTMLElement>(name: string, dst: A, attr: string, value: string, src: B, op: (dst:A, src:B)=>void) {}
+function addMakeAttributeOperationToGroup<A extends HTMLElement, B extends HTMLElement>(name: string, dst: A, attr: string, value: string, src: B, op: (dst:A, src:B)=>void) {
+  getMakeGroup(name).push(src);
+  addMakeUpdater(src, (ev:Event) => {
+    if (dst.getAttribute(attr) == value) return;
+    op(dst, src);
+    dst.setAttribute(attr, value);
+  });
+}
 function launchMakeGroup(name: string) {
   let es = makeTagConfig.groups[name];
   for (let i=0; i<es.length; i++) {
@@ -69,6 +92,12 @@ function deepClone(node: Node) {
   return copy;
 }
 
+function firstElementChildWith(attr: string, predicate: (v:string)=>boolean, e0: Element) {
+  var e = e0.firstElementChild;
+  while (e != null && !predicate(e.getAttribute(attr)) ) e = e.nextElementSibling;
+  return e;
+}
+
 /** Make a tabular element presistent on its all input fields */
 class ValuePresistence {
   _eOriginal: Element; _indices: number[];
@@ -80,24 +109,42 @@ class ValuePresistence {
     if (this._no != 0 && e.id in this._sto) { e.id = ValuePresistence.succ(e.id, this._no); }
     const load = () => { e.value = this._sto[e.id] || e.value; };
     e.addEventListener("load", load); load(); // fuzzy
-    e.onchange = (ev:Event) => { let evt = (ev.target as HTMLInputElement); this._sto[evt.id] = evt.value; };
+    e.addEventListener("change", (ev:Event) => { let evt = (ev.target as HTMLInputElement); this._sto[evt.id] = evt.value; });
   }
   _registerOn(e0: Element) { for (let i of this._indices) { this._registerOnItem(e0.children.item(i) as HTMLInputElement); } this._no++; }
   appendOneTo(e0: Element) {
     let e = deepClone(this._eOriginal) as Element;
     e0.appendChild(e); this._registerOn(e);
+    let btnDel = document.createElement("button");
+    btnDel.classList.add("vp-delete");
+    btnDel.onclick = () => { this.removeOne(e); };
+    e.appendChild(btnDel);
+  }
+  removeOne(e0: Element) {
+    var succ: Element = null;
+    for (let i of this._indices) {
+      let e = e0.children.item(i); let sucId = e.id;
+      while ((succ = helem(ValuePresistence.succ(sucId, 1))) != null) {
+        sucId = succ.id; succ.id = ValuePresistence.succ(succ.id, -1);
+        succ.dispatchEvent(new Event("change"));
+        e = succ; //^ NOTE can't be reached with zipWithNext() / chunked(2) since IDs will (==)
+      } //^ update them all!
+      delete this._sto[sucId]; // change size.
+      succ = null;
+    }
+    e0.remove(); this._no--;
   }
   done() {
     let eO = this._eOriginal; let epO = eO.parentElement;
     this._registerOn(eO);
-    let fstId = eO.firstElementChild.id;
+    let fstId = firstElementChildWith("id", it => it != null, eO).id; // TODO replace.
     for (let no = 1; `${fstId}${no}` in this._sto; no++) {
       this.appendOneTo(epO); // must be separated, since we provide appendOneTo
     }
     if (typeof this.on_done === "function") this.on_done();
  }
  static RE_SUCC = /^(\D*)(\d+)$/;
- static succ(numed_str: string, dist: number) { // unnecessary?
+ static succ(numed_str: string, dist: number) { // unnecessary? // TODO remove
    let ma = ValuePresistence.RE_SUCC.exec(numed_str);
    if (ma == null) return `${numed_str}${dist}`;
    let [m, prefix, ns] = ma;
@@ -105,7 +152,7 @@ class ValuePresistence {
  }
 }
 
-function createCycleSeq<T>(xs: T[]) {
+function createCycleSeq<T>(xs: T[]) { // TODO remove
   var i = 0; var n = xs.length;
   return () => { let oldI = i; i = (i+1) % n; return xs[oldI]; };
 }
@@ -130,7 +177,7 @@ function drawTextOn(ctx:CanvasRenderingContext2D, text:string, x:number, y:numbe
 }
 
 makeTagConfig.eventNames["TEXTAREA"] = "input";
-makeTagConfig.antiGitter["INPUT"] = ((e:HTMLInputElement) => (e.type == "number" || e.type == "slider")? 200 : 0);
+makeTagConfig.antiGitter["INPUT"] = ((e:HTMLInputElement) => (e.type == "number" || e.type == "range")? 200 : 0);
 
 var vp: ValuePresistence;
 function mainLogic() {
@@ -171,7 +218,7 @@ function mainLogic() {
   });
 }
 document.addEventListener("DOMContentLoaded", () => {
-  vp = new ValuePresistence(helem("list-config").getElementsByClassName("persist-cfg").item(0), [0/*text*/, 2/*color*/, 4/*size*/], localStorage);
+  vp = new ValuePresistence(helem("list-config").getElementsByClassName("persist-cfg").item(0), [0/*text*/, 2/*X*/, 4/*Y*/, 6/*color*/, 8/*size*/], localStorage);
   vp.on_done = mainLogic;
   vp.done();
 });

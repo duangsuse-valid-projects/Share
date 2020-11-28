@@ -5,16 +5,18 @@
   <title>多字模板图生成</title>
   <meta name="description" content="用单张图片和文字（位置、色彩、字号）生成图片，附赠大学『青年大学习』便利性"/>
   <script src="qndxx.js"></script>
+  <style>.vp-delete:before { content: "⌫"; }</style>
 </head>
 
 <body>
-  <label>上传图片</label><input id="file-img" type="file" accept="image/*"/>
+  <label>背景图片</label><input id="file-img" type="file" accept="image/*"/>
   <div><!-- 2 backend helper node -->
     <img id="img-loaded" alt="" hidden></img>
     <canvas id="paint" style="display:none"></canvas>
   </div>
   <div>
-    <img id="img-out" alt="Output"></img>
+    <img id="img-out" alt="Output"></img><br>
+    <button id="do-append">++</button>
     <ul id="list-config">
       <li class="persist-cfg"><textarea id="text" placeholder="在此输入文字内容……"></textarea>
       <label>X</label><input id="text-x" type="range"/>
@@ -23,6 +25,7 @@
       <label>字号</label><input id="text-size" type="number" value="80"/></li>
     </ul>
   </div>
+<script>helem("do-append").onclick = function(ev) { vp.appendOneTo(ev.target.nextElementSibling); };</script>
 <br>
 <section>
 <a href="https://dxx.wwwtop.top/">青年大学习完成图—某工具站</a><br>
@@ -39,7 +42,7 @@
 </p>
 </section>
 
-<label>批量处理</label><input type="file" accept="image/*"/>
+<label>批量处理</label><input type="file" accept="image/*" multiple="yes"/>
 <script>[].slice.call(document.getElementsByTagName("LABEL")).forEach(function(e) { e.textContent += "："; e.setAttribute("for", e.nextElementSibling.id); });</script>
 </body>
 </html>

@@ -9,50 +9,74 @@ var makeTagConfig = {
     eventNames: { IMG: "load" },
     antiGitter: { TEXTAREA: function (e) { return 300; } /*ms*/ },
     groups: {},
-    _launchBr: document.createElement("br") //unique
+    _launchBr: document.createElement("br") //unique // TODO replace with null
 };
+function addMakeUpdater(e_src, op) {
+    e_src.addEventListener(makeTagConfig.eventNames[e_src.tagName] || "change", op);
+}
+function getMakeGroup(name) {
+    var gs = makeTagConfig.groups;
+    if (!(name in gs))
+        gs[name] = [];
+    return gs[name];
+}
 function addMakeOperation(dst, srcs, op) {
     var isGroup = function (x) { return typeof x === "string"; };
     var addUpdater = function (e, op) {
         e.addEventListener(makeTagConfig.eventNames[e.tagName] || "change", op);
     };
     var esrcs = srcs; //lazy
-    var defaultUpdate = function (ev) { op(dst, esrcs); };
+    var groups = null; //lazy
+    var defaultUpdate = function (ev) {
+        groups === null || groups === void 0 ? void 0 : groups.forEach(launchMakeGroup);
+        op(dst, esrcs);
+    };
     var makeAntiGitter = function (ms) {
         var lastTimer;
-        return function (ev) { clearTimeout(lastTimer); lastTimer = setTimeout(op.bind(null, dst, esrcs), ms); };
+        var refresh = defaultUpdate.bind(null, undefined);
+        return function (ev) { clearTimeout(lastTimer); lastTimer = setTimeout(refresh, ms); };
     }; // unnecessary?...
     for (var _i = 0, srcs_1 = srcs; _i < srcs_1.length; _i++) {
         var src = srcs_1[_i];
         if (isGroup(src)) {
             if (esrcs === srcs) {
                 esrcs = srcs.filter(function (it) { return !isGroup(it); });
+                groups = [];
             } //lazied
-            var name_1 = src;
-            var update = launchMakeGroup.bind(null, name_1);
-            for (var _a = 0, _b = makeTagConfig.groups[name_1]; _a < _b.length; _a++) {
-                var e = _b[_a];
-                if (e !== makeTagConfig._launchBr) {
-                    addUpdater(e, update);
-                } // makeGroup feat.
-            }
-            ;
+            groups.push(src);
             continue;
         }
         src = src;
         var getAntiGitter = makeTagConfig.antiGitter[src.tagName];
-        addUpdater(src, (getAntiGitter == undefined) ? defaultUpdate : makeAntiGitter(getAntiGitter(src)));
+        addMakeUpdater(src, (getAntiGitter == undefined) ? defaultUpdate : makeAntiGitter(getAntiGitter(src)));
     } // done
 }
 function addMakeOperationToGroup(name, dst, srcs, op) {
     var _a;
-    var gs = makeTagConfig.groups;
-    if (!(name in gs))
-        gs[name] = [];
-    (_a = gs[name]).push.apply(_a, __spreadArrays([makeTagConfig._launchBr], srcs)); // makeGroup add
+    (_a = getMakeGroup(name)).push.apply(_a, __spreadArrays([makeTagConfig._launchBr], srcs)); // makeGroup add
+    var isRunning = false;
+    var noRecur = function (ev) {
+        if (isRunning)
+            return; // since we have to "remake" one src in order to call actual op.
+        isRunning = true;
+        launchMakeGroup(name);
+        isRunning = false;
+    };
+    for (var _i = 0, srcs_2 = srcs; _i < srcs_2.length; _i++) {
+        var e = srcs_2[_i];
+        addMakeUpdater(e, noRecur);
+    } // makeGroup feat.
     return addMakeOperation(dst, srcs, op);
 }
-function addMakeAttributeOperationToGroup(name, dst, attr, value, src, op) { }
+function addMakeAttributeOperationToGroup(name, dst, attr, value, src, op) {
+    getMakeGroup(name).push(src);
+    addMakeUpdater(src, function (ev) {
+        if (dst.getAttribute(attr) == value)
+            return;
+        op(dst, src);
+        dst.setAttribute(attr, value);
+    });
+}
 function launchMakeGroup(name) {
     var es = makeTagConfig.groups[name];
     for (var i = 0; i < es.length; i++) {
@@ -82,6 +106,12 @@ function deepClone(node) {
     }
     return copy;
 }
+function firstElementChildWith(attr, predicate, e0) {
+    var e = e0.firstElementChild;
+    while (e != null && !predicate(e.getAttribute(attr)))
+        e = e.nextElementSibling;
+    return e;
+}
 /** Make a tabular element presistent on its all input fields */
 var ValuePresistence = /** @class */ (function () {
     function ValuePresistence(e0, indices, storage) {
@@ -100,22 +130,45 @@ var ValuePresistence = /** @class */ (function () {
         var load = function () { e.value = _this._sto[e.id] || e.value; };
         e.addEventListener("load", load);
         load(); // fuzzy
-        e.onchange = function (ev) { var evt = ev.target; _this._sto[evt.id] = evt.value; };
+        e.addEventListener("change", function (ev) { var evt = ev.target; _this._sto[evt.id] = evt.value; });
     };
     ValuePresistence.prototype._registerOn = function (e0) { for (var _i = 0, _a = this._indices; _i < _a.length; _i++) {
         var i = _a[_i];
         this._registerOnItem(e0.children.item(i));
     } this._no++; };
     ValuePresistence.prototype.appendOneTo = function (e0) {
+        var _this = this;
         var e = deepClone(this._eOriginal);
         e0.appendChild(e);
         this._registerOn(e);
+        var btnDel = document.createElement("button");
+        btnDel.classList.add("vp-delete");
+        btnDel.onclick = function () { _this.removeOne(e); };
+        e.appendChild(btnDel);
+    };
+    ValuePresistence.prototype.removeOne = function (e0) {
+        var succ = null;
+        for (var _i = 0, _a = this._indices; _i < _a.length; _i++) {
+            var i = _a[_i];
+            var e = e0.children.item(i);
+            var sucId = e.id;
+            while ((succ = helem(ValuePresistence.succ(sucId, 1))) != null) {
+                sucId = succ.id;
+                succ.id = ValuePresistence.succ(succ.id, -1);
+                succ.dispatchEvent(new Event("change"));
+                e = succ; //^ NOTE can't be reached with zipWithNext() / chunked(2) since IDs will (==)
+            } //^ update them all!
+            delete this._sto[sucId]; // change size.
+            succ = null;
+        }
+        e0.remove();
+        this._no--;
     };
     ValuePresistence.prototype.done = function () {
         var eO = this._eOriginal;
         var epO = eO.parentElement;
         this._registerOn(eO);
-        var fstId = eO.firstElementChild.id;
+        var fstId = firstElementChildWith("id", function (it) { return it != null; }, eO).id; // TODO replace.
         for (var no = 1; "" + fstId + no in this._sto; no++) {
             this.appendOneTo(epO); // must be separated, since we provide appendOneTo
         }
@@ -163,7 +216,7 @@ function drawTextOn(ctx, text, x, y) {
     } // bad DOM canvas API...
 }
 makeTagConfig.eventNames["TEXTAREA"] = "input";
-makeTagConfig.antiGitter["INPUT"] = (function (e) { return (e.type == "number" || e.type == "slider") ? 200 : 0; });
+makeTagConfig.antiGitter["INPUT"] = (function (e) { return (e.type == "number" || e.type == "range") ? 200 : 0; });
 var vp;
 function mainLogic() {
     var fileImg = helem("file-img"), imgLoaded = helem("img-loaded"), ePaint = helem("paint"), imgOut = helem("img-out"), listConfig = helem("list-config");
@@ -200,7 +253,7 @@ function mainLogic() {
     });
 }
 document.addEventListener("DOMContentLoaded", function () {
-    vp = new ValuePresistence(helem("list-config").getElementsByClassName("persist-cfg").item(0), [0 /*text*/, 2 /*color*/, 4 /*size*/], localStorage);
+    vp = new ValuePresistence(helem("list-config").getElementsByClassName("persist-cfg").item(0), [0 /*text*/, 2 /*X*/, 4 /*Y*/, 6 /*color*/, 8 /*size*/], localStorage);
     vp.on_done = mainLogic;
     vp.done();
 });
