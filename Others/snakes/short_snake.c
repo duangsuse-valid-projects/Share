@@ -29,7 +29,7 @@ const int
   USE_AI_L2=0x8,
   NO_RESET=0x10;
 const int ARY_FLAG[] = {-1, 0x1, 0x2, 0x4, 0x8, 0x10, -1, -1};
-char* TEXT_MENU_PAUSE[] = {"resume game", "-walls (require reset)",
+char* TEXT_MENU_PAUSE[] = {"resume game", "-walls (require reset&bug)",
   "-len decrement", "+transport wall", "+AI level 2", "+no reset",
   "one more fruit", "reverse snake"};
 const int nTextMenuPause = 8;
@@ -38,15 +38,30 @@ bool isPosNegSign(char c) {  return c=='+' || c=='-'; }
 // Game object
 int w, h, nM, nBlk, dCycle=1;
 typedef int* map2D;
-map2D m, que;
-int p, iHead=0, iTail=0;
+typedef struct SnakeST {
+  map2D cells; int iHead, iTail;
+  int p, d;
+  struct SnakeST* prev;
+}* Snake;
+map2D m;
 useconds_t delayUsec;
+
+Snake snakez = NULL;
+void snakeInit(Snake self) {
+  self->iHead = 0, self->iTail = 0;
+  self->d = 1;
+  self->cells = malloc(sizeof(int)*nM);
+}
+void snakeAdd(Snake self) {
+  self->prev = snakez; snakez = self;
+}
+void snakeFree(Snake self) { free(self->cells); }
+
 char** textMenuPause; // mutable
 void init(int m_w, int m_h, int dt) {
   w=m_w; h=m_h;
   nM = w*h; delayUsec = dt*1000;
-  map2D* maps[] = {&m, &que};
-  for (int i=0; i<2; i++) *maps[i] = malloc(sizeof(int)*nM);
+  m = malloc(sizeof(int)*nM);
   textMenuPause = reallocStrsFirstCharTest(isPosNegSign, nTextMenuPause, TEXT_MENU_PAUSE);
 }
 
@@ -83,64 +98,82 @@ void putWall() {
   int y, x;
   for (int i=0; i<nM; i++) { yxP(i, &y, &x); m[i] = (isZeroOr(w-1, x) || isZeroOr(h-1, y))? 3 : 0; }
 }
-void putCell() {
-  que[cycledInc(&iHead)] = p; m[p] = 1;
+void putCell(Snake snk) {
+  snk->cells[cycledInc(&snk->iHead)] = snk->p; m[snk->p] = 1;
 }
 void putFruit() {
   int pA; do { pA = rand()%nM; } while (m[pA] != 0);
   m[pA] = 2;
 }
 #define handleDirNeg(dv, keyP, keyN) \
-  else if (ch == keyP && d != dv) d = -dv; \
-  else if (ch == keyN && d != -dv) d = dv;
+  else if (ch == keyP && snk->d != dv) snk->d = -dv; \
+  else if (ch == keyN && snk->d != -dv) snk->d = dv;
+typedef enum { updOk=0, updRegame, updDie } UpdateRes;
 typedef char* mutCstr;
 typedef const char* cstr;
+int /*act*/no=0; //bad, no idea to refactor in C99.
+inlined UpdateRes handleUpdate(int ch, int* flags, Snake snk) {
+  int y, x;
+  bool noDec=(*flags&NO_LENDEC), useTWall=(*flags&USE_TRANSWALL);
+  if (ch == ERR) {}
+  handleDirNeg(w, KEY_UP, KEY_DOWN)
+  handleDirNeg(1, KEY_LEFT, KEY_RIGHT)
+  else if (ch == 'p') {
+    no = dialogAskChoose("Paused", nTextMenuPause, textMenuPause, 2);
+rehandle:
+    if (no == 0) return updOk;
+    else if (no == 6) { putFruit(); if (!(*flags&NO_RESET)) { no = 5/*no-reset*/; goto rehandle; } }
+    else if (no == 7) {
+      swapInt(&snk->iHead, &snk->iTail); snk->d = -snk->d; dCycle = -dCycle;
+      snk->iHead-=dCycle;snk->iTail-=dCycle;
+      snk->p+=snk->d*abs(snk->iTail-snk->iHead); return updOk; // NOTE: not tested
+    } else {
+      *flags = *flags ^ ARY_FLAG[no];
+      char* ptrT = textMenuPause[no];
+      ptrT[0] = (*flags & ARY_FLAG[no])? '-' : '+';
+    }
+    if (*flags&NO_WALLS) memset(m, 0, sizeof(int)*nM);
+    return updRegame;
+  } else if (ch == KEY_F(2)) { goto rehandle; }
+  snk->p += snk->d; // input done.
+  if (m[snk->p] == 1) { return updDie; } // die eat self
+  if (m[snk->p] == 3) {
+    if (!useTWall) { return updDie; } // die on wall
+    yxP(snk->p, &y,&x);
+    int hm=h-1, wm=w-1;
+    if (isZeroOr(hm, y)) snk->p=pYX((y==0)? hm-1 : 1,x);
+    else if (isZeroOr(wm, x)) snk->p=pYX(y,(x==0)? wm-1 : 1);
+  }
+  if (m[snk->p] == 2) { putFruit(); }
+  else/*=0*/ { if (!noDec) m[snk->cells[cycledInc(&snk->iTail)]] = 0; }
+  putCell(snk);
+  return updOk;
+}
 void game(cstr style[], int flags) {
   noecho(); curUse(nodelay); curUse(keypad); cbreak();
-  iHead=0, iTail=0;
-  int ch, y, x, d=1;
-  bool noDec, useTWall, noReset; int /*act*/no=0;
+  struct SnakeST msnk;
+  Snake snk0=&msnk, snk = &msnk;
+  snakeInit(snk); snakeAdd(snk);
+  int ch, y,x;
 regame:
-  noDec = (flags&NO_LENDEC), useTWall = (flags&USE_TRANSWALL), noReset = (flags&NO_RESET);
-  if (!noReset) {
+  if (!(flags&NO_RESET)) {
     if (!(flags&NO_WALLS)) putWall();
     putFruit();
-    p = pYX(h/2, w/2); putCell();
+    msnk.p = pYX(h/2, w/2); putCell(&msnk);
   }
   while ((ch = getch()) != 'q') {
-    if (ch == ERR) {}
-    else if (ch == 'p') {
-      no = dialogAskChoose("Paused", nTextMenuPause, textMenuPause, 2);
-rehandle:
-      if (no == 0) continue;
-      else if (no == 6) { putFruit(); if (!noReset) { no = 5/*no-reset*/; goto rehandle; } }
-      else if (no == 7) { swapInt(&iHead, &iTail); d = -d; dCycle = -dCycle; iHead-=dCycle;iTail-=dCycle; p+=d*abs(iTail-iHead); continue; } // NOTE: not tested
-      else {
-        flags = flags ^ ARY_FLAG[no];
-        char* ptrT = textMenuPause[no];
-        ptrT[0] = (flags & ARY_FLAG[no])? '-' : '+';
-      }
-      if (flags&NO_WALLS) memset(m, 0, sizeof(int)*nM);
-      goto regame;
-    } else if (ch == KEY_F(2)) { goto rehandle; }
-    handleDirNeg(w, KEY_UP, KEY_DOWN)
-    handleDirNeg(1, KEY_LEFT, KEY_RIGHT)
-    p += d; // input done.
-    if (m[p] == 1) { break; } // die eat self
-    if (m[p] == 3) {
-      if (!useTWall) { break; } // die on wall
-      yxP(p, &y,&x);
-      int hm=h-1, wm=w-1;
-      if (isZeroOr(hm, y)) p=pYX((y==0)? hm-1 : 1,x);
-      else if (isZeroOr(wm, x)) p=pYX(y,(x==0)? wm-1 : 1);
-    }
-    if (m[p] == 2) { putFruit(); }
-    else/*=0*/ { if (!noDec) m[que[cycledInc(&iTail)]] = 0; }
-    putCell();
+    do {
+      UpdateRes res = handleUpdate(ch, &flags, snk);
+      if (res == updRegame) goto regame;
+      else if (res == updDie) goto gameover;
+    } while ((snk = snk->prev) != NULL);
+    snk = snk0;
     for (int i=0; i<nM; i++) { yxP(i, &y,&x); mvprintw(y, x*nBlk, style[m[i]]); }
     refresh();
     usleep(delayUsec);
   } //^ main loop
+gameover:
+  snk = snk0; do { snakeFree(snk); } while ((snk = snk->prev) != NULL);
 }
 #include <string.h>
 #include <locale.h>
