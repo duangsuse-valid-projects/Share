@@ -74,7 +74,7 @@ int main(void) {
   srand(time(NULL));
   cstr deftStyle[] = {envOr("  ", "sNone"), envOr("[]", "sBody"), envOr("()", "sFruit")}; nBlk = strlen(deftStyle[0]);
   initscr(); curs_set(0/*invisible*/);
-  init(ienvOr(30, "nrow"), ienvOr(24, "ncol"), ienvOr(100, "dt_ms")); game(deftStyle);
+  init(ienvOr(30, "ncol"), ienvOr(24, "nrow"), ienvOr(100, "dt_ms")); game(deftStyle);
   nodelay(stdscr, false); getch();
   return endwin();
 }
