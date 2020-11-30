@@ -76,7 +76,7 @@ private:
   int p, pA=0/*fruit*/, iHead/*2ptr-FIFO*/;
   cstr sNone, sWall, sBody, sFruit; // none=0; wall=1; snake=2
 
-  void putWall() { for (int i=0; i<nM; i++) m[i] = (i/w)%(h-1) && (i%w)%(w-1)? 0 : 1;  }
+  void putWall() { for (int i=0; i<nM; i++) m[i] = (i/w)%(h-1)==0 || (i%w)%(w-1)==0? 1 : 0;  }
   void putCell() { stk[cycledInc(iHead)] = p; m[p] = 2; }
   void giveFruit() { do { pA = rand()%nM; } while (m[pA] != 0); }
   inline void draw(cstr styles[]) {
