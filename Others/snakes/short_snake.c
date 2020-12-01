@@ -28,11 +28,12 @@ const int
   USE_TRANSWALL = 0x4,
   USE_AI_L2=0x8,
   NO_RESET=0x10;
+const int SNK_AI = 0x1;
 const int ARY_FLAG[] = {-1, 0x1, 0x2, 0x4, 0x8, 0x10, -1, -1};
 char* TEXT_MENU_PAUSE[] = {"resume game", "-walls (require reset&bug)",
   "-len decrement", "+transport wall", "+AI level 2", "+no reset",
-  "one more fruit", "reverse snake"};
-const int nTextMenuPause = 8;
+  "one more fruit", "reverse snake", "add AI player"};
+const int nTextMenuPause = 9;
 
 bool isPosNegSign(char c) {  return c=='+' || c=='-'; }
 // Game object
@@ -40,7 +41,7 @@ int w, h, nM, nBlk, dCycle=1;
 typedef int* map2D;
 typedef struct SnakeST {
   map2D cells; int iHead, iTail;
-  int p, d;
+  int p, d; int flags;
   struct SnakeST* prev;
 }* Snake;
 map2D m;
@@ -101,10 +102,8 @@ void putWall() {
 void putCell(Snake snk) {
   snk->cells[cycledInc(&snk->iHead)] = snk->p; m[snk->p] = 1;
 }
-void putFruit() {
-  int pA; do { pA = rand()%nM; } while (m[pA] != 0);
-  m[pA] = 2;
-}
+int randP() { int pA; do { pA = rand()%nM; } while (m[pA] != 0); return pA; }
+void putFruit() { m[randP()] = 2; }
 #define handleDirNeg(dv, keyP, keyN) \
   else if (ch == keyP && snk->d != dv) snk->d = -dv; \
   else if (ch == keyN && snk->d != -dv) snk->d = dv;
@@ -122,15 +121,22 @@ inlined UpdateRes handleUpdate(int ch, int* flags, Snake snk) {
     no = dialogAskChoose("Paused", nTextMenuPause, textMenuPause, 2);
 rehandle:
     if (no == 0) return updOk;
-    else if (no == 6) { putFruit(); if (!(*flags&NO_RESET)) { no = 5/*no-reset*/; goto rehandle; } }
-    else if (no == 7) {
+    else if (no == 6) {
+      putFruit(); if (!(*flags&NO_RESET)) { no = 5/*no-reset*/; goto rehandle; } 
+    } else if (no == 7) {
       swapInt(&snk->iHead, &snk->iTail); snk->d = -snk->d; dCycle = -dCycle;
       snk->iHead-=dCycle;snk->iTail-=dCycle;
       snk->p+=snk->d*abs(snk->iTail-snk->iHead); return updOk; // NOTE: not tested
+    } else if (no == 8) {
+      Snake snk1 = malloc(sizeof(struct SnakeST));
+      snk->p = randP(); snk->flags = SNK_AI;
+      snakeInit(snk1); snakeAdd(snk1);
+      putCell(snk1);
+      return updOk;
     } else {
-      *flags = *flags ^ ARY_FLAG[no];
+      *flags = *flags ^ ARY_FLAG[no]; // switcher.
       char* ptrT = textMenuPause[no];
-      ptrT[0] = (*flags & ARY_FLAG[no])? '-' : '+';
+      ptrT[0] = (ptrT[0] == '+')? '-'  : '+';
     }
     if (*flags&NO_WALLS) memset(m, 0, sizeof(int)*nM);
     return updRegame;
@@ -149,12 +155,15 @@ rehandle:
   putCell(snk);
   return updOk;
 }
+#define MESG_ROUND_N 8
+#define setMessage(m) message = m; dtMessage = MESG_ROUND_N
 void game(cstr style[], int flags) {
   noecho(); curUse(nodelay); curUse(keypad); cbreak();
   struct SnakeST msnk;
-  Snake snk0=&msnk, snk = &msnk;
-  snakeInit(snk); snakeAdd(snk);
+  snakeInit(&msnk); snakeAdd(&msnk);
+  Snake snk = snakez;
   int ch, y,x;
+  cstr message=NULL; int dtMessage = 0;
 regame:
   if (!(flags&NO_RESET)) {
     if (!(flags&NO_WALLS)) putWall();
@@ -165,15 +174,22 @@ regame:
     do {
       UpdateRes res = handleUpdate(ch, &flags, snk);
       if (res == updRegame) goto regame;
-      else if (res == updDie) goto gameover;
+      else if (res == updDie) {
+        if (snk == &msnk) goto gameover;
+        setMessage("A snake just died");
+        do { m[snk->cells[cycledInc(&snk->iTail)]] = 0; } while (snk->iTail != snk->iHead);
+        snk->p = randP(); //respawn
+      }
     } while ((snk = snk->prev) != NULL);
-    snk = snk0;
+    snk = snakez;
     for (int i=0; i<nM; i++) { yxP(i, &y,&x); mvprintw(y, x*nBlk, style[m[i]]); }
+    if (message != NULL) { mvprintw(w/3, h-h/4, "%s", message); }
+    if (dtMessage == 0) { message = NULL; } else { dtMessage--; }
     refresh();
     usleep(delayUsec);
   } //^ main loop
 gameover:
-  snk = snk0; do { snakeFree(snk); } while ((snk = snk->prev) != NULL);
+  snk = snakez; do { snakeFree(snk); } while ((snk = snk->prev) != NULL);
 }
 #include <string.h>
 #include <locale.h>
@@ -201,7 +217,7 @@ int main(void) {
   initscr(); curs_set(0/*invisible*/);
   int fl = 0; envBool(&fl, "noWalls", NO_WALLS); envBool(&fl, "useAI2", USE_AI_L2);
   envBool(&fl, "noDecSnake", NO_LENDEC); envBool(&fl, "useTranspWall", USE_TRANSWALL);
-  init(ienvOr(30, "ncol"), ienvOr(24, "nrow"), ienvOr(100, "dt_ms")); game(deftStyle, fl);
+  init(ienvOr(30, "ncol"), ienvOr(35, "nrow"), ienvOr(100, "dt_ms")); game(deftStyle, fl);
   nodelay(stdscr, false); getch();
   return endwin();
 }
