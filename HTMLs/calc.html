@@ -53,6 +53,7 @@ for (var i=0; i<3+1; i++) {
 var refAcc = [0], refOperand = [0];
 var refNum = refAcc;
 var mode = "=", state=0, deftRedo=null; // operator and read state
+/*-N means redo active (on deft), N means use as default*/
 var stack = [];
 var opRecord = null; var opRecorded = [];
 
@@ -67,7 +68,7 @@ eNumPad.onclick = function(ev) {
   } else if (evt.title != "op") { refNum[0] = refNum[0]*10 + (evt.textContent-'0'); }
   eNum.value = reprShow(refNum[0]);
 };
-"+ - * / id -@ % ** ~logN ~ln ~sin ~cos ~tan abs floor ceil round trunc rand INV DEGRAD RECO Redo DRedoIf Push Pop Shift Length".split(' ').forEach(function(oper, i) {
+"+ - * / id -@ % ** ~logN ~ln ~sin ~cos ~tan abs floor ceil round trunc rand INV DEGRAD RECO Redo DRedoIf Push Pop Shift Length Nth Plot".split(' ').forEach(function(oper, i) {
   var hasInv = oper.startsWith('~');
   var eOper = createHElem("button", {
     title: "op", // added ops
@@ -80,7 +81,7 @@ eNumPad.onclick = function(ev) {
 });
 
 function putsStack(is_dec) {
-  eStack.textContent = stack.join(", ");
+  eStack.textContent = stack.join(',');;
   if (is_dec) { eNum.value = reprShow(refAcc[0]); }
 }
 function onUpdate() { // state-machine with accumulator, un/bin-ary per operate based.
@@ -112,6 +113,7 @@ function onUpdate() { // state-machine with accumulator, un/bin-ary per operate 
     });
     return;
   case "DEGRAD":
+    alert("TODO: impl Degree/Radix");
     return;
   case  "RECO":
     if (opRecord == null) { opRecord = []; }
@@ -130,6 +132,8 @@ function onUpdate() { // state-machine with accumulator, un/bin-ary per operate 
   case "Pop": refAcc[0] = stack.pop()||0; putsStack(true); return;
   case "Shift": refAcc[0] = stack.shift()||0; putsStack(true); return;
   case "Length": refAcc[0] = stack.length; return;
+  case "Nth": refAcc[0] = stack[refAcc[0]]; return;
+  case "Plot": alert("TODO: impl with echar.js"); return;
   }
   if (state==0) { state=1; ePrefix.textContent = reprShow(refAcc[0])+mode; refOperand[0]=0; refNum=refOperand; return; } //< show oper req pad.
   if (state==1&&opRecord!=null) { opRecord.push(refOperand[0]); }
@@ -141,14 +145,14 @@ function onUpdate() { // state-machine with accumulator, un/bin-ary per operate 
   case '/': assign((a, b) => a/b); break;
   case '%': assign((a, b) => a%b); break;
   case '**': assign((a, b) => a**b); break;
-  case 'logN': assign((a, b) => Math.log(b, a)); break;
-  case '~logN': assign((c, b) => c**b); break;
+  case 'logN': assign((a, b) => Math.log(a)/Math.log(b)); break;
+  case '~logN': assign((c, b) => b**c); break;
   }
   state=0; mode = '='; ePrefix.textContent = ""; // reset to normal
   refNum = refAcc;
   if (deftRedo!=null) { redoRecorded(deftRedo); }
 }
-function redoRecorded(no) {
+function redoRecorded(no) { // root of all evil (joke
   no = Math.floor(no);
   if (no >= opRecorded.length) { alert("op "+String(no)+" is not recorded yet"); return; }
   var record = opRecorded[no];
@@ -160,22 +164,33 @@ function redoRecorded(no) {
     if (state==1) { i++; refOperand[0] = record[i]; deftRedo=null; onUpdate(); deftRedo=oldDeft; }
   }
 }
-eRecords.onclick = function() { // editor
-  var et = eRecords;
+function readIntMaybe(c) { var pn = parseInt(c); return (!isNaN(pn))? pn : c; };
+eRecords.onclick = function() { createTextReprEditor(eRecords, function(ec) {
+  return Array.prototype.slice.call(ec.children).map(function(e) { return e.textContent; }).join('\n');
+}, function(s) {
+  var ec = eRecords;
+  opRecorded = s.split('\n').map(function(t) { return t.split(' ').map(readIntMaybe); });
+  for (var i=0; i<opRecorded.length; i++) {
+    if (ec.children.length < i+1) { ec.appendChild(createHElem("li")); }
+    ec.children[i].textContent = opRecorded[i].join(' ');
+  }
+}); };
+eStack.onclick = function() { createTextReprEditor(eStack, function(ec) {
+  return ec.textContent;
+}, function(s) {
+  stack = s.split(',').map(readIntMaybe);
+  eStack.textContent = stack.join(',');
+}); };
+function createTextReprEditor(ec, show, on_read) { // editor
   var editor = createHElem("textarea", {placeholder: "Edit code by line..."});
-  editor.value = [].slice.call(et.children).map(function(e) { return e.textContent; }).join('\n');
+  editor.value = show(ec);
   editor.onchange = function() {
-    var readCell = function(c) { var pn = parseInt(c); return (!isNaN(pn))? pn : c; };
-    opRecorded = editor.value.split('\n').map(function(t) { return t.split(' ').map(readCell); });
+    on_read(editor.value);
     editor.remove();
-    for (var i=0; i<opRecorded.length; i++) {
-      if (et.children.length < i+1) { et.appendChild(createHElem("li")); }
-      et.children[i].textContent = opRecorded[i].join(' ');
-    }
-    et.hidden = false;
+    ec.hidden = false;
   };
-  et.parentNode.insertBefore(editor, et);
-  et.hidden = true;
+  ec.parentNode.insertBefore(editor, ec);
+  ec.hidden = true;
 };
 
 //eNum#get_valueAsNumber, reprShow
