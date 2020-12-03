@@ -52,9 +52,8 @@ for (var i=0; i<3+1; i++) {
 
 var refAcc = [0], refOperand = [0];
 var refNum = refAcc;
-var mode = "=", state=0, deftRedo=null; // operator and read state
-/*-N means redo active (on deft), N means use as default*/
-var stack = [];
+var mode = "=", state=0, isDegreeUnit=false; // operator and read state
+var stack = [], deftRedo=null/*-N means goto, N means do on res*/;
 var opRecord = null; var opRecorded = [];
 
 eNum.onchange = function() { refNum[0] = eNum.reprAsNumber; };
@@ -68,8 +67,8 @@ eNumPad.onclick = function(ev) {
   } else if (evt.title != "op") { refNum[0] = refNum[0]*10 + (evt.textContent-'0'); }
   eNum.value = reprShow(refNum[0]);
 };
-"+ - * / id -@ % ** ~logN ~ln ~sin ~cos ~tan abs floor ceil round trunc rand INV DEGRAD RECO Redo DRedoIf Push Pop Shift Length Nth Plot".split(' ').forEach(function(oper, i) {
-  var hasInv = oper.startsWith('~');
+"+ - * / id -@ % ** ~logN ~ln ~sin ~cos ~tan abs floor ceil round trunc rand INV DEGRAD RECO Redo DRedoIf DGotoIf Push Pop Shift Length Nth Plot Breakpoint".split(' ').forEach(function(oper, i) {
+  var hasInv = oper.startsWith('~'); // TODO: add bi-direction map for inv ops text maybe?
   var eOper = createHElem("button", {
     title: "op", // added ops
     textContent: hasInv? oper.substr(1) : oper,
@@ -84,19 +83,43 @@ function putsStack(is_dec) {
   eStack.textContent = stack.join(',');;
   if (is_dec) { eNum.value = reprShow(refAcc[0]); }
 }
+Math.radians = function(deg) { return deg*Math.PI/180; }
+Math.degrees = function(deg) { return deg*180/Math.PI; }
+
+function compose(g, f) {
+  return function h(x) { return g(f(x)); };
+}
 function onUpdate() { // state-machine with accumulator, un/bin-ary per operate based.
   var mapNum = function(f) { refNum[0] = f(refNum[0]); };
+  var rad = function(angle) { return isDegreeUnit? Math.radians(angle) : angle; };
+  var deg = function(angle) { return isDegreeUnit? Math.degrees(angle) : angle; };
   if (opRecord!=null && state!=1 && mode!="RECO") { // also for bin-ops
     opRecord.push(mode); if (mode=="id") opRecord.push(refAcc[0]);
   }
   switch (mode) { // unary
   case 'id'/*identity,itself*/: return;
-  case '-@': mapNum((n) => -n); return;
+  case '-@': mapNum(n => -n); return;
+  case "DGotoIf":
+    if (deftRedo==null) { alert("Default-GotoIF requires deftRedo set"); return; }
+    if (refAcc[0] != 0) deftRedo = -(deftRedo +1);
+    return;
+  case "Redo":
+    var no = refAcc[0];
+    if (no < 0) { deftRedo = (-no) -1; }
+    else { redoRecorded(no); }
+    return;
+  case "DRedoIf":
+    if (deftRedo==null) { alert("Default-RedoIF requires deftRedo set with `id -Nth Redo`"); return; }
+    if (refAcc[0] != 0) redoRecorded(deftRedo);
+    return;
+  case "Push": stack.push(refAcc[0]); putsStack(false); return;
+  case "Pop": refAcc[0] = stack.pop()||0; putsStack(true); return;
+  case "Shift": refAcc[0] = stack.shift()||0; putsStack(true); return;
   case 'sin': case 'cos': case 'tan':
-    mapNum(Math[mode]);
+    mapNum(compose(Math[mode], rad));
     return;
   case '~sin': case '~cos': case '~tan':
-    mapNum(Math[mode.replace('~', 'a')]);
+    mapNum(compose(deg, Math[mode.replace('~', 'a')]));
     return;
   case 'abs': mapNum(Math.abs); return;
   case 'floor': mapNum(Math.floor); return;
@@ -113,27 +136,24 @@ function onUpdate() { // state-machine with accumulator, un/bin-ary per operate 
     });
     return;
   case "DEGRAD":
-    alert("TODO: impl Degree/Radix");
+    var n = refNum[0];
+    n = isDegreeUnit? Math.radians(n) : Math.degrees(n); refNum[0] = n;
+    isDegreeUnit = !isDegreeUnit;
+    eStack.textContent = isDegreeUnit? "Degree" : "Radian";
+    eNum.value = reprShow(n);
     return;
   case  "RECO":
     if (opRecord == null) { opRecord = []; }
     else { opRecorded.push(opRecord); eRecords.appendChild(createHElem("li", {textContent: opRecord.join(" ")})); opRecord = null; }
     return;
-  case "Redo":
-    var no = refAcc[0];
-    if (no < 0) { deftRedo = (-no) -1; }
-    else { redoRecorded(no); }
-    return;
-  case "DRedoIf":
-    if (deftRedo==null) { alert("Default-RedoIF requires deftRedo set with `id -Nth Redo`"); return; }
-    if (refAcc[0] != 0) redoRecorded(deftRedo);
-    return;
-  case "Push": stack.push(refAcc[0]); putsStack(false); return;
-  case "Pop": refAcc[0] = stack.pop()||0; putsStack(true); return;
-  case "Shift": refAcc[0] = stack.shift()||0; putsStack(true); return;
   case "Length": refAcc[0] = stack.length; return;
   case "Nth": refAcc[0] = stack[refAcc[0]]; return;
   case "Plot": alert("TODO: impl with echar.js"); return;
+  case "Breakpoint":
+    var str = "redo#"+deftRedo+",acc="+refAcc+",operand="+refOperand;
+    str+=",#stk="+stack.length+",mode"+mode+",state"+state; // too bad..
+    alert(str); console.log((new Error).stack);
+    return;
   }
   if (state==0) { state=1; ePrefix.textContent = reprShow(refAcc[0])+mode; refOperand[0]=0; refNum=refOperand; return; } //< show oper req pad.
   if (state==1&&opRecord!=null) { opRecord.push(refOperand[0]); }
@@ -150,7 +170,7 @@ function onUpdate() { // state-machine with accumulator, un/bin-ary per operate 
   }
   state=0; mode = '='; ePrefix.textContent = ""; // reset to normal
   refNum = refAcc;
-  if (deftRedo!=null) { redoRecorded(deftRedo); }
+  if (deftRedo!=null&&deftRedo>=0) { redoRecorded(deftRedo); }
 }
 function redoRecorded(no) { // root of all evil (joke
   no = Math.floor(no);
@@ -159,11 +179,17 @@ function redoRecorded(no) { // root of all evil (joke
   for (var i=0; i<record.length; i++) {
     var cmd = record[i];
     if (cmd == "id") { i++; var t = record[i]; refAcc[0] = (t=="-Nth")? -(no +1) : t; continue; }
+    var oldDeft = deftRedo; //enclosed
     mode = cmd; onUpdate();
-    var oldDeft = deftRedo;
-    if (state==1) { i++; refOperand[0] = record[i]; deftRedo=null; onUpdate(); deftRedo=oldDeft; }
+    if (deftRedo<0) { record = opRecorded[(-deftRedo) -1]; i = 0; deftRedo=oldDeft; continue; } //perf-critical
+    if (state==1) {
+      i++; refOperand[0] = record[i]; deftRedo=null;
+      onUpdate(); if (deftRedo<0) { record = opRecorded[(-deftRedo) -1]; i = 0; }
+      deftRedo=oldDeft;
+    }
   }
 }
+
 function readIntMaybe(c) { var pn = parseInt(c); return (!isNaN(pn))? pn : c; };
 eRecords.onclick = function() { createTextReprEditor(eRecords, function(ec) {
   return Array.prototype.slice.call(ec.children).map(function(e) { return e.textContent; }).join('\n');
@@ -214,5 +240,12 @@ function createTextReprEditor(ec, show, on_read) { // editor
   eSelRepr.onchange = op; op();
 })();
 eNum.dispatchEvent(new Event("change"));
+
+(function(s) { // TODO: switch to regexp-parse as map & call TextReprEditor ?
+  if (s == "") return;
+  opRecorded.push(s.split(",").map(readIntMaybe)); //special
+  eRecords.appendChild(createHElem("li", {textContent: opRecorded[0].join(" ")}));
+  refAcc[0]=0; mode="Redo"; onUpdate(); eNum.value = reprShow(refNum[0]); // TODO improv. reuse
+})(window.location.search.substr(1));
 </script>
 </body>
