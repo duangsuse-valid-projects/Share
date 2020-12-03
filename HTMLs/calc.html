@@ -1,0 +1,203 @@
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>计算器</title>
+</head>
+<body>
+<div class="calculator">
+  <label id="prefix" for="num"></label><input id="num" type="number" value="0"/><!-- 上次结果数字 -->
+  <select id="select-repr">
+    <option>Decimal (10)</option>
+    <option>Hex (16)</option>
+    <option>Binary (2)</option>
+    <option>Octal (8)</option>
+    <option>Slide in Bounds...</option>
+  </select>
+  <span id="fmt-stack"></span>
+  <div>
+  <table id="numPad"><!-- 0~9 --></table>
+  <il id="list-record"></il>
+  </div>
+</div>
+<script>
+function helem(id) { return document.getElementById(id); }
+function createHElem(tag, attrs) {
+  var e = document.createElement(tag);
+  if (attrs!=undefined) for (var k in attrs) e[k] = attrs[k];
+  return e;
+}
+var ePrefix = helem("prefix");
+var eNumPad = helem("numPad");
+var eNum = helem("num");
+var eSelRepr = helem("select-repr");
+var eRecords = helem("list-record");
+var eStack = helem("fmt-stack");
+
+for (var i=0; i<3+1; i++) {
+  var row = createHElem("tr");
+  for (var j=0; j<3; j++) {
+    var col = createHElem("td");
+    col.appendChild(createHElem("button", {textContent: String(i*3+j + 1/*firstBtn=1*/)}));
+    row.appendChild(col);
+  }
+  eNumPad.appendChild(row);
+}
+(function (op) {
+  op(3, 0, 'x'); op(3, 1, '0', "zero"); op(3, 2, '=');
+})(function(i, j, text, title) {
+  if (title == undefined) title = "calc";
+  var e = eNumPad.children[i].children[j].firstChild;
+  e.textContent = text; e.title = title;
+});
+
+var refAcc = [0], refOperand = [0];
+var refNum = refAcc;
+var mode = "=", state=0, deftRedo=null; // operator and read state
+var stack = [];
+var opRecord = null; var opRecorded = [];
+
+eNum.onchange = function() { refNum[0] = eNum.reprAsNumber; };
+eNumPad.onclick = function(ev) {
+  var evt = ev.target;
+  if (evt.tagName != "BUTTON") return;
+  if (evt.title == "calc") {
+    var evtt = evt.textContent;
+    if (evtt == 'x') { refNum[0] = Math.floor(refNum[0] / 10); }
+    else if (evtt == '=') { onUpdate(); }
+  } else if (evt.title != "op") { refNum[0] = refNum[0]*10 + (evt.textContent-'0'); }
+  eNum.value = reprShow(refNum[0]);
+};
+"+ - * / id -@ % ** ~logN ~ln ~sin ~cos ~tan abs floor ceil round trunc rand INV DEGRAD RECO Redo DRedoIf Push Pop Shift Length".split(' ').forEach(function(oper, i) {
+  var hasInv = oper.startsWith('~');
+  var eOper = createHElem("button", {
+    title: "op", // added ops
+    textContent: hasInv? oper.substr(1) : oper,
+    onclick: function(ev) { if (state==1) onUpdate()/*chain feat*/; mode = ev.target.textContent; onUpdate(); eNum.value = reprShow(refNum[0]); }
+  });
+  if (hasInv) { eOper.classList.add("inversabe"); }
+  var es = eNumPad.children;
+  es[i%es.length].appendChild(eOper);
+});
+
+function putsStack(is_dec) {
+  eStack.textContent = stack.join(", ");
+  if (is_dec) { eNum.value = reprShow(refAcc[0]); }
+}
+function onUpdate() { // state-machine with accumulator, un/bin-ary per operate based.
+  var mapNum = function(f) { refNum[0] = f(refNum[0]); };
+  if (opRecord!=null && state!=1 && mode!="RECO") { // also for bin-ops
+    opRecord.push(mode); if (mode=="id") opRecord.push(refAcc[0]);
+  }
+  switch (mode) { // unary
+  case 'id'/*identity,itself*/: return;
+  case '-@': mapNum((n) => -n); return;
+  case 'sin': case 'cos': case 'tan':
+    mapNum(Math[mode]);
+    return;
+  case '~sin': case '~cos': case '~tan':
+    mapNum(Math[mode.replace('~', 'a')]);
+    return;
+  case 'abs': mapNum(Math.abs); return;
+  case 'floor': mapNum(Math.floor); return;
+  case 'ceil': mapNum(Math.ceil); return;
+  case 'round': mapNum(Math.round); return;
+  case 'trunc': mapNum(Math.trunc); return;
+  case 'rand': refNum[0] = Math.random(); return;
+  case 'ln': mapNum(Math.log); return;
+  case '~ln': mapNum((n) => Math.E**n); return;
+  case "INV":
+    eNumPad.querySelectorAll(".inversabe").forEach(function (e) {
+      var s = e.textContent;
+      e.textContent = (s.startsWith('~'))? s.substr(1) : '~'+s;
+    });
+    return;
+  case "DEGRAD":
+    return;
+  case  "RECO":
+    if (opRecord == null) { opRecord = []; }
+    else { opRecorded.push(opRecord); eRecords.appendChild(createHElem("li", {textContent: opRecord.join(" ")})); opRecord = null; }
+    return;
+  case "Redo":
+    var no = refAcc[0];
+    if (no < 0) { deftRedo = (-no) -1; }
+    else { redoRecorded(no); }
+    return;
+  case "DRedoIf":
+    if (deftRedo==null) { alert("Default-RedoIF requires deftRedo set with `id -Nth Redo`"); return; }
+    if (refAcc[0] != 0) redoRecorded(deftRedo);
+    return;
+  case "Push": stack.push(refAcc[0]); putsStack(false); return;
+  case "Pop": refAcc[0] = stack.pop()||0; putsStack(true); return;
+  case "Shift": refAcc[0] = stack.shift()||0; putsStack(true); return;
+  case "Length": refAcc[0] = stack.length; return;
+  }
+  if (state==0) { state=1; ePrefix.textContent = reprShow(refAcc[0])+mode; refOperand[0]=0; refNum=refOperand; return; } //< show oper req pad.
+  if (state==1&&opRecord!=null) { opRecord.push(refOperand[0]); }
+  var assign = function(op) { refAcc[0] = op(refAcc[0], refOperand[0]); };
+  switch (mode) { // binary
+  case '+': assign((a, b) => a+b); break; // TODO rewrite to ops[mode]; (and it's easy)
+  case '-': assign((a, b) => a-b); break;
+  case '*': assign((a, b) => a*b); break;
+  case '/': assign((a, b) => a/b); break;
+  case '%': assign((a, b) => a%b); break;
+  case '**': assign((a, b) => a**b); break;
+  case 'logN': assign((a, b) => Math.log(b, a)); break;
+  case '~logN': assign((c, b) => c**b); break;
+  }
+  state=0; mode = '='; ePrefix.textContent = ""; // reset to normal
+  refNum = refAcc;
+  if (deftRedo!=null) { redoRecorded(deftRedo); }
+}
+function redoRecorded(no) {
+  no = Math.floor(no);
+  if (no >= opRecorded.length) { alert("op "+String(no)+" is not recorded yet"); return; }
+  var record = opRecorded[no];
+  for (var i=0; i<record.length; i++) {
+    var cmd = record[i];
+    if (cmd == "id") { i++; var t = record[i]; refAcc[0] = (t=="-Nth")? -(no +1) : t; continue; }
+    mode = cmd; onUpdate();
+    var oldDeft = deftRedo;
+    if (state==1) { i++; refOperand[0] = record[i]; deftRedo=null; onUpdate(); deftRedo=oldDeft; }
+  }
+}
+eRecords.onclick = function() { // editor
+  var et = eRecords;
+  var editor = createHElem("textarea", {placeholder: "Edit code by line..."});
+  editor.value = [].slice.call(et.children).map(function(e) { return e.textContent; }).join('\n');
+  editor.onchange = function() {
+    var readCell = function(c) { var pn = parseInt(c); return (!isNaN(pn))? pn : c; };
+    opRecorded = editor.value.split('\n').map(function(t) { return t.split(' ').map(readCell); });
+    editor.remove();
+    for (var i=0; i<opRecorded.length; i++) {
+      if (et.children.length < i+1) { et.appendChild(createHElem("li")); }
+      et.children[i].textContent = opRecorded[i].join(' ');
+    }
+    et.hidden = false;
+  };
+  et.parentNode.insertBefore(editor, et);
+  et.hidden = true;
+};
+
+//eNum#get_valueAsNumber, reprShow
+(function() {
+  var aryBase = [10, 16, 2, 8];
+  var base = aryBase[eSelRepr.selectedIndex]; //enclosed
+  window.reprShow = function(n) { return n.toString(base); }
+  Object.defineProperty(eNum, "reprAsNumber", { get: function() { return parseInt(eNum.value, base); } });
+  var op = (function() {
+    var iSel = eSelRepr.selectedIndex;
+    if (0 <= iSel&&iSel <= 3) {
+      var vNum = eNum.reprAsNumber;
+      eNum.type = "number"; eNum.max = "";
+      base = aryBase[iSel];
+      eNum.value = reprShow(vNum);
+    } else if (iSel == 4) {
+      eNum.type = "range";
+      eNum.max = refNum[0];
+    }
+  });
+  eSelRepr.onchange = op; op();
+})();
+eNum.dispatchEvent(new Event("change"));
+</script>
+</body>
