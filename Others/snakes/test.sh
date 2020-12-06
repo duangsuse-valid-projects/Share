@@ -1,3 +1,3 @@
-clang -fsanitize=address -lncurses short_snake.c -g
-./a.out 2>a
+clang -fsanitize=address -g short_snake.c -lncurses
+gdb -ex run ./a.out 2>a
 cat a

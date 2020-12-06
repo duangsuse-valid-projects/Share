@@ -30,7 +30,7 @@ std::queue<int> que;
 #endif
 const char* style[3] = {"  ", "[]", "()"}; int nBlk=2;
 
-bool isZeroOr(int n, int x) { return (n%x) == 0; }
+bool isZeroOr(int n, int x) { return (x%n) == 0; }
 int randP() { int pt; do { pt = rand()%nM; } while (m[pt]!=0); return pt; }
 void printp(int p, const char* s) { gotoYX(p/w, p%w*nBlk); printf("%s", s); }
 

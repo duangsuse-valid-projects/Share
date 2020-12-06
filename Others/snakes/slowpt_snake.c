@@ -20,7 +20,7 @@ void printp(int p, const char* s) {
   printf("%s", s);
 }
 int randP() { int pt; do { pt = rand()%nM; } while (m[pt]!=0); return pt; }
-#define isZeroOr(n, x) ((n%x) == 0)
+#define isZeroOr(n, x) ((x%n) == 0)
 
 int main(void) {
   srand(time(NULL));
