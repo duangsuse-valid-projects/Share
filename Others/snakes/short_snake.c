@@ -11,7 +11,9 @@
 #define KEY_QUIT 'q'
 #define DIV_PAD_MESSAGE 4
 #define PAD_MENU 2
+#define N_MAX_NAMECHAR 15
 #define inlined static inline
+#define panic(msg) do { endwin(); fprintf(stderr, "panic: %d %s: %s\n", __LINE__, __FUNCTION__, msg); exit(EXIT_FAILURE); } while (0)
 
 char** reallocStrsFirstCharTest(bool (*p)(char), int argc, char** argv) {
   size_t sz = sizeof(char*) * argc;
@@ -43,12 +45,13 @@ const int
   NO_WALLS=0x1,
   USE_AI_L2=0x10,
   NO_RESET=0x20,
-  USE_DELAY=0x40;
+  USE_DELAY=0x40,
+  USE_SPEED2=0x80;
 const int SNK_PAUSE=0x1, SNK_AI=0x2, SNK_NO_LENDEC=0x4, SNK_TRANSWALL=0x8;
-const int ARY_FLAG[] = {-1, 0x20, 0x4, 0x8, 0x1, 0x1, /*1more,rev*/-1, -1, 0x10, -1, -1, -1, -1};
+const int ARY_FLAG[] = {-1, 0x20, 0x4, 0x8, 0x1, 0x1, /*1more,rev*/-1, -1, 0x10, 0x80, -1, -1, -1, -1, -1};
 char* TEXT_MENU_PAUSE[] = {"|> resume game", "+no reset",
   "-?len decrement", "+?transport wall", "+?pause snake", "-walls (adds reset&bug)",
-  "one more fruit", "reverse snake", "+AI level 2", "add AI player", "add Human player", "switch delay", "view next..."};
+  "one more fruit", "reverse snake", "+AI level 2", "+extra speed", "add AI player", "add Human player", "switch delay", "view next..."};
 const int nTextMenuPause = sizeof(TEXT_MENU_PAUSE)/sizeof(char*);
 
 bool isPosNegSign(char c) {  return c=='+' || c=='-'; }
@@ -59,16 +62,18 @@ typedef struct SnakeST {
   map2D cells; int iHead, iTail, dCycle; // snake body FIFO queue
   int p, d; int flags, nLifes; // pos, "dir"ection, state...
   char* name;
+  int kU, kD, kL, kR; // key binds
   struct SnakeST* prev;
 }* Snake;
 map2D m; Snake snakez = NULL;
 useconds_t delayUsec;
+double speed2Ratio;
 
 inlined int pYX(int y, int x) { return y*w+x; } // axis representation.
 inlined void yxP(int p, int* y, int* x) { *y=p/w, *x=p%w; }
 inlined int cycledInc(int* p, int dCycle) { *p = (*p==0&&dCycle==-1)? nM-1 : (*p+dCycle) % nM; return *p; }
 
-int nSnakeLifes, nAISnake;
+int nSnakeLifes, nAISnake = 0;
 void snakeInit(Snake self) {
   self->iHead = 0, self->iTail = 0, self->dCycle = 1;
   self->d = 1; self->flags = 0; self->nLifes = nSnakeLifes;
@@ -82,15 +87,19 @@ void init(int m_w, int m_h, int dt) {
   nM = w*h; delayUsec = dt*1000;
   m = malloc(sizeof(int)*nM);
   textMenuPause = reallocStrsFirstCharTest(isPosNegSign, nTextMenuPause, TEXT_MENU_PAUSE);
-  nAISnake = 0;
+}
+
+WINDOW* uiMenuWindow(char* title) {
+  int hh=h/2, hw=w*nBlk/2;
+  WINDOW* wMenu = newwin(hh, hw, hh-hh/2, hw-hw/2);
+  keypad(wMenu, true);
+  mvwprintw(wMenu, 0, 0, title); wrefresh(wMenu); //title
+  return wMenu;
 }
 
 int dialogAskChoose(char* title, int argc, char** argv, int pad) {
-  int hh=h/2, hw=w*nBlk/2;
-  WINDOW* wMenu = newwin(hh, hw, hh-hh/2, hw-hw/2);
+  WINDOW* wMenu = uiMenuWindow(title);
   int highlight = 0;
-  keypad(wMenu, true);
-  mvwprintw(wMenu, 0, 0, title); wrefresh(wMenu); //title
   int y=pad;
   int ch; while ((ch = wgetch(wMenu)) != '\n') {
     highlight += (ch==KEY_UP)? -1 : (ch==KEY_DOWN)? +1 : 0;
@@ -106,6 +115,27 @@ int dialogAskChoose(char* title, int argc, char** argv, int pad) {
   }
   endwin();
   return highlight;
+}
+void dialogAskKeys(char* title, int n, int* ks) {
+  WINDOW* wMenu = uiMenuWindow(title);
+  int iCh=0; int iliKs = n -1;
+  nodelay(wMenu, false);
+  int ch; while (iCh != n) {
+    ch = wgetch(wMenu);
+    ks[iCh] = ch;
+    wprintw(wMenu, "You pressed %c (0x%x), %d key rest\n", ch, ch, iliKs-iCh);
+    iCh++;
+  }
+  wprintw(wMenu, "OK, get ready."); wgetch(wMenu);
+}
+void dialogAskInput(char* title, int n, char* s) {
+  WINDOW* wMenu = uiMenuWindow(title);
+  int y, x; getyx(wMenu, y, x);
+  y++;
+  echo();
+  int nScan; do { nScan = mvwscanw(wMenu, y, x, "%s\n", s); } while (nScan != 1);
+  if (s[n] != '\0') panic("input too long"); // TODO: how to limit scan length?
+  noecho();
 }
 int curUse(int op(WINDOW*, bool)) { return op(stdscr, true); }
 
@@ -135,19 +165,13 @@ void snakeAdd(Snake self) {
   putCell(self); // initinal len=0, or m[cells[iTail/*]==0*/]
 }
 
-#define handleDirNeg(dv, keyP, keyN) \
-  else if (ch == keyP && snk->d != dv) snk->d = -dv; \
-  else if (ch == keyN && snk->d != -dv) snk->d = dv;
 typedef enum { updOk=0, updRegame, updDie } UpdateRes;
-int /*act*/act=0; //bad, no idea to refactor in C99.
+int /*menu-action*/act=0; //bad, no idea to refactor in C99.
 inlined UpdateRes handleUpdate(int ch, int* flags, Snake snk) {
   int y, x;
   bool noDec=(snk->flags&SNK_NO_LENDEC), useTWall=(snk->flags&SNK_TRANSWALL);
-  if (ch == ERR) {}
-  handleDirNeg(w, KEY_UP, KEY_DOWN)
-  handleDirNeg(1, KEY_LEFT, KEY_RIGHT)
-  else if (ch == KEY_PAUSE) {
-    char* sTitle; Snake snk1; // add-player
+  if (ch == KEY_PAUSE) {
+    char* sTitle; Snake snk1; char* sName; // add-player
 retoast:
     for (int i=0; i<nTextMenuPause; i++) { // snake menu optoins
       char* ptrT = textMenuPause[i];
@@ -157,7 +181,7 @@ retoast:
     }
     asprintf(&sTitle, "Paused on \"%s\" (%d) ;0x%x", snk->name, snk->nLifes, snk->flags);
     act = dialogAskChoose(sTitle, nTextMenuPause, textMenuPause, PAD_MENU);
-    free(sTitle);
+    free(sTitle); // NOTE: this menu could be extracted (map its res updDie -> do nothing; else return res), but here, we keep it.
 rehandle:
     if (act == 0) return updOk;
     else if (ARY_FLAG[act] == -1) switch (act) { // menu actions
@@ -170,32 +194,44 @@ rehandle:
       putCell(snk); snk->d = negD;
       swapInt(&snk->iHead, &snk->iTail); snk->dCycle = -snk->dCycle;
       return updOk; // NOTE: not tested
-    case 9:
+    case 10:
       snk1 = malloc(sizeof(struct SnakeST));
       snakeInit(snk1);
       snk1->p = randP(); snk1->flags |= SNK_AI;
-      nAISnake++;
-      char* sName; asprintf(&sName, "AI#%d", nAISnake);
+      snk1->kU = 'i', snk1->kD = 'k', snk1->kL = 'j', snk1->kR = 'l'; // ai force control.
+      if (sName != NULL) sName = NULL;
+      nAISnake++; asprintf(&sName, "AI#%d", nAISnake);
       snk1->name = sName;
       snakeAdd(snk1);
-      return updRegame;
-    case 10:
-      return updOk;
+      return updRegame; // could be overridden.
     case 11:
+      snk1 = malloc(sizeof(struct SnakeST)); // I've already missed you C++
+      snakeInit(snk1);
+      snk1->p = randP();
+      sName = malloc(N_MAX_NAMECHAR+1); sName[N_MAX_NAMECHAR] = 0;
+      dialogAskInput("Please type your name\n", N_MAX_NAMECHAR, sName);
+      int ks[4]; dialogAskKeys("Now select your move keys (Up,Down,Left,Right)\n", 4, ks);
+      snk1->name = sName;
+      snk1->kU = ks[0], snk1->kD = ks[1], snk1->kL = ks[2], snk1->kR = ks[3];
+      snakeAdd(snk1);
+      return updRegame;
+    case 12:
       *flags ^= USE_DELAY;
       nodelay(stdscr, !(*flags&USE_DELAY));
       return updOk;
-    case 12:
+    case 13:
       snk = (snk->prev != NULL)? snk->prev : snakez;
       goto retoast;
     } else {
       char* ptrT = textMenuPause[act]; // switcher.
       int fl = ARY_FLAG[act];
-      int oldFlags = snk->flags;
+      int oldFlags = *flags, oldSnkFlags = snk->flags;
       if (ptrT[1] == '?') { snk->flags ^= fl; }
       else { *flags = *flags ^ fl; ptrT[0] = (ptrT[0] == '+')? '-'  : '+'; }
       if (*flags&NO_WALLS) memset(m, 0, sizeof(int)*nM); //v flag on-update
-      if ((oldFlags&SNK_PAUSE) && (snk->flags&~SNK_PAUSE) && snakeIsEmpty(snk)) { snk->p = randP(); putCell(snk); } // relive logic
+      if ((oldSnkFlags&SNK_PAUSE) && !(snk->flags&SNK_PAUSE) && snakeIsEmpty(snk)) { snk->p = randP(); putCell(snk); } // relive logic
+      bool useSpeed2 = (*flags&USE_SPEED2);
+      if (useSpeed2 != (oldFlags&USE_SPEED2)) { delayUsec = (useconds_t) delayUsec * (useSpeed2? 1.0/speed2Ratio : speed2Ratio); } // speed2 logic
     }
     return updRegame;
   } else if (ch == KEY_F(2)) { goto rehandle; } //key 'p'
@@ -213,7 +249,6 @@ rehandle:
   putCell(snk);
   return updOk;
 }
-#undef handleDirNeg
 
 cstr envOr(cstr s, mutCstr name) {
   cstr res = getenv(name);
@@ -227,6 +262,9 @@ int ienvOr(int n, mutCstr name) {
   return (ptrEnd != res)?  parsed : n;
 }
 
+#define handleDirNeg(dv, keyP, keyN) \
+  else if (ch == keyP && snk->d != dv) snk->d = -dv; \
+  else if (ch == keyN && snk->d != -dv) snk->d = dv;
 #define NO_MORE (nUpdated == 0 && snk->prev == NULL)
 #define freeMsg() if (message != NULL) free(message)
 void game(cstr style[], int flags) {
@@ -234,10 +272,12 @@ void game(cstr style[], int flags) {
   int ntMessage = ienvOr(24, "ntMessage");
   char* message=NULL; int dtMessage = ntMessage;
   int pMid = pYX(h/2, w/2);
-  struct SnakeST msnk;
-  msnk.p = pMid;
   char* sName; asprintf(&sName, "%s", envOr("Python", "mainSnakeName"));
-  msnk.name = sName;
+  struct SnakeST msnk = {
+    .p = pMid, .name = sName,
+    .kU = KEY_UP, .kD = KEY_DOWN,
+    .kL = KEY_LEFT, .kR = KEY_RIGHT
+  };
   snakeInit(&msnk); snakeAdd(&msnk); // let me clarify: Python is NOT a snake!
   Snake snk = snakez;
   int ch, y,x, nUpdated;
@@ -251,6 +291,9 @@ regame:
     UpdateRes res; nUpdated = 0;
     do { // snakes update loop
       if (!(snk->flags&SNK_PAUSE)) {
+        if (ch == ERR) {}
+        handleDirNeg(w, snk->kU, snk->kD)
+        handleDirNeg(1, snk->kL, snk->kR)
         res = handleUpdate(ch, &flags, snk); nUpdated++;
         if (ch == KEY_PAUSE) ch = ' '/*ignore 'p' for rest*/;
       } else if (NO_MORE) {
@@ -282,6 +325,7 @@ gameover:
   snk = snakez; while (snk->prev != NULL) { Snake prev = snk->prev; snakeFree(snk); free(snk); snk = prev; }
   snakeFree(&msnk);
 }
+#undef handleDirNeg
 #undef NO_MORE
 #undef freeMsg
 
@@ -291,6 +335,17 @@ void envBool(int* flags, mutCstr name, int flag) {
   bool use = (res != NULL)? (strcmp(res, "no") != 0) : false;
   if (use) *flags = *flags | flag;
 }
+void assignDefaultCoord() {
+  int mxRow, mxCol=0; char* sNum;
+  getmaxyx(stdscr, mxRow, mxCol); // FIXME: why ncol too big sometimes?
+  struct { const char* name; int dval; } cfg[] = { {"nrow", mxRow}, {"ncol", mxCol} };
+  for (int i=0; i<2; i++) {
+    const char* res = getenv(cfg[i].name);
+    if (res == NULL || strcmp(res, "?") != 0) continue;
+    asprintf(&sNum, "%d", cfg[i].dval);
+    setenv(cfg[i].name, sNum, true);
+  }
+}
 int main(void) {
   setlocale(LC_ALL, ""); //non-ISO chars
   srand(time(NULL));
@@ -298,7 +353,9 @@ int main(void) {
   nBlk = strlen(deftStyle[0]);
   int fl = 0; envBool(&fl, "noWalls", NO_WALLS); envBool(&fl, "useAI2", USE_AI_L2);
   nSnakeLifes = ienvOr(3, "nSnakeLifes"); //v init libs&game
+  speed2Ratio = (double)ienvOr(200, "speed2Ratio") / 100;
   initscr(); curs_set(0/*invisible*/);
+  assignDefaultCoord(); // nrow=? ncol=?
   init(ienvOr(30, "ncol"), ienvOr(35, "nrow"), ienvOr(100, "dt_ms")); game(deftStyle, fl);
   freeStrsFirstCharTest(isPosNegSign, nTextMenuPause, textMenuPause); free(m);
   nodelay(stdscr, false); getch(); // NOTE: use vertical-dt_ms?
