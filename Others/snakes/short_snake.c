@@ -60,7 +60,7 @@ int w, h, nM, nBlk;
 typedef int* map2D;
 typedef struct SnakeST {
   map2D cells; int iHead, iTail, dCycle; // snake body FIFO queue
-  int p, d; int flags, nLifes; // pos, "dir"ection, state...
+  int p, d; int flags, nLifes, nScore; // pos, "dir"ection, state...
   char* name;
   int kU, kD, kL, kR; // key binds
   struct SnakeST* prev;
@@ -76,10 +76,36 @@ inlined int cycledInc(int* p, int dCycle) { *p = (*p==0&&dCycle==-1)? nM-1 : (*p
 int nSnakeLifes, nAISnake = 0;
 void snakeInit(Snake self) {
   self->iHead = 0, self->iTail = 0, self->dCycle = 1;
-  self->d = 1; self->flags = 0; self->nLifes = nSnakeLifes;
+  self->d = 1; self->flags = 0; self->nLifes = nSnakeLifes; self->nScore = 0;
   self->cells = malloc(sizeof(int)*nM);
 }
 void snakeFree(Snake self) { free(self->name); free(self->cells); }
+
+#define PARAMS_SNAKE(h) h o->nScore, o->name, h o->nLifes, h o->flags, h o->p, h o->d
+const char FMT_SNAKE[] = "%d %s (%d) ;0x%x %d %d"; // score, name, life, flags, p, d; dCycle/iHead/iTail is not for serialization
+void snakeWrite(Snake self, FILE* fd) {
+  Snake o = self;
+  fprintf(fd, FMT_SNAKE, PARAMS_SNAKE());
+  fprintf(fd, "\n");
+}
+void snakeRead(Snake self, FILE* fd) {
+  Snake o = self;
+  int nRecord = fscanf(fd, FMT_SNAKE, PARAMS_SNAKE(&));
+  if (nRecord == EOF) { nRecord = 0; }
+  const char sUnkSnk[] = "!!unknown";
+  switch (nRecord) { //fallthru
+    case 0: o->nScore = 0;
+    case 1: sprintf(o->name, sUnkSnk); o->name[sizeof(sUnkSnk)] = '\0'; // anonymous snake
+    case 2: o->nLifes = nSnakeLifes;
+    case 3: o->flags = 0;
+    case 4: o->p = 0;
+    case 5: o->d = 0;
+  }
+  o->iHead = 0, o->iTail = 0, o->dCycle = 1;
+  self->cells = malloc(sizeof(int)*nM);
+  do {} while (!feof(fd) && fgetc(fd) != '\n');
+}
+#undef PARAMS_SNAKE
 
 char** textMenuPause; // mutable
 void init(int m_w, int m_h, int dt) {
@@ -139,16 +165,18 @@ void dialogAskInput(char* title, int n, char* s) {
 }
 int curUse(int op(WINDOW*, bool)) { return op(stdscr, true); }
 
-inlined int snakePtrInc(Snake self, int position)/*cyclic ring buffer*/ { return cycledInc((position==0)? &self->iHead : &self->iTail, self->dCycle); }
-int snakeLen(Snake self) { return (self->iTail - self->iHead)*self->dCycle; }
-inlined bool snakeIsEmpty(Snake self) { return self->iTail == self->iHead; }
-
-int randP() { int pA; do { pA = rand()%nM; } while (m[pA] != 0); return pA; }
+int randP() { int pA; do { pA = rand()%nM; } while (m[pA] != 0); return pA; } // NOTE: a joke: may get stuck when your snake fills the map ;-)
 int dirPCmp(int p0, int p1) { // how can p1 reach p0?
   int d = p0 - p1;
   if (abs(d) == 1) return d;
   else return (d < 0)?  -w : w; // NOTE: not tested
 }
+
+inlined int snakePtrInc(Snake self, int position)/*cyclic ring buffer*/ { return cycledInc((position==0)? &self->iHead : &self->iTail, self->dCycle); }
+int snakeLen(Snake self) { return (self->iHead - self->iTail)*self->dCycle; }
+inlined bool snakeIsEmpty(Snake self) { return self->iTail == self->iHead; }
+int snakeTailDir(Snake self) { return (snakeLen(self) == 1)?  -self->d : dirPCmp(self->p, self->cells[self->iTail+self->dCycle/*newP*/]); }
+
 void putWall() {
   int y, x;
   for (int i=0; i<nM; i++) { yxP(i, &y, &x); m[i] = (isZeroOr(w-1, x) || isZeroOr(h-1, y))? 3 : 0; }
@@ -160,9 +188,11 @@ inlined void putCell(Snake snk) {
 inlined void snakeDec(Snake self) {
   m[self->cells[snakePtrInc(self, 1)]] = 0;
 }
+FILE* fdMaxScores;
 void snakeAdd(Snake self) {
   self->prev = snakez; snakez = self;
   putCell(self); // initinal len=0, or m[cells[iTail/*]==0*/]
+  if (fdMaxScores != NULL) snakeWrite(self, fdMaxScores);
 }
 
 typedef enum { updOk=0, updRegame, updDie } UpdateRes;
@@ -179,7 +209,7 @@ retoast:
       bool pd/*isActive*/ = (snk->flags&ARY_FLAG[i]);
       ptrT[0] = ((TEXT_MENU_PAUSE[i][0] == '-')? !pd : pd)? '-' : '+';
     }
-    asprintf(&sTitle, "Paused on \"%s\" (%d) ;0x%x", snk->name, snk->nLifes, snk->flags);
+    asprintf(&sTitle, "Paused on %d \"%s\" (%d) ;0x%x", snk->nScore, snk->name, snk->nLifes, snk->flags);
     act = dialogAskChoose(sTitle, nTextMenuPause, textMenuPause, PAD_MENU);
     free(sTitle); // NOTE: this menu could be extracted (map its res updDie -> do nothing; else return res), but here, we keep it.
 rehandle:
@@ -190,8 +220,7 @@ rehandle:
       break;
     case 7:
       snk->p = snk->cells[snakePtrInc(snk, 1)];
-      int negD = (snakeLen(snk) == 1)?  -snk->d : dirPCmp(snk->p, snk->cells[snk->iTail+snk->dCycle/*newP*/]);
-      putCell(snk); snk->d = negD;
+      putCell(snk); snk->d = snakeTailDir(snk); // reverse snake logic
       swapInt(&snk->iHead, &snk->iTail); snk->dCycle = -snk->dCycle;
       return updOk; // NOTE: not tested
     case 10:
@@ -203,7 +232,7 @@ rehandle:
       nAISnake++; asprintf(&sName, "AI#%d", nAISnake);
       snk1->name = sName;
       snakeAdd(snk1);
-      return updRegame; // could be overridden.
+      return updRegame; // could be overridden (no-reset).
     case 11:
       snk1 = malloc(sizeof(struct SnakeST)); // I've already missed you C++
       snakeInit(snk1);
@@ -228,7 +257,7 @@ rehandle:
       int oldFlags = *flags, oldSnkFlags = snk->flags;
       if (ptrT[1] == '?') { snk->flags ^= fl; }
       else { *flags = *flags ^ fl; ptrT[0] = (ptrT[0] == '+')? '-'  : '+'; }
-      if (*flags&NO_WALLS) memset(m, 0, sizeof(int)*nM); //v flag on-update
+      if (*flags&NO_WALLS) memset(m, 0, sizeof(int)*nM); //<v flag on-update
       if ((oldSnkFlags&SNK_PAUSE) && !(snk->flags&SNK_PAUSE) && snakeIsEmpty(snk)) { snk->p = randP(); putCell(snk); } // relive logic
       bool useSpeed2 = (*flags&USE_SPEED2);
       if (useSpeed2 != (oldFlags&USE_SPEED2)) { delayUsec = (useconds_t) delayUsec * (useSpeed2? 1.0/speed2Ratio : speed2Ratio); } // speed2 logic
@@ -241,7 +270,7 @@ rehandle:
     if (!useTWall) { return updDie; } // die on wall
     yxP(snk->p, &y,&x);
     int hm=h-1, wm=w-1;
-    if (isZeroOr(hm, y)) snk->p=pYX((y==0)? hm-1 : 1, x);
+    if (isZeroOr(hm, y)) snk->p=pYX((y==0)? hm-1 : 1, x); // NOTE: snk->d is also avaliable for branch condition
     else if (isZeroOr(wm, x)) snk->p=pYX(y, (x==0)? wm-1 : 1);
   }
   if (m[snk->p] == 2) { putFruit(); }
@@ -262,11 +291,27 @@ int ienvOr(int n, mutCstr name) {
   return (ptrEnd != res)?  parsed : n;
 }
 
+Snake readSnakes(FILE* fp) { // Snake list I/O scanner
+  Snake snk = NULL;
+  do {
+    Snake snk0 = snk; snk = malloc(sizeof(struct SnakeST));
+    snk->name = malloc(N_MAX_NAMECHAR+1);
+    snk->prev = snk0;
+    snakeRead(snk, fp);
+  } while (!feof(fp));
+  return snk;
+}
+void freeSnakes(Snake snakes) {
+  Snake snk = snakes;
+  while (snk->prev != NULL) { Snake prev = snk->prev; snakeFree(snk); free(snk); snk = prev; }
+}
 #define handleDirNeg(dv, keyP, keyN) \
   else if (ch == keyP && snk->d != dv) snk->d = -dv; \
   else if (ch == keyN && snk->d != -dv) snk->d = dv;
 #define NO_MORE (nUpdated == 0 && snk->prev == NULL)
 #define freeMsg() if (message != NULL) free(message)
+#define snakeForEach(snakes, name) for (Snake name = snakes; name != NULL; name = name->prev)
+FILE* fdScores;
 void game(cstr style[], int flags) {
   noecho(); curUse(nodelay); curUse(keypad); cbreak(); 
   int ntMessage = ienvOr(24, "ntMessage");
@@ -304,11 +349,22 @@ regame:
       else if (res == updDie) {
         if (NO_MORE) goto gameover;
         freeMsg(); asprintf(&message, "A snake \"%s\" just died (%d)", snk->name, snk->nLifes); // lifes.
+        snk->nScore += snakeLen(snk); // score logic
         do { snakeDec(snk); } while (!snakeIsEmpty(snk));
         if (snk->nLifes != 0) {
           snk->nLifes -= 1;
           snk->p = randP(); putCell(snk); //respawn
-        } else { snk->flags |= SNK_PAUSE; }
+        } else {
+          snk->flags |= SNK_PAUSE;
+          if (fdScores != NULL) snakeWrite(snk, fdScores);
+          if (fdMaxScores != NULL) {
+            char* sEnv; asprintf(&sEnv, "snake_%s", snk->name);
+            char* sOld = getenv(sEnv); if (sOld != NULL) free(sOld); //security:panic
+            char* sScore; asprintf(&sScore, "%d", snk->nScore);
+            setenv(sEnv, sScore, false); // NOTE: U can use hastable to prevent environ modification
+            free(sEnv);
+          }
+        } //^ snake death.
       }
     } while ((snk = snk->prev) != NULL);
     snk = snakez;
@@ -318,16 +374,41 @@ regame:
         if (dtMessage == 0) { free(message); message = NULL; dtMessage = ntMessage; } else { dtMessage--; }
     } //< msg
     refresh();
-    usleep(delayUsec);
+    usleep(delayUsec); // NOTE: sleep((t1-t0)/speed); or s->p+=d*speed*dt; or if (t1-t0 > fpus) refreshGame(); is also OK
   } //^ main loop
 gameover:
   freeMsg();
-  snk = snakez; while (snk->prev != NULL) { Snake prev = snk->prev; snakeFree(snk); free(snk); snk = prev; }
+  fflush(fdScores); fclose(fdScores);
+  // and, we can write hi-score
+  Snake maxSnakez;
+  if (fdMaxScores != NULL) {
+    fseek(fdMaxScores, 0, SEEK_SET);
+    maxSnakez = readSnakes(fdMaxScores);
+    snakeForEach(maxSnakez, maxSnake) {
+      char* sEnv1; asprintf(&sEnv1, "snake_%s", maxSnake->name);
+      char* sInt = getenv(sEnv1); //defer
+      free(sEnv1); // my gosh, alloc-free? what a mess!
+      if (sInt == NULL) continue;
+      int newScore = atoi(sInt);
+      if (newScore > maxSnake->nScore) maxSnake->nScore = newScore;
+    }
+  }
+  if (fdMaxScores != NULL) fclose(fdMaxScores);
+  fdMaxScores = fopen("snakeMaxScore.txt", "w+"); //reopen
+  if (fdMaxScores != NULL) {
+    snakeForEach(maxSnakez, snkW) { snakeWrite(snkW, fdMaxScores); snakeFree(snkW); }
+    Snake snkF = maxSnakez;
+    while (snkF->prev != NULL) { Snake prev = snkF->prev; free(snkF); snkF = prev; } free(snkF);
+  } else {
+    snakeForEach(snakez, snkW) { snakeWrite(snkW, fdMaxScores); }
+  }
+  freeSnakes(snakez);
   snakeFree(&msnk);
 }
 #undef handleDirNeg
 #undef NO_MORE
 #undef freeMsg
+#undef snakeForEach
 
 #include <locale.h>
 void envBool(int* flags, mutCstr name, int flag) {
@@ -356,8 +437,10 @@ int main(void) {
   speed2Ratio = (double)ienvOr(200, "speed2Ratio") / 100;
   initscr(); curs_set(0/*invisible*/);
   assignDefaultCoord(); // nrow=? ncol=?
+  fdScores = fopen("snakeScore.txt", "w+"), fdMaxScores = fopen("snakeMaxScore.txt", "r+");
   init(ienvOr(30, "ncol"), ienvOr(35, "nrow"), ienvOr(100, "dt_ms")); game(deftStyle, fl);
   freeStrsFirstCharTest(isPosNegSign, nTextMenuPause, textMenuPause); free(m);
   nodelay(stdscr, false); getch(); // NOTE: use vertical-dt_ms?
+  fclose(fdMaxScores);
   return endwin();
 }
