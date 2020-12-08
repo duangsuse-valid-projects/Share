@@ -355,7 +355,8 @@ regame:
         } else {
           snk->flags |= SNK_PAUSE;
           if (fdScores != NULL) snakeWrite(snk, fdScores);
-          if (fdMaxScores != NULL) snakeWrite(snk, fdMaxScores); // NOTE: max board impl. failed (no HashMap<String,Snake> algor)
+          if (fdMaxScores != NULL) { fprintf(fdMaxScores, "--\n"); snakeWrite(snk, fdMaxScores); } // NOTE: max board impl. failed (no HashMap<String,Snake> algor)
+          // NOTE: dict A+B: for (v in snks) { map[v.name] = v; } for (v in snks1) { let k=v.name; if (map[k].score < v.score) map[k] = v; }
         } //^ snake death.
       }
     } while ((snk = snk->prev) != NULL);
