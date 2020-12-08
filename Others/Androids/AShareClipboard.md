@@ -58,6 +58,95 @@ plot(lambda n: 4*n if (n<1024) else 2*n, 10240); pyplot.show()
 
 这个应用需要的权限是：完整的网络访问、剪贴板
 
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.duangsuse.ashareclipboard">
+  <uses-permission android:name="android.permission.INTERNET"/>
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+  <!-- ^ main permission -->
+  <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+  <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
+  <uses-permission android:name="android.permission.VIBRATE"/>
+
+  <receiver android:name="com.phongphan.Receivers.UsbReceiver" android:enabled="true" android:exported="true">
+    <intent-filter>
+        <action android:name="android.hardware.usb.action.USB_STATE"/>
+    </intent-filter>
+  </receiver>
+```
+
+以下是一些同类参考：
+
+```java
+package com.phongphan.Receivers;
+import android.content.BroadcastReceiver;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.content.Context;
+import android.content.Intent;
+import android.net.wifi.WifiManager;
+import android.os.Build;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
+import com.phongphan.projecttemplate.CoreApplication;
+
+public class UsbReceiver extends BroadcastReceiver {
+    public void onReceive(Context context, Intent intent) {
+        if (intent.getExtras().getBoolean("connected")) { onConnect(); }
+    }
+    private void onConnect() {
+        if (prefs.getBoolean("OPEN_SETTING")) {
+            Intent intent2 = new Intent();
+            intent2.setClassName("com.android.settings", "com.android.settings.TetherSettings");
+            intent2.addFlags(268435456);
+            context.startActivity(intent2);
+        } else if (prefs.getBoolean("OPEN_WIFI")) {
+            ((WifiManager) context.getApplicationContext().getSystemService("wifi")).setWifiEnabled(true);
+        } else if (prefs.getBoolean("VIBRATE")) {
+            Vibrator vibrator = (Vibrator) context.getSystemService("vibrator");
+            mayVibrate(vibrator, 500);
+        } else if (prefs.getBoolean("NOTIFY")) {
+            showSimpleNotification(context.getString(2131623969), "USB plugin", false, true);
+        }
+    }
+    private void mayVibrate(Vibrator vib, int ms) {
+        if (vib == null) { return; }
+        if (Build.VERSION.SDK_INT >= 26) {
+            vib.vibrate(VibrationEffect.createOneShot(ms, -1));
+        } else { vib.vibrate(ms); }
+    }
+    private void showSimpleNotification(String str, String str2, boolean is_onGoing, boolean is_autoCancel) {
+        createNotificationChannel();
+        Notification.Builder contentText = new Notification.Builder(this, CHANNEL_ID).setSmallIcon(2131558400).setContentTitle(str).setContentText(str2).setAutoCancel(is_autoCancel).setOngoing(is_onGoing).setPriority(0);
+        Intent intent = new Intent((Context) this, (Class<?>) MainActivity.class);
+        intent.setFlags(268468224);
+        contentText.setContentIntent(PendingIntent.getActivity(this, 0, intent, 0));
+        NotificationManager.from(this).notify(this.NOTIFICATION_ID, contentText.build());
+    }
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT < 26) return;
+        String string = getString(2131623969);
+        String string2 = getString(2131623967);
+        NotificationChannel notificationChannel = new NotificationChannel(CHANNEL_ID, string, 3);
+        notificationChannel.setDescription(string2);
+        ((NotificationManager) getSystemService(NotificationManager.class)).createNotificationChannel(notificationChannel);
+    }
+}
+```
+
+`com.koushikdutta.tether` (ClockworkMod Tether) 针对老设备的算法是自写的 (`AsyncServer`)，但是对我们没有用
+
+这两篇多文章（系统层后端实现分析）也可以参考：
+
++ [Android getSystemService用法实例总结 :2016](https://www.jb51.net/article/78219.htm)
++ [WiFi Tethering & Usb Tethering :2015](https://blog.csdn.net/census/article/details/46639303)
++ [Android USB tethering相关代码_kv110的专栏-CSDN博客](https://blog.csdn.net/kv110/article/details/40019487)
++ [Android：修改连接到AP端显示的设备名 - sheldon_blogs - 博客园](https://www.cnblogs.com/blogs-of-lxl/p/11742031.html)
++ [Android USB Tethering的实现以及代码流程_seuduck的专栏-CSDN博客](https://blog.csdn.net/seuduck/article/details/11178859)
++ [ConnectivityService_我只是好奇-CSDN博客](https://blog.csdn.net/lf12345678910/article/details/90403784)
+
+不过，很多添加的部分还是参照 [jimmod/ShareToComputer](https://github.com/jimmod/ShareToComputer) 。
+
 为方便用户查看，应用提供仅一个 `EditText` 视图（当然实现上我会提供更规范的 `LinearLayout` 为顶层）和一个菜单，主文本的 placeholder 是动态的，在文档尾行后显示 `port ${n}... started` 这样的消息。
 
 它的菜单是：存入文件、发送文件、设置(存)端口、[x] 显示上次传输
