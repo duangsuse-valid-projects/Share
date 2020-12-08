@@ -188,11 +188,9 @@ inlined void putCell(Snake snk) {
 inlined void snakeDec(Snake self) {
   m[self->cells[snakePtrInc(self, 1)]] = 0;
 }
-FILE* fdMaxScores;
 void snakeAdd(Snake self) {
   self->prev = snakez; snakez = self;
   putCell(self); // initinal len=0, or m[cells[iTail/*]==0*/]
-  if (fdMaxScores != NULL) snakeWrite(self, fdMaxScores);
 }
 
 typedef enum { updOk=0, updRegame, updDie } UpdateRes;
@@ -301,7 +299,7 @@ Snake readSnakes(FILE* fp) { // Snake list I/O scanner
   } while (!feof(fp));
   return snk;
 }
-void freeSnakes(Snake snakes) {
+void freeSnakesNoLast(Snake snakes) {
   Snake snk = snakes;
   while (snk->prev != NULL) { Snake prev = snk->prev; snakeFree(snk); free(snk); snk = prev; }
 }
@@ -311,7 +309,7 @@ void freeSnakes(Snake snakes) {
 #define NO_MORE (nUpdated == 0 && snk->prev == NULL)
 #define freeMsg() if (message != NULL) free(message)
 #define snakeForEach(snakes, name) for (Snake name = snakes; name != NULL; name = name->prev)
-FILE* fdScores;
+FILE* fdScores; FILE* fdMaxScores;
 void game(cstr style[], int flags) {
   noecho(); curUse(nodelay); curUse(keypad); cbreak(); 
   int ntMessage = ienvOr(24, "ntMessage");
@@ -357,13 +355,7 @@ regame:
         } else {
           snk->flags |= SNK_PAUSE;
           if (fdScores != NULL) snakeWrite(snk, fdScores);
-          if (fdMaxScores != NULL) {
-            char* sEnv; asprintf(&sEnv, "snake_%s", snk->name);
-            char* sOld = getenv(sEnv); if (sOld != NULL) free(sOld); //security:panic
-            char* sScore; asprintf(&sScore, "%d", snk->nScore);
-            setenv(sEnv, sScore, false); // NOTE: U can use hastable to prevent environ modification
-            free(sEnv);
-          }
+          if (fdMaxScores != NULL) snakeWrite(snk, fdMaxScores); // NOTE: max board impl. failed (no HashMap<String,Snake> algor)
         } //^ snake death.
       }
     } while ((snk = snk->prev) != NULL);
@@ -378,31 +370,7 @@ regame:
   } //^ main loop
 gameover:
   freeMsg();
-  fflush(fdScores); fclose(fdScores);
-  // and, we can write hi-score
-  Snake maxSnakez;
-  if (fdMaxScores != NULL) {
-    fseek(fdMaxScores, 0, SEEK_SET);
-    maxSnakez = readSnakes(fdMaxScores);
-    snakeForEach(maxSnakez, maxSnake) {
-      char* sEnv1; asprintf(&sEnv1, "snake_%s", maxSnake->name);
-      char* sInt = getenv(sEnv1); //defer
-      free(sEnv1); // my gosh, alloc-free? what a mess!
-      if (sInt == NULL) continue;
-      int newScore = atoi(sInt);
-      if (newScore > maxSnake->nScore) maxSnake->nScore = newScore;
-    }
-  }
-  if (fdMaxScores != NULL) fclose(fdMaxScores);
-  fdMaxScores = fopen("snakeMaxScore.txt", "w+"); //reopen
-  if (fdMaxScores != NULL) {
-    snakeForEach(maxSnakez, snkW) { snakeWrite(snkW, fdMaxScores); snakeFree(snkW); }
-    Snake snkF = maxSnakez;
-    while (snkF->prev != NULL) { Snake prev = snkF->prev; free(snkF); snkF = prev; } free(snkF);
-  } else {
-    snakeForEach(snakez, snkW) { snakeWrite(snkW, fdMaxScores); }
-  }
-  freeSnakes(snakez);
+  freeSnakesNoLast(snakez);
   snakeFree(&msnk);
 }
 #undef handleDirNeg
@@ -424,7 +392,7 @@ void assignDefaultCoord() {
     const char* res = getenv(cfg[i].name);
     if (res == NULL || strcmp(res, "?") != 0) continue;
     asprintf(&sNum, "%d", cfg[i].dval);
-    setenv(cfg[i].name, sNum, true);
+    setenv(cfg[i].name, sNum, true); free(sNum);
   }
 }
 int main(void) {
@@ -437,10 +405,10 @@ int main(void) {
   speed2Ratio = (double)ienvOr(200, "speed2Ratio") / 100;
   initscr(); curs_set(0/*invisible*/);
   assignDefaultCoord(); // nrow=? ncol=?
-  fdScores = fopen("snakeScore.txt", "w+"), fdMaxScores = fopen("snakeMaxScore.txt", "r+");
+  fdScores = fopen("snakeScore.txt", "w+"), fdMaxScores = fopen("snakeMaxScore.txt", "a+");
   init(ienvOr(30, "ncol"), ienvOr(35, "nrow"), ienvOr(100, "dt_ms")); game(deftStyle, fl);
   freeStrsFirstCharTest(isPosNegSign, nTextMenuPause, textMenuPause); free(m);
   nodelay(stdscr, false); getch(); // NOTE: use vertical-dt_ms?
-  fclose(fdMaxScores);
+  fclose(fdScores); fclose(fdMaxScores);
   return endwin();
 }
