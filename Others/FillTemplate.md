@@ -63,7 +63,7 @@ if __name__ == "__main__": print(trimBetween(parenCps, "hello( no) hawaii"))
 当然如果只是这样就太短，几乎不需要专门创个文件了，所以它还有 CPP(C语言预处理器) 的主要功能：宏调用，为简单实现，是基于 Python `eval("lambda params: body")` 的（当然我也可以选择实现成模板字符串 `d=dict(zip(params, args)); RE_REF.gsub(d.__getitem__, s)` 的形式，但是就不能用 `if`、`map` 的简单编译期运算了）。
 
 ```python
-// !!define
+#// !!define
 hello(t) "Hello "+t
 bye(t) f"Bye {t}"
 ```
@@ -77,7 +77,7 @@ bye(t) f"Bye {t}"
 
 此外，还可以 `include` 一个文件一起处理。
 
-这个文件与 inclue 者共享宏命名空间。
+这个文件与 include 者共享宏命名空间。
 
 ```plain
 // !!include
@@ -85,7 +85,7 @@ FillTemplate.h.md
 ```
 
 ```plain
-#// hell.txt
+// hell.txt
 #repeat(没有, 6)
 通过。
 ```
@@ -100,4 +100,4 @@ Bye Apple
 通过。
 ```
 
-以上，使用愉快。
+以上；使用愉快。
