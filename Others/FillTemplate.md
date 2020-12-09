@@ -64,9 +64,13 @@ if __name__ == "__main__": print(trimBetween(parenCps, "hello( no) hawaii"))
 
 ```python
 #// !!define
-hello(t) "Hello "+t
-bye(t) f"Bye {t}"
+hello(t) Hello {t}
+bye(t) Bye {t}
+hello_PY2(t) "Hello {}".format(t)
+bye_PY2(t) "Bye {}".format(t)
 ```
+
+String Interpolation 问题没有解决主要是懒得解决
 
 ```plain
 // hell.txt
