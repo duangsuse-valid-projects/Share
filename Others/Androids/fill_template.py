@@ -1,4 +1,4 @@
-from re import compile, DOTALL
+from re import compile, DOTALL # using Regex as tokenizer
 from os import mkdir, chdir, path
 from shutil import copytree
 
@@ -9,27 +9,50 @@ def _mkdirs(fp):
     mkdir(fp)
   except FileExistsError as ex:
     if not path.isdir(fp): raise ex
-def mkdirs(fp): return _mkdirs(path.split(fp)[0])
+def mkdirs(fp):
+  base = path.split(fp)[0]
+  if base != "": _mkdirs(base)
 
-RE_CODE = compile("```\\w*\\n//\\s([\\w/.]*)\\n(.*?)```", DOTALL) #!compat
+from sys import argv, stderr
+RE_DEFINE = compile("(\\w+)\\((.*?)\\)\\s?(.*?)\\n")
+def readDefine(d, s):
+  for (name, formals, body) in RE_DEFINE.findall(s):
+    print("defined "+name+" of "+formals, file=stderr)
+    d[name] = eval("lambda "+formals+": "+body)
+    # may use closure, for (k,v) in zip(param,arg): d.update(k,v), and regex replace...
+
+RE_CODE = compile("```\\w*\\n//\\s(!?!?[\\w/.]*)\\n(.*?)```", DOTALL) #!compat
 RE_WHITE = compile("\\s")
-def outputInPwd(srcmd, n_previ=20):
+RE_COMMA = compile(",\\s*")
+RE_MACRO = compile("#(\\w+)\\(\\s*(.*?)\\)") # \w in regex supports unicode.
+def outputInPwd(srcmd, fp_base, scope={}, n_previ=20):
   for (fpOut, code) in RE_CODE.findall(srcmd):
-    previ = RE_WHITE.sub(" ", code) #!pref
-    print(f"{fpOut} N={len(code)} {previ[:n_previ]}..{previ[len(previ)-n_previ:]}")
+    if fpOut.startswith("!!"):
+      action = fpOut[2:]
+      if action == "define": readDefine(scope, code) # NOTE: improv. macro/include err msg?
+      elif action == "include":
+        with open(path.join(fp_base, code.strip()), "r") as fd: outputInPwd(fd.read(), fp_base, scope, n_previ)
+      else: print("unknown preprocess action: "+action, file=stderr)
+      continue
+    code1 = RE_MACRO.sub(lambda m: scope[m[1]](*RE_COMMA.split(m[2])), code)
+    previ = RE_WHITE.sub(" ", code1) #!pref
+    print(f"{fpOut} N={len(code)} {previ[:n_previ]}..{previ[len(previ)-n_previ:]}") # NOTE: fix4short-s?
     mkdirs(fpOut)
-    with open(fpOut, "w+") as fd: fd.write(code)
+    with open(fpOut, "a") as fd: fd.write(code1)
 
-def main(args, path_tpl="template"):
-  if not path.isdir(path_tpl): raise EnvironmentError(template+" dir not found here")
-  src = args[0]
+def processFile(src, fp_tpl):
   dst = path.splitext(src)[0]
-  copytree(path_tpl, dst, dirs_exist_ok=True)
+  if fp_tpl != "":
+    if not path.isdir(fp_tpl): raise EnvironmentError(fp_tpl+" dir not found here")
+    copytree(fp_tpl, dst, dirs_exist_ok=True)
   with open(src, "r") as fd: srcmd = fd.read()
-  chdir(dst); outputInPwd(srcmd)
+  fpBase = path.abspath(path.curdir)
+  chdir(dst); outputInPwd(srcmd, fpBase)
 
-from sys import argv
-if __name__ == "__main__": main(argv[1:])
+from os import getenv
+if __name__ == "__main__":
+  fpTpl = getenv("template", "template")
+  for fp in argv[1:]: processFile(fp, fpTpl)
 
 def trimBetween(cps, s): # confusing why added.
   state = 0; sb = [] # but anyone can shrink it...
