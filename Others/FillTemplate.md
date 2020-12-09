@@ -105,3 +105,15 @@ Bye Apple
 ```
 
 以上；使用愉快。
+
+```bash
+export template=Androids/template
+function testFillTpl() {
+$1 fill_template.py FillTemplate.md
+python FillTemplate/main.py
+cat FillTemplate/hell.txt
+rm -r FillTemplate/
+}
+testFillTpl python3
+testFillTpl python2
+```
