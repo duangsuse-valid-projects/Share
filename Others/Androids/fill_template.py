@@ -14,31 +14,39 @@ def mkdirs(fp):
   if base != "": _mkdirs(base)
 
 from sys import argv, stderr
+def eprint(*args, **kwargs): print(*args, **kwargs, file=stderr)
 RE_DEFINE = compile("(\\w+)\\((.*?)\\)\\s?(.*?)\\n")
 def readDefine(d, s):
   for (name, formals, body) in RE_DEFINE.findall(s):
-    print("defined "+name+" of "+formals, file=stderr)
+    eprint("defined "+name+" of "+formals)
     d[name] = eval("lambda "+formals+": "+body)
     # may use closure, for (k,v) in zip(param,arg): d.update(k,v), and regex replace...
 
-RE_CODE = compile("```\\w*\\n//\\s(!?!?[\\w/.]*)\\n(.*?)```", DOTALL) #!compat
+# original: /```\\w*\\n//\\s(!?!?[\\w/.]*)\\n(.*?)```/
+RE_CODE = compile("```\\w*\\n(#?//\\s?!?!?[\\w/.]*\\n)?(.*?)```", DOTALL) #!compat
 RE_WHITE = compile("\\s")
 RE_COMMA = compile(",\\s*")
 RE_MACRO = compile("#(\\w+)\\(\\s*(.*?)\\)") # \w in regex supports unicode.
+WHITE_COMMENT = "/# \t\n\r\x0b\x0c"
 def outputInPwd(srcmd, fp_base, scope={}, n_previ=20):
-  for (fpOut, code) in RE_CODE.findall(srcmd):
+  prefixFp = "" # talk-about feat.
+  for (desc, code) in RE_CODE.findall(srcmd):
+    fpOut = desc.strip(WHITE_COMMENT)
     if fpOut.startswith("!!"):
       action = fpOut[2:]
       if action == "define": readDefine(scope, code) # NOTE: improv. macro/include err msg?
       elif action == "include":
         with open(path.join(fp_base, code.strip()), "r") as fd: outputInPwd(fd.read(), fp_base, scope, n_previ)
-      else: print("unknown preprocess action: "+action, file=stderr)
+      elif action == "talkabout": prefixFp = code.strip()
+      else: eprint("unknown preprocess action: "+action)
       continue
+    fpOut1 = prefixFp+fpOut
+    if fpOut1 == "": continue # talk-about is not for outer blocks
     code1 = RE_MACRO.sub(lambda m: scope[m[1]](*RE_COMMA.split(m[2])), code)
     previ = RE_WHITE.sub(" ", code1) #!pref
-    print(f"{fpOut} N={len(code)} {previ[:n_previ]}..{previ[len(previ)-n_previ:]}") # NOTE: fix4short-s?
-    mkdirs(fpOut)
-    with open(fpOut, "a") as fd: fd.write(code1)
+    print(f"{fpOut1} N={len(code)} {previ[:n_previ]}..{previ[len(previ)-n_previ:]}") # NOTE: fix4short-s?
+    mkdirs(fpOut1)
+    with open(fpOut1, "a") as fd: fd.write(code1)
 
 def processFile(src, fp_tpl):
   dst = path.splitext(src)[0]

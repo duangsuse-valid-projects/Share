@@ -6,22 +6,42 @@
 
 我，duangsuse，是一个泛语言后端复用库/DOM 程序员，对 _数据库、GUI、非阻塞_ 这些东西都不太敏感，但还是努力在写代码。
 
-在编写 [AClipboard](AClipboard.md) （一个 Android+C/socket 的网络剪贴板）的时候我创建了这个项目集，应该说也不太硬核，但因为我是一个 __最小化设计__、__定义式编程__ 主义者——
+在编写 [AClipboard](AShareClipboard.md) （一个 Android+C/socket 的网络剪贴板）的时候我创建了这个项目集，应该说也不太硬核，但因为我是一个 __最小化设计__、__定义式编程__ 主义者——
 
 意味着我很讨厌把无关核心的业务逻辑放在主代码里。这个项目集采用了 __文学式编程__ (Literate Programming) ，也就是一种能详细写出你每行代码、每个子程序具体思路的编程方式。
 
 比方说，这段程序分俩模块：
 
+```c
+// !!talkabout
+strops.py
+```
+
 ```python
-// strops.py
 def trimBetween(cps, s): # confusing why added.
   state = 0; sb = [] # but anyone can shrink it...
+```
+
+先定义 `state` 和结果 `sb`
+
+```python
   for c in s:
     (ce, p) = cps[state]
     if c == ce: state += p
     elif state %2==0: sb.append(c)
+```
+
+更新状态的循环，若状态偶数则添加
+
+```python
   return "".join(sb)
 ```
+
+```c
+// !!talkabout
+```
+
+这就 done 了。
 
 ```python
 // main.py
@@ -65,7 +85,7 @@ FillTemplate.h.md
 ```
 
 ```plain
-// hell.txt
+#// hell.txt
 #repeat(没有, 6)
 通过。
 ```
