@@ -26,6 +26,11 @@ def _sumSrcPos(tb):
   lnbeg = int(lineno)
   return "%s:%d+%d, %s:%d" %(src, lnbeg, tb[1], src, lnbeg+tb[1])
 
+def eprintMdStack(tb):
+  for caller in reversed(traceback.extract_tb(tb)):
+    try: eprint(_sumSrcPos(caller))
+    except ValueError: break
+
 def runCode(code, srcpos, locals):
   try: eval(compile(code, srcpos, "exec"), None, locals)
   except BaseException:
@@ -39,7 +44,7 @@ def strBrief(s, n_vp):
   iVp = n_vp // 2
   return (s[:iVp], s[len(s)-iVp:]) if len(s) > n_vp+1 else (s,) # odd len =+1.
 
-RE_DEFINE = Regex("\\s*([^(]+)\\((.*?)\\)\\s?(.*?)\\n") # NOTE: Fuzzy naming rules.
+RE_DEFINE = Regex("\\s*(\\S+?)\\((.*?)\\) ?(.*?)\\n") # NOTE: Fuzzy naming rules.
 RE_BRACE = Regex("\\${(.*?)}")
 def readDefine(d, s, srcpos):
   def convertDef(m):
@@ -64,8 +69,8 @@ def macro(d, name, params, body, srcpos):
 # original: "```\\w*\\n//\\s([\\w/.]*)\\n(.*?)```"
 RE_WHITE = Regex("\\s")
 RE_COMMA = Regex(",\\s*")
-RE_CODE = Regex("```\\w*\\n(#|/{2})(\\s?!?!?\\S*\\n)?(.*?)```", re.DOTALL) #!compat
-RE_MACRO = Regex("(#|/{2})([^(]+)\\(\\s*(.*?)\\)", re.DOTALL)
+RE_CODE = Regex("```\\w*\\n(#|/{2})(\\s?!?!?\\S+\\n)?(.*?)```", re.DOTALL) #!compat
+RE_MACRO = Regex("(#|/{2})(\\S+?)\\(\\s*(.*?)\\)", re.DOTALL)
 MACRO_SUFFIXES = ["", "_PY2", "_JS"]
 def outputInPwd(src, fp_base, scope={}, n_previ=40):
   srcmd = ""
@@ -84,9 +89,7 @@ def outputInPwd(src, fp_base, scope={}, n_previ=40):
         except BaseException:
           tb = exc_info()[2]
           eprint("Exception in %s %r" %(name, args))
-          for caller in reversed(traceback.extract_tb(tb)):
-            try: eprint(_sumSrcPos(caller))
-            except ValueError: break
+          eprintMdStack(tb)
           eprint(traceback.format_exc())
     return "ERR"
   for m in RE_CODE.finditer(srcmd):
@@ -123,8 +126,10 @@ def processFile(src, fp_tpl):
     if not path.isdir(dst): mkdir(dst)
   chdir(dst); outputInPwd(fpAbs, fpBase)
 
+# TODO: add real ${} templating
 # TODO: remove non-regular identifiers
 # TODO: Add TextEdit .create/modify Range, listenFileChange(dst, srcs, d_ftes)
+# TODO: Add auto-macro-match from output
 
 if __name__ == "__main__":
   fpTpl = getenv("template", "")
