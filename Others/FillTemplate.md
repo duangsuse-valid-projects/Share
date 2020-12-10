@@ -44,14 +44,14 @@ def trimBetween(cps, s): # confusing why added.
 这就 done 了。
 
 ```python
-// main.py
+# main.py
 parenCps = { 0: ['(', 1], 1: [')', 0-1] }
 ```
 
 启动的部分：
 
 ```python
-// main.py
+# main.py
 from strops import trimBetween
 if __name__ == "__main__": print(trimBetween(parenCps, "hello( no) hawaii"))
 ```
@@ -63,12 +63,18 @@ if __name__ == "__main__": print(trimBetween(parenCps, "hello( no) hawaii"))
 当然如果只是这样就太短，几乎不需要专门创个文件了，所以它还有 CPP(C语言预处理器) 的主要功能：宏调用，为简单实现，是基于 Python `eval("lambda params: body")` 的（当然我也可以选择实现成模板字符串 `d=dict(zip(params, args)); RE_REF.gsub(d.__getitem__, s)` 的形式，但是就不能用 `if`、`map` 的简单编译期运算了）。
 
 ```python
-#// !!define
+# !!define
 hello(t) Hello {t}
 bye(t) Bye {t}
 hello_PY2(t) "Hello {}".format(t)
 bye_PY2(t) "Bye {}".format(t)
 ```
+
+一个比较草的问题是， Python2 的 `\w` 不支持中文等 Unicode 字符，所以不得不用类似 greedy match 的方法写了 macro name / output path (not-space*) 的 rule 。
+
+所以说你的宏名不仅可以带中部空格，甚至能换行…… 而且定义宏甚至能 `f(x)\n  body` 这种换行……（因为 `)` 后跳的是 `\s?`）
+
+真的不知道该不该做更多的限制。
 
 String Interpolation 问题没有解决主要是懒得解决
 
@@ -92,6 +98,10 @@ FillTemplate.h.md
 // hell.txt
 #repeat(没有, 6)
 通过。
+
+//#repeat(淦, 23)
+/#hello()
+/notMacro()
 ```
 
 于是你打开 `cat FillTemplate/hell.txt`

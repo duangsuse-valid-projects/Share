@@ -5,7 +5,7 @@ from re import compile as Regex
 
 from sys import argv, stderr, exc_info
 import traceback
-from os import mkdir, chdir, path
+from os import mkdir, chdir, path, getenv
 from shutil import copytree
 
 def eprint(*args): print(*args, file=stderr)
@@ -32,71 +32,88 @@ def runCode(code, srcpos, locals):
     (etype, ex, tb) = exc_info()
     eprint("----"); eprint(code)
     callee = traceback.extract_tb(tb, limit=2)[-1]
-    eprint(":: %s (%s)" %(ex, _sumSrcPos(callee)))
+    try: eprint(":: %s (%s)" %(ex, _sumSrcPos(callee)))
+    except ValueError: eprint(str(ex)) # PY2 exc_info() errloc
 
 def strBrief(s, n_vp):
   iVp = n_vp // 2
   return (s[:iVp], s[len(s)-iVp:]) if len(s) > n_vp+1 else (s,) # odd len =+1.
 
-RE_DEFINE = Regex("(\\w+)\\((.*?)\\)\\s?(.*?)\\n")
+RE_DEFINE = Regex("\\s*([^(]+)\\((.*?)\\)\\s?(.*?)\\n") # NOTE: Fuzzy naming rules.
 RE_BRACE = Regex("\\${(.*?)}")
 def readDefine(d, s, srcpos):
   def convertDef(m):
     (name, formals, body) = m.groups()
-    eprint("defined %s of %s" %(name, formals))
     body1 = RE_BRACE.sub("{\\1}", body)
-    return "macro(d, %r, %r, %r)\n" %(name, formals, body1)
+    return "macro(d, %r, %r, %r, srcpos)\n" %(name, formals, body1)
   code = RE_DEFINE.sub(convertDef, s)
-  runCode(code, srcpos, {"d": d})
-def macro(d, name, params, body):
+  runCode(code, srcpos, {"d": d, "srcpos": srcpos})
+def macro(d, name, params, body, srcpos):
   notPY2 = not name.endswith("_PY2")
   lambCode = "lambda %s: f\"%s\"" if notPY2 else "lambda %s: %s"
-  pfix = len(name) - len("lambda") - (2 if notPY2 else 0) #f"
-  try: d[name] = eval(lambCode %(params, body))
+  try:
+    code = compile(lambCode %(params, body), srcpos, "eval")
+    d[name] = eval(code, {"scope": d}, None)
+    eprint("defined %s of %s" %(name, params))
   except SyntaxError as ex:
+    pfix = len(name) - len("lambda") - (2 if notPY2 else 0) #f"
     eprint("--"); eprint(ex.text)
     evalCaller = traceback.extract_stack(limit=2)[0]
     eprint(":: %s in %s (%s:%d)" %(ex.msg, name, _sumSrcPos(evalCaller), ex.offset+pfix))
 
 # original: "```\\w*\\n//\\s([\\w/.]*)\\n(.*?)```"
-RE_CODE = Regex("```\\w*\\n(#?//\\s?!?!?[\\w/.]*\\n)?(.*?)```", re.DOTALL) #!compat
 RE_WHITE = Regex("\\s")
-WHITE_COMMENT = "/# \t\n\r\x0b\x0c"
 RE_COMMA = Regex(",\\s*")
-RE_MACRO = Regex("#(\\w+)\\(\\s*(.*?)\\)") # \w in regex supports unicode.
+RE_CODE = Regex("```\\w*\\n(#|/{2})(\\s?!?!?\\S*\\n)?(.*?)```", re.DOTALL) #!compat
+RE_MACRO = Regex("(#|/{2})([^(]+)\\(\\s*(.*?)\\)", re.DOTALL)
 MACRO_SUFFIXES = ["", "_PY2", "_JS"]
 def outputInPwd(src, fp_base, scope={}, n_previ=40):
   srcmd = ""
-  with open(path.join(fp_base, src), "r") as fd: srcmd = fd.read()
+  with open(src, "r") as fd: srcmd = fd.read()
   prefixFp = "" # talk-about feat.
-  def getSrcpos(m): return "%s:%d" %(src, srcmd.count('\n', 0, m.start())+2) # error loc feat.
+  def getSrcpos(m): # errloc feat.
+    return "%s:%d" %(path.relpath(src, fp_base), srcmd.count('\n', 0, m.start())+2)
+  def getDir(): return path.dirname(src)
   def getMacroResult(m):
-    fn = m.group(1)
+    fn = m.group(2)
     for suffix in MACRO_SUFFIXES:
-      op = scope.get(m.group(1)+suffix)
-      if op != None: return str(op(*RE_COMMA.split(m.group(2))))
+      name = m.group(2)+suffix
+      op = scope.get(name); args = RE_COMMA.split(m.group(3))
+      if op != None:
+        try: return str(op(*args))
+        except BaseException:
+          tb = exc_info()[2]
+          eprint("Exception in %s %r" %(name, args))
+          for caller in reversed(traceback.extract_tb(tb)):
+            try: eprint(_sumSrcPos(caller))
+            except ValueError: break
+          eprint(traceback.format_exc())
     return "ERR"
   for m in RE_CODE.finditer(srcmd):
-    (desc, code) = m.groups()
-    fpOut = "" if desc == None else desc.strip(WHITE_COMMENT)
+    (sCmt, desc, code) = m.groups()
+    fpOut = "" if desc == None else desc.strip()
     if fpOut.startswith("!!"):
       action = fpOut[2:]
       if action == "define": readDefine(scope, code, getSrcpos(m))
-      elif action == "execute": runCode(code, getSrcpos(m), {"__FILE__": src, "__DIR__": fp_base, "scope": scope})
-      elif action == "include": outputInPwd(code.strip(), fp_base, scope, n_previ)
+      elif action == "execute": runCode(code, getSrcpos(m), {"__FILE__": src, "__DIR__": getDir(), "scope": scope})
+      elif action == "include":
+        fp = path.join(getDir(), code.strip())
+        outputInPwd(fp, fp_base, scope, n_previ)
       elif action == "talkabout": prefixFp = code.strip()
       else: eprint("unknown preprocessor action: %s" %action)
       continue
     fpOut1 = prefixFp+fpOut
     if fpOut1 == "": continue # talk-about is not for outer blocks
-    code1 = RE_MACRO.sub(getMacroResult, code)
+    code1 = RE_MACRO.sub(getMacroResult, code)  # NOTE: add "" str / recursion maybe?
     previ = RE_WHITE.sub(" ", code1) #!pref
     print("%s N=%i %s" %(fpOut1, len(code1), "...".join(strBrief(previ, n_previ)) ))
+    print(fpOut1)
     mkdirs(fpOut1)
-    with open(fpOut1, "a") as fd: fd.write(code1)
+    with open(fpOut1, getenv("writeMode", "a")) as fd: fd.write(code1)
 
 def processFile(src, fp_tpl):
-  (fpBase, name) = path.split(path.abspath(src))
+  fpAbs = path.abspath(src)
+  (fpBase, name) = path.split(fpAbs)
   dst = path.splitext(name)[0]
   if fp_tpl != "":
     if not path.isdir(fp_tpl): raise EnvironmentError(fp_tpl+" dir not found here")
@@ -104,9 +121,8 @@ def processFile(src, fp_tpl):
     except TypeError: copytree(fp_tpl, dst)
   else:
     if not path.isdir(dst): mkdir(dst)
-  chdir(dst); outputInPwd(name, fpBase)
+  chdir(dst); outputInPwd(fpAbs, fpBase)
 
-from os import getenv
 if __name__ == "__main__":
   fpTpl = getenv("template", "")
   for fp in argv[1:]: processFile(fp, fpTpl)
