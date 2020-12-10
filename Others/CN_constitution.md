@@ -19,7 +19,7 @@ def makeMaxLE(d):
 
 def showHanTo(sb, n, maxLE): # 定义域：正整数|零
   global digits
-  unit = maxLE(n) # 右递归解构。
+  unit = maxLE(n) # 左右各递归解构。
   if unit == None: sb.append(digits[n]); return 1 # 不大十
   (u, name) = unit
   (nDigi, nNext) = divmod(n, u)
@@ -38,22 +38,29 @@ def showHan(sn):
   showHanTo(sb, int(sn), unitsMaxLE)
   return "".join(sb)
 scope["han"] = showHan
+scope["hanDigits"] = digits
 ```
 
-脚本是为方便中文编号输出的，使用的是 `maxLessThanOrEquals`+右递归小单位 算法，在此处不做赘述。
+脚本是为方便中文编号输出的，使用的是 `maxLessThanOrEquals`+右递归小单位 算法，在此处不作赘述。
 
 除了这个脚本，还有一些方便的宏必须定义：
 
 ```python
 # !!define
-条例自_PY2(sn, *rules) "\n".join(map(lambda i: "第"+scope["han"](int(sn)+i)+"条"+rules[i], range(0, len(rules))))
+条例自_PY2(sn, *rules) "\n".join(map(lambda i: "* 第"+scope["han"](int(sn)+i)+"条"+rules[i], range(0, len(rules))))
+年月日(y,m,d) {y.rjust(4, '0')}年{m}月{d}日
+人大次第(n) 第{scope['han'](n)}届全国人民代表大会
+会通次第(n) 第{scope['han'](n)}次会议通过
 ```
 
 ```
-// a.txt
+// test.txt
 #han(123)
 #条例自(1,
 你好,
 世界,
 再见)
+#年月日(1989, 8, 2)
+#人大次第(1)
+#会通次第(2)
 ```

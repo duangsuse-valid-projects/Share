@@ -123,6 +123,9 @@ def processFile(src, fp_tpl):
     if not path.isdir(dst): mkdir(dst)
   chdir(dst); outputInPwd(fpAbs, fpBase)
 
+# TODO: remove non-regular identifiers
+# TODO: Add TextEdit .create/modify Range, listenFileChange(dst, srcs, d_ftes)
+
 if __name__ == "__main__":
   fpTpl = getenv("template", "")
   for fp in argv[1:]: processFile(fp, fpTpl)
