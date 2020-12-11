@@ -65,7 +65,7 @@ def macro(d, name, params, body, srcpos):
   lambCode = sInterp.format(repr(params), params) if notPY2 else "lambda %s: %s"
   try:
     code = compile(lambCode %(params, body), srcpos, "eval")
-    dGlo = {"scope": d}
+    dGlo = {"scope": d, "Regex": Regex}
     def strInterpolate(s, params, *args):
       table = dict(zip(RE_COMMA.split(params), args))
       return RE_MACRO_REF.sub(lambda m: str(eval(m.group(1), dGlo, table)), s)
