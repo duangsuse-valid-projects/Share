@@ -4,6 +4,8 @@
 
 本项目为政治无关实验性项目；宪法版本如其文本示，为 2018 版。
 
+项目数据来源是 [cn/constitution](https://github.com/cn/constitution/blob/gh-pages/README.md)，有一定修复以及方便此源文件可读性的折行。
+
 虽然 Literate 的优势在于可以评论每一行代码，但由于此版发布时，相关法律法规及政策的限制，在此只作测试宏展开使用。
 
 ```python
@@ -52,8 +54,8 @@ scope["hanDigits"] = digits
 
 ```python
 # !!define
-条例自_PY2(n0, *rules) "".join(map(lambda i: "* 第"+scope["han"](int(n0)+i)+"条 "+rules[i], range(0, len(rules))))
-年大写_PY2(y) "".join(map(lambda c: scope["hanDigits"][(int(c))], "%04d" %int(y) )).replace('零', '〇')+"年"
+条例自_PY(n0, *rules) "".join(map(lambda i: "* 第"+scope["han"](int(n0)+i)+"条 "+rules[i], range(0, len(rules))))
+年大写_PY(y) "".join(map(lambda c: scope["hanDigits"][(int(c))], "%04d" %int(y) )).replace('零', '〇')+"年"
 ```
 
 ```bash
@@ -101,7 +103,7 @@ README.md
 > //年月日(1993,3,29)//人大次第(8)//会通次第(1)的《中华人民共和国宪法修正案》、
 > //年月日(1999,3,15)//人大次第(9)//会通次第(2)的《中华人民共和国宪法修正案》、
 > //年月日(2004,3,14)//人大次第(10)//会通次第(2)的《中华人民共和国宪法修正案》、
-> //年月日(2018,3,11)//人大次第(13)一次会议第3次全体会议通过的《中华人民共和国宪法修正案》修正
+> //年月日(2018,3,11)//人大次第(13)//会通次第(1)的《中华人民共和国宪法修正案》修正
 
 ```
 
@@ -115,7 +117,7 @@ README.md
 > 1993年3月29日第8届全国人民代表大会第1次会议通过的《中华人民共和国宪法修正案》、
 > 1999年3月15日第9届全国人民代表大会第2次会议通过的《中华人民共和国宪法修正案》、
 > 2004年3月14日第10届全国人民代表大会第2次会议通过的《中华人民共和国宪法修正案》、
-> 2018年3月11日第13届全国人民代表大会一次会议第3次全体会议通过的《中华人民共和国宪法修正案》修正
+> 2018年3月11日第13届全国人民代表大会第1次会议通过的《中华人民共和国宪法修正案》修正
 ```
 
 ## 序言
@@ -156,6 +158,7 @@ README.md
 开始使用 `条例自` 宏。
 
 ```bash
+# !!ignore
 sed -E 's/\* 第([^条]+)条 /,/g'
 ```
 
@@ -437,7 +440,7 @@ sed -E 's/\* 第([^条]+)条 /,/g'
 
 ```python
 # !!define
-编号深_PY2(pad, *rules) (lambda sp: sp+sp.join(map(lambda i: "* （"+scope["han"](i+1)+"）"+rules[i], range(0, len(rules)))))((' '*int(pad)))
+编号深_PY(pad, *rules) (lambda sp: sp+sp.join(map(lambda i: "* （"+scope["han"](i+1)+"）"+rules[i], range(0, len(rules)))))((' '*int(pad)))
 ```
 
 `sed -E 's/\s*\* （.*?）/,/g'`

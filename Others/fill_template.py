@@ -4,7 +4,9 @@ import re # using Regex as tokenizer
 from re import compile as Regex
 
 from sys import argv, stderr, exc_info
+from sys import version_info # choose CStringIO stream impl cfg.
 import traceback
+
 from os import mkdir, chdir, path, getenv
 from shutil import copytree
 
@@ -58,7 +60,7 @@ def readDefine(d, s, srcpos):
   runCode(code, srcpos, {"d": d, "srcpos": srcpos})
 
 def macro(d, name, params, body, srcpos):
-  notPY2 = not name.endswith("_PY2")
+  notPY2 = not name.endswith("_PY")
   sInterp = "lambda %s: f(%r, {}, {})"
   lambCode = sInterp.format(repr(params), params) if notPY2 else "lambda %s: %s"
   try:
@@ -68,7 +70,7 @@ def macro(d, name, params, body, srcpos):
       table = dict(zip(RE_COMMA.split(params), args))
       return RE_MACRO_REF.sub(lambda m: str(eval(m.group(1), dGlo, table)), s)
     dGlo["f"] = strInterpolate #recur-ref
-    d[name] = eval(code, dGlo) # in lambCode
+    d[name] = eval(code, dGlo) # defined in lambCode
     eprint("defined %s of %s" %(name, params))
   except SyntaxError as ex:
     pfix = len(name) - len("lambda") - (2 if notPY2 else 0) #f"
@@ -76,7 +78,6 @@ def macro(d, name, params, body, srcpos):
     evalCaller = traceback.extract_stack(limit=2)[0]
     eprint(":: %s in %s (%s:%d)" %(ex.msg, name, _sumSrcPos(evalCaller), ex.offset+pfix))
 
-RE_MACRO = Regex("(#|/{2})(\\S+?)\\(\\s*(.*?)\\)", re.DOTALL)
 def joinAlsoPrint(*args): print(*args); return "".join(args)
 def firstOccur(s, i, *texts):
   iFound = -1
@@ -90,35 +91,50 @@ def eprintSyntaxError(s, i, msg):
   slErr.insert(i, '<')
   eprint("----"); eprint("".join(slErr)); eprint("%s near <:%d" %(msg, i))
 
-def _expandMacroTo(sb, s, i0, get_subst): # TODO: turn to use stream / subproc as state
+class CStringIO:
+  if version_info.major == 2:
+    global StringIO; from cStringIO import StringIO
+  else: global StringIO; from io import StringIO
+
+  def __init__(self): self.sb = StringIO()
+  def write(self, s): self.sb.write(s)
+  def __str__(self): return self.sb.getvalue()
+  def clear(self): self.sb.seek(0); self.sb.truncate(0)
+  @property
+  def pos(self): return self.sb.tell()
+  @pos.setter
+  def setPos(self, i): self.sb.seek(i)
+
+RE_MACRO = Regex("(#|/{2})(\\S+?)\\(\\s*(.*?)\\)", re.DOTALL)
+def _expandMacroTo(sb, s, i0, get_subst):
   #return RE_MACRO.sub(lambda m: get_subst(m[2], m[3]), s)
-  n = len(s); buf = []
+  n = len(s); buf = CStringIO()
   i = i0; state = 0
   def appendBuf():
-    sBuf = "".join(buf); buf.clear()
+    sBuf = str(buf); buf.clear()
     if sBuf != "": sb.append(sBuf)
     return i
   while i < n:
     c = s[i]
     if state == 0 and c in "#/)": # state machine
-      if c == '#': buf.append('#'); i+=1
-      elif c == '/': buf.append('//'); i+=2
+      if c == '#': buf.write('#'); i+=1
+      elif c == '/': buf.write('//'); i+=2
       elif c == ')': return appendBuf()
       state = 1; continue # just like "call a function"
     elif state == 1:
       try:
-        while not (s[i].isspace() or s[i] in "()"): buf.append(s[i]); i += 1
+        iBuf0 = buf.pos
+        while not (s[i].isspace() or s[i] in "()#/"): buf.write(s[i]); i += 1
         if s[i] == ')': return appendBuf()
-        sL = buf[-1]
-        if sL == "#" or sL == "//": appendBuf(); state = 0
-      except IndexError: break  
+        if buf.pos == iBuf0: appendBuf(); state = 0
+      except IndexError: break
       if s[i] == '(':
-        name = "".join(buf); buf.clear()
+        name = str(buf); buf.clear()
         iBeg = len(sb)
         i = _expandMacroTo(sb, s, i+1, get_subst)
         iEnd = len(sb)
-        for idx in range(iBeg, iEnd): buf.append(sb.pop(iBeg))
-        called = get_subst(name.lstrip("#/"), "".join(buf) )
+        for idx in range(iBeg, iEnd): buf.write(sb.pop(iBeg))
+        called = get_subst(name.lstrip("#/"), str(buf) )
         sb.insert(iBeg, called) # Excel-like step-by-step
         buf.clear()
         if i >= n or s[i] != ')':
@@ -136,79 +152,95 @@ def expandMacro(s, get_subst):
   sb = []; _expandMacroTo(sb, s, 0, get_subst)
   return "".join(sb)
 
-MACRO_SUFFIXES = ["", "_PY2", "_JS"]
-def getMacroResult(fn, s_arg, scope):
-  for suffix in MACRO_SUFFIXES:
-    name = fn+suffix
-    op = scope.get(name); args = RE_COMMA.split(s_arg)
-    if op != None:
-      try: return str(op(*args))
-      except BaseException:
-        tb = exc_info()[2]
-        eprint("Exception in %s %r" %(name, args))
-        eprintMdStack(tb)
-        eprint(traceback.format_exc())
-        return "FAIL"
-  return "ERR"
-
 
 ## PART output process / main
-RE_CODE = Regex("```\\w*\\n(#|/{2})(\\s?!?!?\\S+\\n)?(.*?)```", re.DOTALL) #!compat
+RE_CODE = Regex("```\\w*\\n(#|/{2})?(\\s?!?!?\\S+\\n)?(.*?)```", re.DOTALL) #!compat
 # original: "```\\w*\\n//\\s([\\w/.]*)\\n(.*?)```"
 RE_INVALID = Regex("!|#")
-def outputInPwd(src, fp_base, scope={}, n_previ=40):
-  srcmd = ""
-  with open(src, "r") as fd: srcmd = fd.read()
-  prefixFp = "" # talk-about feat.
-  def getSrcpos(m): # errloc feat.
-    return "%s:%d" %(path.relpath(src, fp_base), srcmd.count('\n', 0, m.start())+2)
-  def getDir(): return path.dirname(src)
+class FillTemplate:
+  def __init__(self, scope={}, nPrevi=40):
+    self.scope=scope; self.nPrevi=nPrevi
+    self.writeMode = getenv("writeMode", "a")
+    self.sourceSet = set()
 
-  for m in RE_CODE.finditer(srcmd):
+  def _outputInPwd(self, fp_abs, text, prefixes, m):
+    def getSrcpos(m): # errloc feat.
+      return "%s:%d" %(path.relpath(fp_abs, self.fpBase), text.count('\n', 0, m.start())+2)
+    def getDir(): return path.dirname(fp_abs)
+    # extracted (continue=return, self.prefixXXX) from outputInPwd
     (sCmt, desc, code) = m.groups()
-    isText = (desc == None)
+    if sCmt == None and prefixes[0] == "": return
+    isText = (desc == None) # is //-header omitted?
     fpOut = "" if isText else desc.strip()
     if fpOut.startswith("!!"):
-      action = fpOut[2:]
-      if action == "define": readDefine(scope, code, getSrcpos(m))
-      elif action == "execute": runCode(code, getSrcpos(m), {"__FILE__": src, "__DIR__": getDir(), "scope": scope})
-      elif action == "include":
-        fp = path.join(getDir(), code.strip())
-        outputInPwd(fp, fp_base, scope, n_previ)
-      elif action == "talkabout": prefixFp = code.strip()
-      else: eprint("unknown preprocessor action: %s" %action)
-      continue
+      act = fpOut[2:]
+      if act == "define": readDefine(self.scope, code, getSrcpos(m))
+      elif act == "execute": runCode(code, getSrcpos(m), {"__FILE__": fp_abs, "__DIR__": getDir(), "scope": self.scope})
+      elif act == "include":
+        fp = path.relpath(path.join(getDir(), code.strip()), self.fpBase)
+        self.outputInPwd(fp)
+      elif act == "talkabout": prefixes[0] = code.strip(); prefixes[1] = sCmt
+      elif act == "ignore": pass
+      else: eprint("unknown preprocessor action: %s" %act)
+      return
     if fpOut.startswith("!") or RE_INVALID.match(fpOut) != None:
       eprint("unknown command %s, treating as text" %fpOut)
       fpOut = ""; isText = True # notify '!'!
-    fpOut1 = prefixFp+fpOut
-    if fpOut1 == "": continue # talk-about is not for outer blocks
-    code1 = expandMacro(code, lambda name, s_arg: getMacroResult(name, s_arg, scope))
-    previ = RE_WHITE.sub(" ", code1) #!pref
-    print("%s N=%i %s" %(fpOut1, len(code1), "...".join(strBrief(previ, n_previ)) ))
+    fpOut1 = prefixes[0]+fpOut
+    if fpOut1 == "": return # talk-about is not for outer blocks
+    code1 = expandMacro(code, self.getMacroResult)
+    sBrief = "...".join(strBrief(RE_WHITE.sub(" ", code1), self.nPrevi))
+    print("%s N=%i %s" %(fpOut1, len(code1), sBrief))
     mkdirs(fpOut1)
-    with open(fpOut1, getenv("writeMode", "a")) as fd:
-      if isText: fd.write(sCmt) # for "##"
+    with open(fpOut1, self.writeMode) as fd:
+      if isText and sCmt != None: fd.write(sCmt) # for "##"
       fd.write(code1)
 
-def processFile(src, fp_tpl):
-  fpAbs = path.abspath(src)
-  (fpBase, name) = path.split(fpAbs)
-  dst = path.splitext(name)[0]
-  if fp_tpl != "":
-    if not path.isdir(fp_tpl): raise EnvironmentError(fp_tpl+" dir not found here")
-    try: copytree(fp_tpl, dst, dirs_exist_ok=True) # template feat.
-    except TypeError: copytree(fp_tpl, dst)
-  else:
-    if not path.isdir(dst): mkdir(dst)
-  chdir(dst); outputInPwd(fpAbs, fpBase)
+  def outputInPwd(self, src):
+    eprint("Render file %s (%d items in scope):" %(src, len(self.scope)))
+    self.sourceSet.add(src)
+    sMd = ""
+    fpAbs = path.join(self.fpBase, src)
+    with open(fpAbs, "r") as fd: sMd = fd.read()
+    prefixes = ["", ""] # talk-about feat. & server mode comment
+    for m in RE_CODE.finditer(sMd): self._outputInPwd(fpAbs, sMd, prefixes, m)
+
+  MACRO_SUFFIXES = ["", "_PY", "_JS"]
+  def getMacroResult(self, fn, s_arg):
+    args = RE_COMMA.split(s_arg)
+    for suffix in FillTemplate.MACRO_SUFFIXES: # try fallback fn-ver s.
+      name = fn+suffix
+      op = self.scope.get(name)
+      if op != None:
+        try: return str(op(*args))
+        except BaseException:
+          tb = exc_info()[2]
+          eprint("Exception in %s %r" %(name, args))
+          eprintMdStack(tb)
+          eprint(traceback.format_exc())
+          return "FAIL"
+    return "ERR" # funny terminology
+
+  def processFile(self, src, fp_tpl):
+    fpAbs = path.abspath(src)
+    (fpBase, name) = path.split(fpAbs)
+    self.fpBase = fpBase
+    dst = path.splitext(name)[0]
+    if fp_tpl != "":
+      if not path.isdir(fp_tpl): raise EnvironmentError(fp_tpl+" dir not found here")
+      try: copytree(fp_tpl, dst, dirs_exist_ok=True) # template feat.
+      except TypeError: copytree(fp_tpl, dst)
+    else: # fp_tpl ""
+      if not path.isdir(dst): mkdir(dst)
+    chdir(dst); self.outputInPwd(name)
 
 # TODO: Add TextEdit .create/modify Range, listenFileChange(dst, srcs, d_ftes)
 # TODO: Add auto-macro-match from output
 
 if __name__ == "__main__":
   fpTpl = getenv("template", "")
-  for fp in argv[1:]: processFile(fp, fpTpl)
+  filler = FillTemplate()
+  for fp in argv[1:]: filler.processFile(fp, fpTpl)
 
 def trimBetween(cps, s): # confusing why added.
   state = 0; sb = [] # but anyone can shrink it...
