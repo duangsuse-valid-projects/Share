@@ -49,7 +49,7 @@ def strBrief(s, n_vp):
 RE_WHITE = Regex("\\s")
 RE_COMMA = Regex(",\\s*")
 RE_DEFINE = Regex("\\s*(\\S+?)\\((.*?)\\) ?(.*?)\\n")
-RE_MACRO_REF = Regex("\\${(.*?)}")
+RE_MACRO_REF = Regex("\\${\\s*(.*?)\\s*}")
 def readDefine(d, s, srcpos):
   def convertDef(m):
     (name, formals, body) = m.groups()
@@ -153,8 +153,9 @@ def getMacroResult(fn, s_arg, scope):
 
 
 ## PART output process / main
-RE_CODE = Regex("```\\w*\\n(#|/{2})(\\s?!?!?[^\\s!#]+\\n)?\\n?(.*?)```", re.DOTALL) #!compat
+RE_CODE = Regex("```\\w*\\n(#|/{2})(\\s?!?!?\\S+\\n)?(.*?)```", re.DOTALL) #!compat
 # original: "```\\w*\\n//\\s([\\w/.]*)\\n(.*?)```"
+RE_INVALID = Regex("!|#")
 def outputInPwd(src, fp_base, scope={}, n_previ=40):
   srcmd = ""
   with open(src, "r") as fd: srcmd = fd.read()
@@ -177,7 +178,9 @@ def outputInPwd(src, fp_base, scope={}, n_previ=40):
       elif action == "talkabout": prefixFp = code.strip()
       else: eprint("unknown preprocessor action: %s" %action)
       continue
-    if fpOut.startswith("!"): continue # ignore '!'!
+    if fpOut.startswith("!") or RE_INVALID.match(fpOut) != None:
+      eprint("unknown command %s, treating as text" %fpOut)
+      fpOut = ""; isText = True # notify '!'!
     fpOut1 = prefixFp+fpOut
     if fpOut1 == "": continue # talk-about is not for outer blocks
     code1 = expandMacro(code, lambda name, s_arg: getMacroResult(name, s_arg, scope))
