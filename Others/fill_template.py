@@ -79,98 +79,105 @@ def macro(d, name, params, body, srcpos):
     eprint(":: %s in %s (%s:%d)" %(ex.msg, name, _sumSrcPos(evalCaller), ex.offset+pfix))
 
 def joinAlsoPrint(*args): print(*args); return "".join(args)
-def takeTillFirstOccur(cs, *texts):
-  s = str(cs)[cs.pos:]; iFound = -1
-  for text in texts:
-    idx = s.find(text)
-    if idx != -1 and (iFound == -1 or idx < iFound): iFound = idx
-  i1 = 0
-  if iFound == -1: cs.io.seek(0, 2); i1 = cs.pos; cs.io.close() # EOF
-  else: i1 = iFound; cs.pos += i1+1
-  return s[:i1]
 
 def eprintSyntaxError(s, i, msg):
   slErr = list(s)
   slErr.insert(i, '<')
-  eprint("----"); eprint("".join(slErr)); eprint("%s near <:%d" %(msg, i))
+  eprint("----"); eprint("".join(slErr)); eprint("%s near <:%d (count %d)" %(msg, i, len(s)))
 
-class CStringIO:
+class StringBuild:
   if version_info.major == 2:
     global StringIO; from cStringIO import StringIO
   else: global StringIO; from io import StringIO
 
-  def __init__(self, initial=""): self.io = StringIO(initial); self.initial = initial
+  def __init__(self, initial=""): self.io = StringIO(initial)
   def write(self, s): self.io.write(s)
   def __str__(self): return self.io.getvalue()
-  def clear(self): self.io.seek(0, 0); self.io.truncate(0)
+  def clear(self): self.io.seek(0, 0); self.io.truncate(0) #SEEK_SET
   @property
   def pos(self): return self.io.tell()
   @pos.setter
-  def pos(self, i): self.io.seek(i, 0)
-  def __iter__(self): return CStringIO.ReadIter(self)
-  class ReadIter:
-    def __init__(self, s): #dytype
-      self.s = CStringIO(unicode(s, getfilesystemencoding())) if version_info.major == 2 else s
-      self.pos = 0
-    def __next__(self):
-      c = self.s.io.read(1)
-      if c == "": self.s.io.close(); raise StopIteration()
-      self.pos += 1
-      return c
-    def skip(self, n):
-      self.pos += n
-      self.s.io.seek(self.s.io.tell()+n) # can't use SEEK_CUR on non-rb stream, see Issue 12922
-    def isEnd(self):
-      try:
-        oldPos = self.s.pos
-        b = not self.s.io.readable() or self.s.io.read(1) == ""
-        if not b: self.s.pos = oldPos
-        return b
-      except ValueError: return True
+  def pos(self, i): self.io.seek(i)
+
+class StringRead:
+  def __init__(self, s):
+    self.text = unicode(s, getfilesystemencoding()) if version_info.major == 2 else s
+    self.pos = 0; self._n = len(self.text)
+  def __iter__(self): return self
+  def __next__(self):
+    if self.pos >= self._n: raise StopIteration()
+    c = self.text[self.pos]
+    self.pos += 1
+    return c
+  def __str__(self): return self.text[self.pos:]
+  def get(self): return self.text[self.pos]
+  def skip(self, n): self.pos += n
+  def isEnd(self): return (self.pos >= self._n)
+
+def takeTillFirstOccur(sr, *texts):
+  s = str(sr); iFound = -1
+  for text in texts:
+    idx = s.find(text)
+    if idx != -1 and (iFound == -1 or idx < iFound): iFound = idx
+  if iFound == -1: sr.pos = len(sr.text); iFound = sr.pos
+  else: sr.pos += iFound
+  return s[0:iFound]
 
 RE_MACRO = Regex("(#|/{2})(\\S+?)\\(\\s*(.*?)\\)", re.DOTALL)
-def _expandMacroTo(sb, cz, get_subst):
+def _expandMacroTo(ab, sr, get_subst):
+  print(sr)
   #return RE_MACRO.sub(lambda m: get_subst(m[2], m[3]), s)
-  buf = CStringIO(); state = 0
+  buf = StringBuild()
   def appendBuf():
     sBuf = str(buf); buf.clear()
-    if sBuf != "": sb.append(sBuf)
-  while True:
-    try: c = next(cz)
-    except StopIteration: break
-    if state == 0 and c in "#/)": # state machine
-      if c == '#': buf.write('#'); cz.skip(1)
-      elif c == '/': buf.write('//'); cz.skip(2)
-      elif c == ')': return appendBuf()
-      state = 1; continue # just like "call a function"
-    elif state == 1:
-      try:
-        c1 = c; iBuf0 = buf.pos
-        while not (c1.isspace() or c1 in "()#/"): buf.write(c1); c1 = next(cz)
-        if c1 == ')': return appendBuf()
-        if buf.pos == iBuf0: appendBuf(); state = 0
-      except StopIteration: break # optimized
-      if c1 == '(':
-        name = str(buf); buf.clear()
-        iBeg = len(sb)
-        cz.skip(1); _expandMacroTo(sb, cz, get_subst)
-        iEnd = len(sb)
-        for idx in range(iBeg, iEnd): buf.write(sb.pop(iBeg))
-        called = get_subst(name.lstrip("#/"), str(buf) )
-        sb.insert(iBeg, called) # Excel-like step-by-step
-        buf.clear()
-        if cz.isEnd() or next(cz) != ')':
-          eprintSyntaxError(cz.s.initial, cz.pos, "expecting ')'")
-          break
-        cz.skip(1)
-    skip = takeTillFirstOccur(cz.s, "#", "//", ")")
-    if skip != "": sb.append(skip)
-    if cz.isEnd(): break # at EOF
-  return appendBuf() # just for fun, not serious.
+    if sBuf != "": ab.append(sBuf)
+  # states = [top, fcall, args]
+  pops = (-1)
+  def readToplevel():
+    skip = takeTillFirstOccur(sr, "#", "//", ")")
+    if skip != "": ab.append(skip)
+    c = sr.get()
+    if c in ")#/":
+      if c == ')': return pops
+      elif c == '#': buf.write('#'); sr.skip(1)
+      elif c == '/': buf.write('//'); sr.skip(2)
+      return 1 # fake state machine
+    else: return 0
+  def readFCall():
+    try:
+      c = next(sr); iBuf0 = buf.pos
+      while not (c.isspace() or c in "()#/"): buf.write(c); c = next(sr)
+      if c == ')': return pops
+      if buf.pos == iBuf0: appendBuf(); return 0 #//()
+    except StopIteration: return pops
+    sr.pos -= 1 #(
+    return 2
+  def readArgs():
+    if next(sr) == '(':
+      name = str(buf); buf.clear()
+      iBeg = len(ab)
+      _expandMacroTo(ab, sr, get_subst) # recursive
+      iEnd = len(ab)
+      for idx in range(iBeg, iEnd): buf.write(ab.pop(iBeg))
+      called = get_subst(name.lstrip("#/"), str(buf) )
+      ab.insert(iBeg, called) # Excel-like step-by-step
+      buf.clear()
+      if sr.isEnd() or sr.get() != ')':
+        eprintSyntaxError(sr.text, sr.pos, "expecting ')'")
+        return 0
+      else: sr.skip(1); return -1
+    appendBuf(); return 0
+  stateOps = [readToplevel, readFCall, readArgs]
+  state = 0 # tail-call SM
+  while not sr.isEnd():
+    move = stateOps[state]()
+    if move == -1: break
+    else: state = move
+  appendBuf(); print(sr); return
 
 def expandMacro(s, get_subst):
-  sb = []; _expandMacroTo(sb, iter(CStringIO(s)), get_subst)
-  return "".join(sb)
+  ab = []; _expandMacroTo(ab, StringRead(s), get_subst)
+  return "".join(ab)
 
 
 ## PART output process / main
@@ -207,10 +214,10 @@ class FillTemplate:
       eprint("unknown command %s, treating as text" %fpOut)
       fpOut = ""; isText = True # notify '!'!
     fpOut1 = prefixes[0]+fpOut
+    if fpOut1 == "": return # talk-about is not for outer blocks
     code1 = expandMacro(code, self.getMacroResult)
     sBrief = "...".join(strBrief(RE_WHITE.sub(" ", code1), self.nPrevi))
     print("%s N=%i %s" %(fpOut1, len(code1), sBrief))
-    if fpOut1 == "": return # talk-about is not for outer blocks
     mkdirs(fpOut1)
     with open(fpOut1, self.writeMode) as fd:
       if isText and sCmt != None: fd.write(sCmt) # for "##"
