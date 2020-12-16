@@ -17,10 +17,17 @@ else:
   def unicodeify(s): return s
 
 from os import mkdir, chdir, path, getenv
-from shutil import copytree
+from shutil import copytree, rmtree
 from sys import argv, stderr
 
 def eprint(*args): print(*args, file=stderr)
+
+ENV_PREFIX = "LPY_"
+def envOr(deft, name, transform=unicodeify):
+  value = getenv(ENV_PREFIX+name)
+  return deft if value == None else transform(value)
+
+commaSet = lambda s: set(s.split(',')) # trace fnames, flags
 
 def _mkdirs(fp):
   base = path.dirname(fp) # just for fun... bad
@@ -57,36 +64,56 @@ def strBrief(s, n_vp):
   iVp = n_vp // 2
   return (s[:iVp], s[len(s)-iVp:]) if len(s) > n_vp+1 else (s,) # odd len =+1.
 
+FLAGS = envOr(set(), "flags", commaSet)
 
 ## PART macro util
 RE_WHITE = Regex("\\s")
 RE_COMMA = Regex(",\\s*") # NOTE: op(a ,b ,c) better readability, instead of: op(a, b, c)
+RE_PARENED = Regex("\\((.*?)\\)")
 RE_DEFINE = Regex("\\s*(\\S+?)\\((.*?)\\) ?(.*?)\\n")
+RE_DEFINE_ARG = Regex("\\s*,\\s*")
+RE_DEFINE_LANG = Regex(".*_(.*)")
 RE_DEFINE_REF = Regex("\\${\\s*(.*?)\\s*}")
 
 def readDefine(d, s, srcpos):
   def convertDef(m):
-    (name, formals, body) = m.groups()
+    (name, sFormals, sBody) = m.groups()
+    formals = sFormals # RE_DEFINE_ARG.split(sFormals)
+    def argNo(m): # find ${N} index of ref, (ref)
+      braceRef = lambda i: "${%d}" %formals.index(i)
+      try: return braceRef(m.group(1))
+      except ValueError: return -1
+      exprM = RE_PARENED.match(m.group(1))
+      if exprM != None:
+        try: return braceRef(exprM.group(1))
+        except ValueError: pass
+      return -1
+    body = sBody # RE_DEFINE_REF.sub(argNo, sBody)
     return "macro(d, srcpos, %r, %r, %r)\n" %(name, formals, body)
   code = RE_DEFINE.sub(convertDef, s)
   runCode(code, srcpos, {"d": d, "srcpos": srcpos})
 
 def macro(d, srcpos, name, params, body): # executed in eval()
-  notPY = not name.endswith("_PY")
-  sInterp = "lambda %s: f(%r, {}, {})"
-  lambCode = sInterp.format(repr(params), params) if notPY else "lambda %s: %s"
+  langM = RE_DEFINE_LANG.match(name)
+  ignoreErrors = False
+  if langM == None:
+    lambCode = "lambda %s: f(%r, {}, {})".format(repr(params), params)
+  else:
+    lambCode = "lambda %s: %s"
+    if langM.group(1) != "PY": ignoreErrors = True
   try:
     code = compile(lambCode %(params, body), srcpos, "eval")
     dGlo = {"scope": d, "Regex": Regex}
     def strInterpolate(s, params, *args):
       table = dict(zip(RE_COMMA.split(params), args))
-      evalRef = lambda m: unicodeify(eval(m.group(1), dGlo, table))
-      return RE_DEFINE_REF.sub(evalRef, s)
+      evalRef = lambda m: unicodeify(eval(m.group(1), dGlo, table)) # TODO: recursive expansion, arglist, lazy if()?
+      return RE_DEFINE_REF.sub(evalRef, s) # ...and macro ',' comma(), spread()
     dGlo["f"] = strInterpolate # recur-ref dGlo
     d[name] = eval(code, dGlo) # defined in lambCode
-    eprint("defined %s of %s" %(name, params))
+    if "see-defined" in FLAGS: eprint("defined %s of %s" %(name, params))
   except SyntaxError as ex:
-    pfix = len(name) - len("lambda") - (2 if notPY else 0) #f"
+    if ignoreErrors: return
+    pfix = len(name) - len("lambda") - (2 if langM == None else 0) #f"
     eprint("--"); eprint(ex.text)
     evalCaller = traceback.extract_stack(limit=2)[0]
     eprint(":: %s in %s (%s:%d)" %(ex.msg, name, _sumSrcPos(evalCaller), ex.offset+pfix))
@@ -189,12 +216,13 @@ def expandMacro(s, get_subst):
 RE_CODE = Regex("```\\w*\\n(#|/{2})?( ?!?!?\\S+\\n)?(.*?)```", re.DOTALL) #!compat
 RE_INVALID = Regex("!|#")
 
+TRACE_EXPANSION = envOr(set(), "traceExpansion", commaSet)
 class FillTemplate:
   def __init__(self, scope={}):
     self.scope=scope
-    self.fpTpl = getenv("template", "")
-    self.nPrevi = int(getenv("nPrevi", 40))
-    self.writeMode = getenv("writeMode", "a")
+    self.fpTpl = envOr("", "template") # TODO: support !!include (+init.h.md), !!include-onfinish, Makefile doMake()
+    self.nPrevi = envOr(40, "nPrevi", int)
+    self.writeMode = envOr("a", "writeMode")
     self.sourceSet = set()
 
   def _outputInPwd(self, fp_abs, text, lval_prefixes, m):
@@ -211,7 +239,9 @@ class FillTemplate:
     if desc.startswith("!!"):
       act = desc[2:]
       if act == "define": readDefine(self.scope, code, getSrcpos(m))
-      elif act == "execute": runCode(code, getSrcpos(m), {"__FILE__": fp_abs, "__DIR__": getDir(), "scope": self.scope})
+      elif act.startswith("execute"):
+        if act[7:].lstrip("-") == "PY":
+          runCode(code, getSrcpos(m), {"__FILE__": fp_abs, "__DIR__": getDir(), "scope": self.scope})
       elif act == "include":
         fpMd = path.relpath(path.join(getDir(), code.strip()), self.fpaDir)
         self.outputInPwd(fpMd)
@@ -234,7 +264,7 @@ class FillTemplate:
       fd.write(code1)
 
   def outputInPwd(self, src):
-    eprint("Render file %s (%d items in scope):" %(src, len(self.scope)))
+    if "see-rendered" in FLAGS: eprint("Render file %s (%d items in scope):" %(src, len(self.scope)))
     self.sourceSet.add(src)
     fpAbs = path.join(self.fpaDir, src); sMd = ""
     with open(fpAbs, "r", encoding=FS_ENCODING) as fd: sMd = fd.read()
@@ -246,6 +276,7 @@ class FillTemplate:
     args = RE_COMMA.split(s_arg)
     for suffix in FillTemplate.MACRO_SUFFIXES: # try fallback fn-ver s.
       name = fn+suffix
+      if name in TRACE_EXPANSION: eprint("%s(%r)" %(name, s_arg))
       op = self.scope.get(name)
       if op != None:
         try: return unicodeify(op(*args))
@@ -262,6 +293,7 @@ class FillTemplate:
     (fpaDir, fpSrc) = path.split(path.abspath(src))
     self.fpaDir = fpaDir
     fpDst = path.splitext(fpSrc)[0]
+    if "clean" in FLAGS: rmtree(fpDst, ignore_errors=False)
     if fpTpl != "":
       if not path.isdir(fpTpl): raise EnvironmentError(fpTpl+" dir not found here")
       try: copytree(fpTpl, fpDst, dirs_exist_ok=True) # template feat.

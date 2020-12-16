@@ -1,0 +1,9 @@
+Hello Mike
+Hello Jake Bye Rose
+Bye Apple
+{s*int(n)}
+通过。
+
+//{s*int(n)}
+/Hello 
+/notMacro(

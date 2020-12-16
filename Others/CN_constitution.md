@@ -19,7 +19,7 @@ rm -r CN_constitution/; python ./fill_template.py CN_constitution.md
 以我的编程风格，绝不允许人工维护机械化的编号，所以先定义预处理函数所需的汉字数显示：
 
 ```python
-# !!execute
+# !!execute-PY
 digits = list("零一二三四五六七八九")
 units = { "十": 10, "百": 100 } # 可增添以扩充定义域
 
