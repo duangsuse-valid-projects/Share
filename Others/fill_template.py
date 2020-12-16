@@ -3,19 +3,22 @@ from __future__ import print_function, unicode_literals
 import re # using Regex as tokenizer
 from re import compile as Regex
 
-from sys import argv, stderr, exc_info
+from sys import exc_info, version_info
 import traceback
 
-from io import StringIO
-from sys import version_info, getfilesystemencoding # choose CStringIO stream impl cfg.
+from io import StringIO # needs unicode, so not cStringIO
+from sys import getfilesystemencoding # choose String[Build/Read] stream impl cfg.
+FS_ENCODING = getfilesystemencoding()
+
 if version_info.major == 2:
   from codecs import open
-  def unicodeify(s): return s if isinstance(s, unicode) else unicode(s, getfilesystemencoding())
+  def unicodeify(s): return s if isinstance(s, unicode) else unicode(s, FS_ENCODING)
 else:
   def unicodeify(s): return s
 
 from os import mkdir, chdir, path, getenv
 from shutil import copytree
+from sys import argv, stderr
 
 def eprint(*args): print(*args, file=stderr)
 
@@ -26,14 +29,15 @@ def _mkdirs(fp):
     mkdir(fp)
   except FileExistsError as ex:
     if not path.isdir(fp): raise ex
+
 def mkdirs(fp):
   base = path.dirname(fp)
   if base != "": _mkdirs(base)
 
 def _sumSrcPos(tb):
   (src, lineno) = tb[0].rsplit(':')
-  lnbeg = int(lineno)
-  return "%s:%d+%d, %s:%d" %(src, lnbeg, tb[1], src, lnbeg+tb[1])
+  posBeg = int(lineno)
+  return "%s:%d+%d, %s:%d" %(src, posBeg, tb[1], src, posBeg+tb[1])
 
 def eprintMdStack(tb):
   for caller in reversed(traceback.extract_tb(tb)):
@@ -56,31 +60,33 @@ def strBrief(s, n_vp):
 
 ## PART macro util
 RE_WHITE = Regex("\\s")
-RE_COMMA = Regex(",\\s*")
+RE_COMMA = Regex(",\\s*") # NOTE: op(a ,b ,c) better readability, instead of: op(a, b, c)
 RE_DEFINE = Regex("\\s*(\\S+?)\\((.*?)\\) ?(.*?)\\n")
-RE_MACRO_REF = Regex("\\${\\s*(.*?)\\s*}")
+RE_DEFINE_REF = Regex("\\${\\s*(.*?)\\s*}")
+
 def readDefine(d, s, srcpos):
   def convertDef(m):
     (name, formals, body) = m.groups()
-    return "macro(d, %r, %r, %r, srcpos)\n" %(name, formals, body)
+    return "macro(d, srcpos, %r, %r, %r)\n" %(name, formals, body)
   code = RE_DEFINE.sub(convertDef, s)
   runCode(code, srcpos, {"d": d, "srcpos": srcpos})
 
-def macro(d, name, params, body, srcpos):
-  notPY2 = not name.endswith("_PY")
+def macro(d, srcpos, name, params, body): # executed in eval()
+  notPY = not name.endswith("_PY")
   sInterp = "lambda %s: f(%r, {}, {})"
-  lambCode = sInterp.format(repr(params), params) if notPY2 else "lambda %s: %s"
+  lambCode = sInterp.format(repr(params), params) if notPY else "lambda %s: %s"
   try:
     code = compile(lambCode %(params, body), srcpos, "eval")
     dGlo = {"scope": d, "Regex": Regex}
     def strInterpolate(s, params, *args):
       table = dict(zip(RE_COMMA.split(params), args))
-      return RE_MACRO_REF.sub(lambda m: unicodeify(eval(m.group(1), dGlo, table)), s)
-    dGlo["f"] = strInterpolate #recur-ref
+      evalRef = lambda m: unicodeify(eval(m.group(1), dGlo, table))
+      return RE_DEFINE_REF.sub(evalRef, s)
+    dGlo["f"] = strInterpolate # recur-ref dGlo
     d[name] = eval(code, dGlo) # defined in lambCode
     eprint("defined %s of %s" %(name, params))
   except SyntaxError as ex:
-    pfix = len(name) - len("lambda") - (2 if notPY2 else 0) #f"
+    pfix = len(name) - len("lambda") - (2 if notPY else 0) #f"
     eprint("--"); eprint(ex.text)
     evalCaller = traceback.extract_stack(limit=2)[0]
     eprint(":: %s in %s (%s:%d)" %(ex.msg, name, _sumSrcPos(evalCaller), ex.offset+pfix))
@@ -98,8 +104,8 @@ class StringBuild:
     def write(self, s): self.io.write(unicodeify(s))
   else:
     def write(self, s): self.io.write(s)
-  def view(self): return self.io.getvalue()
-  def clear(self): self.io.seek(0, 0); self.io.truncate(0) #SEEK_SET
+  def str(self): return self.io.getvalue()
+  def clear(self): self.io.seek(0, 0); self.io.truncate(0) # 0, SEEK_SET
   @property
   def pos(self): return self.io.tell()
   @pos.setter
@@ -114,37 +120,42 @@ class StringRead:
     if self.pos >= self._n: raise StopIteration()
     self.pos += 1
     return self.text[self.pos]
-  next = __next__
-  def view(self): return self.text[self.pos:]
+  next = __next__ # PY2
+  def str(self): return self.text[self.pos:]
   def get(self): return self.text[self.pos]
   def skip(self, n): self.pos += n
   def isEnd(self): return (self.pos >= self._n)
 
 def takeTillFirstOccur(sr, *texts):
-  s = sr.view(); iFound = -1
+  s = sr.str(); iFound = -1
   for text in texts:
     idx = s.find(text)
-    if idx != -1 and (iFound == -1 or idx < iFound): iFound = idx
-  if iFound == -1: sr.pos = len(sr.text); iFound = sr.pos
-  else: sr.pos += iFound
+    if idx != -1: iFound = idx; break # first found
+  if iFound == -1: # EOF.
+    sr.pos = len(sr.text); iFound = sr.pos
+  else:
+    for text in texts: # NOTE perf: first fnd. text not removed
+      idx = s.find(text)
+      if idx != -1 and  idx < iFound: iFound = idx
+    sr.pos += iFound
   return s[0:iFound]
 
 RE_MACRO = Regex("(#|/{2})(\\S+?)\\(\\s*(.*?)\\)", re.DOTALL)
 def _expandMacroTo(ab, sr, get_subst):
   #return RE_MACRO.sub(lambda m: get_subst(m[2], m[3]), s)
   buf = StringBuild(); state = 0
+  def appendNE(s):
+    if s != "": ab.append(s)
   def appendBuf():
-    sBuf = buf.view(); buf.clear()
-    if sBuf != "": ab.append(sBuf)
-  def anchorNextMacro():
-    skip = takeTillFirstOccur(sr, "#", "//", ")")
-    if skip != "": ab.append(skip)
-  anchorNextMacro()
+    sBuf = buf.str(); buf.clear(); appendNE(sBuf)
+  def gotoNextMacro():
+    appendNE(takeTillFirstOccur(sr, "#", "//", ")"))
+  gotoNextMacro()
   while not sr.isEnd():
     c = sr.get()
-    if state == 0 and c in "#/)": # state machine
+    if state == 0: # state machine
       if c == '#': buf.write('#'); sr.skip(1)
-      elif c == '/': buf.write('//'); sr.skip(2) # not asserted
+      elif c == '/': buf.write('//'); sr.skip(2) # "//" asserted
       elif c == ')': break
       state = 1; continue # just like "call a function"
     elif state == 1:
@@ -152,23 +163,22 @@ def _expandMacroTo(ab, sr, get_subst):
         iBuf0 = buf.pos; c1 = c
         while not (c1.isspace() or c1 in "()#/"): buf.write(c1); c1 = next(sr)
         if c1 == ')': break
-        if buf.pos == iBuf0: appendBuf(); state = 0
-      except IndexError: break
+        if buf.pos == iBuf0: appendBuf(); state = 0 # nomatch, only "//()"
+      except StopIteration: break
       if c1 == '(':
-        name = buf.view(); buf.clear()
+        name = buf.str(); buf.clear()
         iBeg = len(ab)
         sr.skip(1); _expandMacroTo(ab, sr, get_subst)
         iEnd = len(ab)
         for idx in range(iBeg, iEnd): buf.write(ab.pop(iBeg))
-        called = get_subst(name.lstrip("#/"), buf.view() )
+        called = get_subst(name.lstrip("#/"), buf.str() ); buf.clear()
         ab.insert(iBeg, called) # Excel-like step-by-step
-        buf.clear()
         if sr.isEnd() or sr.get() != ')':
           eprintSyntaxError(sr.text, sr.pos, "expecting ')'")
-          break
+          return # buf cleared
         sr.skip(1)
-    anchorNextMacro()
-  appendBuf(); return
+    gotoNextMacro()
+  appendBuf(); return # adding unparsed tail
 
 def expandMacro(s, get_subst):
   ab = []; _expandMacroTo(ab, StringRead(s), get_subst)
@@ -176,55 +186,58 @@ def expandMacro(s, get_subst):
 
 
 ## PART output process / main
-RE_CODE = Regex("```\\w*\\n(#|/{2})?(\\s?!?!?\\S+\\n)?(.*?)```", re.DOTALL) #!compat
-# original: "```\\w*\\n//\\s([\\w/.]*)\\n(.*?)```"
+RE_CODE = Regex("```\\w*\\n(#|/{2})?( ?!?!?\\S+\\n)?(.*?)```", re.DOTALL) #!compat
 RE_INVALID = Regex("!|#")
+
 class FillTemplate:
-  def __init__(self, scope={}, nPrevi=40):
-    self.scope=scope; self.nPrevi=nPrevi
+  def __init__(self, scope={}):
+    self.scope=scope
+    self.fpTpl = getenv("template", "")
+    self.nPrevi = int(getenv("nPrevi", 40))
     self.writeMode = getenv("writeMode", "a")
     self.sourceSet = set()
 
-  def _outputInPwd(self, fp_abs, text, prefixes, m):
+  def _outputInPwd(self, fp_abs, text, lval_prefixes, m):
     def getSrcpos(m): # errloc feat.
-      fpath = path.relpath(fp_abs, self.fpBase)
-      return "%s:%d" %(fpath, text.count('\n', 0, m.start())+2)
+      fpMd = path.relpath(fp_abs, self.fpaDir)
+      return "%s:%d" %(fpMd, text.count('\n', 0, m.start())+2)
     def getDir(): return path.dirname(fp_abs)
-    # extracted (continue=return, self.prefixXXX) from outputInPwd
-    (sCmt, desc, code) = m.groups()
-    if sCmt == None and prefixes[0] == "": return
-    isText = (desc == None) # is //-header omitted?
-    fpOut = "" if isText else desc.strip()
-    if fpOut.startswith("!!"):
-      act = fpOut[2:]
+    # extracted (continue=return, self.prefix[Fp/Cmt]=lval_prefixes) from outputInPwd
+    (sCmt, sDesc, code) = m.groups()
+    if sCmt == None and lval_prefixes[0] == "": return
+    # is //-header omitted?
+    isText = (sDesc == None)
+    desc = "" if isText else sDesc.strip()
+    if desc.startswith("!!"):
+      act = desc[2:]
       if act == "define": readDefine(self.scope, code, getSrcpos(m))
       elif act == "execute": runCode(code, getSrcpos(m), {"__FILE__": fp_abs, "__DIR__": getDir(), "scope": self.scope})
       elif act == "include":
-        fp = path.relpath(path.join(getDir(), code.strip()), self.fpBase)
-        self.outputInPwd(fp)
-      elif act == "talkabout": prefixes[0] = code.strip(); prefixes[1] = sCmt
+        fpMd = path.relpath(path.join(getDir(), code.strip()), self.fpaDir)
+        self.outputInPwd(fpMd)
+      elif act == "talkabout": lval_prefixes[0] = code.strip(); lval_prefixes[1] = sCmt
       elif act == "ignore": pass
       else: eprint("unknown preprocessor action: %s" %act)
       return
-    if fpOut.startswith("!") or RE_INVALID.match(fpOut) != None:
-      eprint("unknown command %s, treating as text" %fpOut)
-      fpOut = ""; isText = True # notify '!'!
-    fpOut1 = prefixes[0]+fpOut
-    if fpOut1 == "": return # talk-about is not for outer blocks
+    if desc.startswith("!") or RE_INVALID.match(desc) != None: # notify '!'!
+      eprint("unknown command %s, treating as text" %desc)
+      desc = ""; isText = True
+    # eval doc & output maybe
+    fpOut = lval_prefixes[0]+desc
     code1 = expandMacro(code, self.getMacroResult)
+    if fpOut == "": return # talk-about is not for outer blocks
     sBrief = "...".join(strBrief(RE_WHITE.sub(" ", code1), self.nPrevi))
-    print("%s N=%i %s" %(fpOut1, len(code1), sBrief))
-    mkdirs(fpOut1)
-    with open(fpOut1, self.writeMode, encoding=getfilesystemencoding()) as fd:
+    print("%s N=%i %s" %(fpOut, len(code1), sBrief))
+    mkdirs(fpOut)
+    with open(fpOut, self.writeMode, encoding=FS_ENCODING) as fd:
       if isText and sCmt != None: fd.write(sCmt) # for "##"
       fd.write(code1)
 
   def outputInPwd(self, src):
     eprint("Render file %s (%d items in scope):" %(src, len(self.scope)))
     self.sourceSet.add(src)
-    sMd = ""
-    fpAbs = path.join(self.fpBase, src)
-    with open(fpAbs, "r", encoding=getfilesystemencoding()) as fd: sMd = fd.read()
+    fpAbs = path.join(self.fpaDir, src); sMd = ""
+    with open(fpAbs, "r", encoding=FS_ENCODING) as fd: sMd = fd.read()
     prefixes = ["", ""] # talk-about feat. & server mode comment
     for m in RE_CODE.finditer(sMd): self._outputInPwd(fpAbs, sMd, prefixes, m)
 
@@ -244,26 +257,25 @@ class FillTemplate:
           return "FAIL"
     return "ERR" # funny terminology
 
-  def processFile(self, src, fp_tpl):
-    fpAbs = path.abspath(src)
-    (fpBase, name) = path.split(fpAbs)
-    self.fpBase = fpBase
-    dst = path.splitext(name)[0]
-    if fp_tpl != "":
-      if not path.isdir(fp_tpl): raise EnvironmentError(fp_tpl+" dir not found here")
-      try: copytree(fp_tpl, dst, dirs_exist_ok=True) # template feat.
-      except TypeError: copytree(fp_tpl, dst)
-    else: # fp_tpl ""
-      if not path.isdir(dst): mkdir(dst)
-    chdir(dst); self.outputInPwd(name)
+  def processFile(self, src):
+    fpTpl = self.fpTpl
+    (fpaDir, fpSrc) = path.split(path.abspath(src))
+    self.fpaDir = fpaDir
+    fpDst = path.splitext(fpSrc)[0]
+    if fpTpl != "":
+      if not path.isdir(fpTpl): raise EnvironmentError(fpTpl+" dir not found here")
+      try: copytree(fpTpl, fpDst, dirs_exist_ok=True) # template feat.
+      except TypeError: copytree(fpTpl, fpDst)
+    else: # fpTpl ""
+      if not path.isdir(fpDst): mkdir(fpDst)
+    chdir(fpDst); self.outputInPwd(fpSrc)
 
 # TODO: Add TextEdit .create/modify Range, listenFileChange(dst, srcs, d_ftes)
 # TODO: Add auto-macro-match from output
 
 if __name__ == "__main__":
-  fpTpl = getenv("template", "")
   filler = FillTemplate()
-  for fp in argv[1:]: filler.processFile(fp, fpTpl)
+  for fp in argv[1:]: filler.processFile(fp)
 
 def trimBetween(cps, s): # confusing why added.
   state = 0; sb = [] # but anyone can shrink it...
