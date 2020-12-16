@@ -1,11 +1,18 @@
 #!/usr/bin/env python
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 import re # using Regex as tokenizer
 from re import compile as Regex
 
 from sys import argv, stderr, exc_info
-from sys import version_info, getfilesystemencoding # choose CStringIO stream impl cfg.
 import traceback
+
+from io import StringIO
+from sys import version_info, getfilesystemencoding # choose CStringIO stream impl cfg.
+if version_info.major == 2:
+  from codecs import open
+  def unicodeify(s): return s if isinstance(s, unicode) else unicode(s, getfilesystemencoding())
+else:
+  def unicodeify(s): return s
 
 from os import mkdir, chdir, path, getenv
 from shutil import copytree
@@ -68,7 +75,7 @@ def macro(d, name, params, body, srcpos):
     dGlo = {"scope": d, "Regex": Regex}
     def strInterpolate(s, params, *args):
       table = dict(zip(RE_COMMA.split(params), args))
-      return RE_MACRO_REF.sub(lambda m: str(eval(m.group(1), dGlo, table)), s)
+      return RE_MACRO_REF.sub(lambda m: unicodeify(eval(m.group(1), dGlo, table)), s)
     dGlo["f"] = strInterpolate #recur-ref
     d[name] = eval(code, dGlo) # defined in lambCode
     eprint("defined %s of %s" %(name, params))
@@ -86,13 +93,12 @@ def eprintSyntaxError(s, i, msg):
   eprint("----"); eprint("".join(slErr)); eprint("%s near <:%d (count %d)" %(msg, i, len(s)))
 
 class StringBuild:
-  if version_info.major == 2:
-    global StringIO; from cStringIO import StringIO
-  else: global StringIO; from io import StringIO
-
   def __init__(self, initial=""): self.io = StringIO(initial)
-  def write(self, s): self.io.write(s)
-  def __str__(self): return self.io.getvalue()
+  if version_info.major == 2:
+    def write(self, s): self.io.write(unicodeify(s))
+  else:
+    def write(self, s): self.io.write(s)
+  def view(self): return self.io.getvalue()
   def clear(self): self.io.seek(0, 0); self.io.truncate(0) #SEEK_SET
   @property
   def pos(self): return self.io.tell()
@@ -101,21 +107,21 @@ class StringBuild:
 
 class StringRead:
   def __init__(self, s):
-    self.text = unicode(s, getfilesystemencoding()) if version_info.major == 2 else s
+    self.text = s
     self.pos = 0; self._n = len(self.text)
   def __iter__(self): return self
   def __next__(self):
     if self.pos >= self._n: raise StopIteration()
-    c = self.text[self.pos]
     self.pos += 1
-    return c
-  def __str__(self): return self.text[self.pos:]
+    return self.text[self.pos]
+  next = __next__
+  def view(self): return self.text[self.pos:]
   def get(self): return self.text[self.pos]
   def skip(self, n): self.pos += n
   def isEnd(self): return (self.pos >= self._n)
 
 def takeTillFirstOccur(sr, *texts):
-  s = str(sr); iFound = -1
+  s = sr.view(); iFound = -1
   for text in texts:
     idx = s.find(text)
     if idx != -1 and (iFound == -1 or idx < iFound): iFound = idx
@@ -125,55 +131,44 @@ def takeTillFirstOccur(sr, *texts):
 
 RE_MACRO = Regex("(#|/{2})(\\S+?)\\(\\s*(.*?)\\)", re.DOTALL)
 def _expandMacroTo(ab, sr, get_subst):
-  print(sr)
   #return RE_MACRO.sub(lambda m: get_subst(m[2], m[3]), s)
-  buf = StringBuild()
+  buf = StringBuild(); state = 0
   def appendBuf():
-    sBuf = str(buf); buf.clear()
+    sBuf = buf.view(); buf.clear()
     if sBuf != "": ab.append(sBuf)
-  # states = [top, fcall, args]
-  pops = (-1)
-  def readToplevel():
+  def anchorNextMacro():
     skip = takeTillFirstOccur(sr, "#", "//", ")")
     if skip != "": ab.append(skip)
-    c = sr.get()
-    if c in ")#/":
-      if c == ')': return pops
-      elif c == '#': buf.write('#'); sr.skip(1)
-      elif c == '/': buf.write('//'); sr.skip(2)
-      return 1 # fake state machine
-    else: return 0
-  def readFCall():
-    try:
-      c = next(sr); iBuf0 = buf.pos
-      while not (c.isspace() or c in "()#/"): buf.write(c); c = next(sr)
-      if c == ')': return pops
-      if buf.pos == iBuf0: appendBuf(); return 0 #//()
-    except StopIteration: return pops
-    sr.pos -= 1 #(
-    return 2
-  def readArgs():
-    if next(sr) == '(':
-      name = str(buf); buf.clear()
-      iBeg = len(ab)
-      _expandMacroTo(ab, sr, get_subst) # recursive
-      iEnd = len(ab)
-      for idx in range(iBeg, iEnd): buf.write(ab.pop(iBeg))
-      called = get_subst(name.lstrip("#/"), str(buf) )
-      ab.insert(iBeg, called) # Excel-like step-by-step
-      buf.clear()
-      if sr.isEnd() or sr.get() != ')':
-        eprintSyntaxError(sr.text, sr.pos, "expecting ')'")
-        return 0
-      else: sr.skip(1); return -1
-    appendBuf(); return 0
-  stateOps = [readToplevel, readFCall, readArgs]
-  state = 0 # tail-call SM
+  anchorNextMacro()
   while not sr.isEnd():
-    move = stateOps[state]()
-    if move == -1: break
-    else: state = move
-  appendBuf(); print(sr); return
+    c = sr.get()
+    if state == 0 and c in "#/)": # state machine
+      if c == '#': buf.write('#'); sr.skip(1)
+      elif c == '/': buf.write('//'); sr.skip(2) # not asserted
+      elif c == ')': break
+      state = 1; continue # just like "call a function"
+    elif state == 1:
+      try:
+        iBuf0 = buf.pos; c1 = c
+        while not (c1.isspace() or c1 in "()#/"): buf.write(c1); c1 = next(sr)
+        if c1 == ')': break
+        if buf.pos == iBuf0: appendBuf(); state = 0
+      except IndexError: break
+      if c1 == '(':
+        name = buf.view(); buf.clear()
+        iBeg = len(ab)
+        sr.skip(1); _expandMacroTo(ab, sr, get_subst)
+        iEnd = len(ab)
+        for idx in range(iBeg, iEnd): buf.write(ab.pop(iBeg))
+        called = get_subst(name.lstrip("#/"), buf.view() )
+        ab.insert(iBeg, called) # Excel-like step-by-step
+        buf.clear()
+        if sr.isEnd() or sr.get() != ')':
+          eprintSyntaxError(sr.text, sr.pos, "expecting ')'")
+          break
+        sr.skip(1)
+    anchorNextMacro()
+  appendBuf(); return
 
 def expandMacro(s, get_subst):
   ab = []; _expandMacroTo(ab, StringRead(s), get_subst)
@@ -192,7 +187,8 @@ class FillTemplate:
 
   def _outputInPwd(self, fp_abs, text, prefixes, m):
     def getSrcpos(m): # errloc feat.
-      return "%s:%d" %(path.relpath(fp_abs, self.fpBase), text.count('\n', 0, m.start())+2)
+      fpath = path.relpath(fp_abs, self.fpBase)
+      return "%s:%d" %(fpath, text.count('\n', 0, m.start())+2)
     def getDir(): return path.dirname(fp_abs)
     # extracted (continue=return, self.prefixXXX) from outputInPwd
     (sCmt, desc, code) = m.groups()
@@ -219,7 +215,7 @@ class FillTemplate:
     sBrief = "...".join(strBrief(RE_WHITE.sub(" ", code1), self.nPrevi))
     print("%s N=%i %s" %(fpOut1, len(code1), sBrief))
     mkdirs(fpOut1)
-    with open(fpOut1, self.writeMode) as fd:
+    with open(fpOut1, self.writeMode, encoding=getfilesystemencoding()) as fd:
       if isText and sCmt != None: fd.write(sCmt) # for "##"
       fd.write(code1)
 
@@ -228,7 +224,7 @@ class FillTemplate:
     self.sourceSet.add(src)
     sMd = ""
     fpAbs = path.join(self.fpBase, src)
-    with open(fpAbs, "r") as fd: sMd = fd.read()
+    with open(fpAbs, "r", encoding=getfilesystemencoding()) as fd: sMd = fd.read()
     prefixes = ["", ""] # talk-about feat. & server mode comment
     for m in RE_CODE.finditer(sMd): self._outputInPwd(fpAbs, sMd, prefixes, m)
 
@@ -239,7 +235,7 @@ class FillTemplate:
       name = fn+suffix
       op = self.scope.get(name)
       if op != None:
-        try: return str(op(*args))
+        try: return unicodeify(op(*args))
         except BaseException:
           tb = exc_info()[2]
           eprint("Exception in %s %r" %(name, args))
