@@ -127,3 +127,63 @@ rm -r FillTemplate/
 testFillTpl python3
 testFillTpl python2
 ```
+
+## 以上之外
+
+这里放一些测试性/还在设计时偶尔写的些小程序，测试效果。
+
+一个“跑马灯”文本输出。执行应该看到：
+
+```plain
+['你好，', 's', '、', 's', '、', 's', ' 色']
+[1, 3, 5]
+你好，赤、橙、黄 色
+你好，橙、黄、绿 色
+你好，黄、绿、青 色
+你好，绿、青、蓝 色
+你好，青、蓝、紫 色
+```
+
+这个的最简实现（不用封装好 ADT 数据结构的）一般人都会想到右侧插一个，止于右侧的赋下项值吧：
+
+```python
+im = [i for (i,s) in enumerate(filled) if s. strip() == "s"]; nIm = len(im)
+while True:
+  try: filled[im[nIm-1]] = next (substz)
+  except StopIteration: break
+  for i in range(0, nIm- 1):
+    filled[im[i]] = filled[im[i+1]]
+  print("". join (filled))
+```
+
+当然时序也是很重要的。首先要先左移而不是右插，虽然是 `i in 0 until len(ss)-1: ss[i] = ss[i+1]` 的左至右顺序也不会把右添的项目复制到左边，但，
+先插就覆盖了末项，导致 `ss[len(ss)-1 -1]` 和末项相等。
+
+最后是最好有个 `iter`，然后能第一遍先把占位符填满，
+这样的话 `print` 也要移到循环前面，消耗第一次填满的。（这么看前面的不仅不好也有 bug，不会输出最后一次左移）
+
+成品：
+
+```python
+# fifo_str.py
+import re
+text = """
+你好，%s、%s、%s 色
+""". strip()
+subst = list("赤橙黄绿青蓝紫")
+
+def showSubsts():
+  filled = re.split('%(\\w+)', text); print(filled)
+  im = [i for (i,s) in enumerate(filled) if s. strip() == "s"]; print (im)
+  substz = iter(subst)
+  nIm = len(im)
+  for i in range (nIm) :
+    filled[im[i]] = next(substz)
+  while True:
+    print("". join (filled))
+    for i in range(0, nIm- 1):
+      filled[im[i]] = filled[im[i+1]]
+    try: filled[im[nIm-1]] = next (substz)
+    except StopIteration: break
+showSubsts ()
+```

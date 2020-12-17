@@ -28,6 +28,7 @@ def envOr(deft, name, transform=unicodeify):
   return deft if value == None else transform(value)
 
 commaSet = lambda s: set(s.split(',')) # trace fnames, flags
+commaRegex = lambda s: Regex("|".join(map(lambda sP: "(%s)" %sP, s.split(','))))
 
 def _mkdirs(fp):
   base = path.dirname(fp) # just for fun... bad
@@ -56,8 +57,10 @@ def runCode(code, srcpos, locals):
   except BaseException:
     (etype, ex, tb) = exc_info()
     eprint("----"); eprint(code)
-    callee = traceback.extract_tb(tb, limit=2)[-1]
-    try: eprint(":: %s (%s)" %(ex, _sumSrcPos(callee)))
+    callees = traceback.extract_tb(tb, limit=2)
+    try:
+      callee = (ex.filename, ex.lineno) if len(callees) == 1 and etype == SyntaxError else callees[-1]
+      eprint(":: %s (%s)" %(ex, _sumSrcPos(callee)))
     except ValueError: eprint(str(ex)) # PY2 exc_info() errloc
 
 # for i in range(0, 8): print(i,__import__("fill_template").strBrief("helloa", i))
@@ -81,16 +84,16 @@ RE_DEFINE_REF = Regex("\\${\\s*(.*?)\\s*}")
 def readDefine(d, s, srcpos):
   def convertDef(m):
     (name, sFormals, sBody) = m.groups()
+    if sBody == "": return m.group(0)+"\n" # no match, fill NL only
     formals = sFormals # RE_DEFINE_ARG.split(sFormals)
-    def argNo(m): # find ${N} index of ref, (ref)
-      braceRef = lambda i: "${%d}" %formals.index(i)
+    def argNo(m): # find ${N} index of ref, or expr (ref).ops
+      noRef = "REF"; braceRef = lambda i: "${%d}" %formals.index(i)
       try: return braceRef(m.group(1))
-      except ValueError: return -1
-      exprM = RE_PARENED.match(m.group(1))
-      if exprM != None:
-        try: return braceRef(exprM.group(1))
-        except ValueError: pass
-      return -1
+      except ValueError: pass
+      expr = m.group(1) #v just convert ${N} to a[N] in exprs
+      refEval = lambda m1: RE_DEFINE_REF.sub(lambda m2: "a[%s]" %m2.group(1), argNo(m1))
+      expr1 = RE_PARENED.sub(refEval, expr)
+      return "${%s}" %expr1 if (expr1 != expr) else noRef
     body = sBody # RE_DEFINE_REF.sub(argNo, sBody)
     return "macro(d, srcpos, %r, %r, %r)\n" %(name, formals, body)
   code = RE_DEFINE.sub(convertDef, s)
@@ -287,12 +290,13 @@ class FillTemplate:
     for m in RE_CODE.finditer(sMd): self._outputInPwd(fpAbs, sMd, prefixes, m) # could be reuse when re-impl. in JS
 
   MACRO_SUFFIXES = ["", "_PY", "_JS"]
-  TRACE_EXPANSION = envOr(set(), "traceExpansion", commaSet)
+  TRACE_EXPANSION = envOr(None, "traceExpansion", commaRegex)
   def getMacroResult(self, fn, s_arg):
     args = RE_COMMA.split(s_arg); expandRes = None
     for suffix in FillTemplate.MACRO_SUFFIXES: # try fallback fn-ver s.
       name = fn+suffix
-      hasTrace = (name in FillTemplate.TRACE_EXPANSION)
+      cfgTe = FillTemplate.TRACE_EXPANSION
+      hasTrace = (cfgTe != None and cfgTe.match(name) != None)
       if hasTrace: eprint("%s(%r)" %(name, s_arg))
       op = self.scope.get(name)
       if op != None:
@@ -312,7 +316,7 @@ class FillTemplate:
     (fpaDir, fpSrc) = path.split(path.abspath(src))
     self.fpaDir = fpaDir
     fpDst = path.splitext(fpSrc)[0]
-    if "clean" in FLAGS: rmtree(fpDst, ignore_errors=False)
+    if "clean" in FLAGS: rmtree(fpDst, ignore_errors=True)
     if fpTpl != "":
       if not path.isdir(fpTpl): raise EnvironmentError(fpTpl+" dir not found here")
       try: copytree(fpTpl, fpDst, dirs_exist_ok=True) # template feat.
