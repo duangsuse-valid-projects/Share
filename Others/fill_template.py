@@ -60,9 +60,12 @@ def runCode(code, srcpos, locals):
     try: eprint(":: %s (%s)" %(ex, _sumSrcPos(callee)))
     except ValueError: eprint(str(ex)) # PY2 exc_info() errloc
 
+# for i in range(0, 8): print(i,__import__("fill_template").strBrief("helloa", i))
 def strBrief(s, n_vp):
-  iVp = n_vp // 2
-  return (s[:iVp], s[len(s)-iVp:]) if len(s) > n_vp+1 else (s,) # odd len =+1.
+  nS = len(s)
+  if nS <= n_vp: return (s,)
+  (iVp, nRem) = divmod(n_vp, 2) # no overlap idx.
+  return (s[:(iVp + nRem)], s[(nS - iVp):])
 
 FLAGS = envOr(set(), "flags", commaSet)
 
@@ -110,7 +113,7 @@ def macro(d, srcpos, name, params, body): # executed in eval()
       return RE_DEFINE_REF.sub(evalRef, s) # ...and macro ',' comma(), spread()
     dGlo["f"] = strInterpolate # recur-ref dGlo
     d[name] = eval(code, dGlo) # defined in lambCode
-    if "see-defined" in FLAGS: eprint("defined %s of %s" %(name, params))
+    if "see-onDefined" in FLAGS: eprint("defined %s of %s" %(name, params))
   except SyntaxError as ex:
     if ignoreErrors: return
     pfix = len(name) - len("lambda") - (2 if langM == None else 0) #f"
@@ -168,23 +171,28 @@ def takeTillFirstOccur(sr, *texts):
   return s[0:iFound]
 
 RE_MACRO = Regex("(#|/{2})(\\S+?)\\(\\s*(.*?)\\)", re.DOTALL)
-def _expandMacroTo(ab, sr, get_subst):
+def _expandMacroTo(ab, sr, s0, get_subst):
   #return RE_MACRO.sub(lambda m: get_subst(m[2], m[3]), s)
-  buf = StringBuild(); state = 0
+  buf = StringBuild(); state = s0
   def appendNE(s):
     if s != "": ab.append(s)
   def appendBuf():
     sBuf = buf.str(); buf.clear(); appendNE(sBuf)
+  def takeToBuf(s):
+    buf.write(s); sr.skip(len(s))
   def gotoNextMacro():
     appendNE(takeTillFirstOccur(sr, "#", "//", ")"))
   gotoNextMacro()
   while not sr.isEnd():
     c = sr.get()
-    if state == 0: # state machine
-      if c == '#': buf.write('#'); sr.skip(1)
-      elif c == '/': buf.write('//'); sr.skip(2) # "//" asserted
-      elif c == ')': break
-      state = 1; continue # just like "call a function"
+    if state == 0 or state == 2: # event-based state machine
+      if c == ')':
+        if state == 2: break
+        takeToBuf(c); appendBuf()
+      else:
+        if c == '#': takeToBuf(c)
+        elif c == '/': takeToBuf("//") # asserted
+        state = 1; continue # just like "call a function"
     elif state == 1:
       try:
         iBuf0 = buf.pos; c1 = c
@@ -195,7 +203,7 @@ def _expandMacroTo(ab, sr, get_subst):
       if c1 == '(':
         name = buf.str(); buf.clear()
         iBeg = len(ab)
-        sr.skip(1); _expandMacroTo(ab, sr, get_subst)
+        sr.skip(1); _expandMacroTo(ab, sr, 2, get_subst)
         iEnd = len(ab)
         for idx in range(iBeg, iEnd): buf.write(ab.pop(iBeg))
         called = get_subst(name.lstrip("#/"), buf.str() ); buf.clear()
@@ -208,7 +216,7 @@ def _expandMacroTo(ab, sr, get_subst):
   appendBuf(); return # adding unparsed tail
 
 def expandMacro(s, get_subst):
-  ab = []; _expandMacroTo(ab, StringRead(s), get_subst)
+  ab = []; _expandMacroTo(ab, StringRead(s), 0, get_subst)
   return "".join(ab)
 
 
@@ -216,7 +224,6 @@ def expandMacro(s, get_subst):
 RE_CODE = Regex("```\\w*\\n(#|/{2})?( ?!?!?\\S+\\n)?(.*?)```", re.DOTALL) #!compat
 RE_INVALID = Regex("!|#")
 
-TRACE_EXPANSION = envOr(set(), "traceExpansion", commaSet)
 class FillTemplate:
   def __init__(self, scope={}):
     self.scope=scope
@@ -245,7 +252,10 @@ class FillTemplate:
       elif act == "include":
         fpMd = path.relpath(path.join(getDir(), code.strip()), self.fpaDir)
         self.outputInPwd(fpMd)
-      elif act == "talkabout": lval_prefixes[0] = code.strip(); lval_prefixes[1] = sCmt
+      elif act == "talkabout":
+        prefix = code.strip()
+        if "see-onTalkabout" in FLAGS: print("Talking about %s:" %prefix)
+        lval_prefixes[0] = prefix; lval_prefixes[1] = sCmt
       elif act == "ignore": pass
       else: eprint("unknown preprocessor action: %s" %act)
       return
@@ -257,36 +267,45 @@ class FillTemplate:
     code1 = expandMacro(code, self.getMacroResult)
     if fpOut == "": return # talk-about is not for outer blocks
     sBrief = "...".join(strBrief(RE_WHITE.sub(" ", code1), self.nPrevi))
-    print("%s N=%i %s" %(fpOut, len(code1), sBrief))
+    if "see-nLines" in FLAGS:
+      code1Lns = code1.splitlines(); code1Slocs = list(filter(lambda s: not (s == "" or s.isspace()), code1Lns))
+      nCode1Ln = len(code1Lns)
+      print("%s N=%d nLine=%d=(%d+%d) %s" %(fpOut, len(code1), nCode1Ln, len(code1Slocs), nCode1Ln-len(code1Slocs), sBrief))
+    else:
+      print("%s N=%d %s" %(fpOut, len(code1), sBrief))
     mkdirs(fpOut)
     with open(fpOut, self.writeMode, encoding=FS_ENCODING) as fd:
       if isText and sCmt != None: fd.write(sCmt) # for "##"
       fd.write(code1)
 
   def outputInPwd(self, src):
-    if "see-rendered" in FLAGS: eprint("Render file %s (%d items in scope):" %(src, len(self.scope)))
+    if "see-onRender" in FLAGS: eprint("Render file %s (%d items in scope):" %(src, len(self.scope)))
     self.sourceSet.add(src)
     fpAbs = path.join(self.fpaDir, src); sMd = ""
     with open(fpAbs, "r", encoding=FS_ENCODING) as fd: sMd = fd.read()
     prefixes = ["", ""] # talk-about feat. & server mode comment
-    for m in RE_CODE.finditer(sMd): self._outputInPwd(fpAbs, sMd, prefixes, m)
+    for m in RE_CODE.finditer(sMd): self._outputInPwd(fpAbs, sMd, prefixes, m) # could be reuse when re-impl. in JS
 
   MACRO_SUFFIXES = ["", "_PY", "_JS"]
+  TRACE_EXPANSION = envOr(set(), "traceExpansion", commaSet)
   def getMacroResult(self, fn, s_arg):
-    args = RE_COMMA.split(s_arg)
+    args = RE_COMMA.split(s_arg); expandRes = None
     for suffix in FillTemplate.MACRO_SUFFIXES: # try fallback fn-ver s.
       name = fn+suffix
-      if name in TRACE_EXPANSION: eprint("%s(%r)" %(name, s_arg))
+      hasTrace = (name in FillTemplate.TRACE_EXPANSION)
+      if hasTrace: eprint("%s(%r)" %(name, s_arg))
       op = self.scope.get(name)
       if op != None:
-        try: return unicodeify(op(*args))
+        try: expandRes = unicodeify(op(*args)); break
         except BaseException:
           tb = exc_info()[2]
           eprint("Exception in %s %r" %(name, args))
           eprintMdStack(tb)
           eprint(traceback.format_exc())
-          return "FAIL"
-    return "ERR" # funny terminology
+          expandRes = "FAIL"; break
+    if expandRes == None: expandRes = "ERR" # funny terminology
+    if hasTrace: eprint("  = %r" %expandRes)
+    return expandRes
 
   def processFile(self, src):
     fpTpl = self.fpTpl
@@ -304,6 +323,7 @@ class FillTemplate:
 
 # TODO: Add TextEdit .create/modify Range, listenFileChange(dst, srcs, d_ftes)
 # TODO: Add auto-macro-match from output
+# TODO: improve flag set
 
 if __name__ == "__main__":
   filler = FillTemplate()
