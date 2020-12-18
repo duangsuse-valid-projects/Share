@@ -6,7 +6,7 @@ from re import compile as Regex
 from sys import exc_info, version_info
 import traceback
 
-from io import StringIO # needs unicode, so not cStringIO
+from io import StringIO # needs unicode, so not cStringIO. perf
 from sys import getfilesystemencoding # choose String[Build/Read] stream impl cfg.
 FS_ENCODING = getfilesystemencoding()
 
@@ -26,9 +26,6 @@ ENV_PREFIX = "LPY_"
 def envOr(deft, name, transform=unicodeify):
   value = getenv(ENV_PREFIX+name)
   return deft if value == None else transform(value)
-
-commaSet = lambda s: set(s.split(',')) # trace fnames, flags
-commaRegex = lambda s: Regex("|".join(map(lambda sP: "(%s)" %sP, s.split(','))))
 
 def _mkdirs(fp):
   base = path.dirname(fp) # just for fun... bad
@@ -69,67 +66,6 @@ def strBrief(s, n_vp):
   if nS <= n_vp: return (s,)
   (iVp, nRem) = divmod(n_vp, 2) # no overlap idx.
   return (s[:(iVp + nRem)], s[(nS - iVp):])
-
-FLAGS = envOr(set(), "flags", commaSet)
-
-## PART macro util
-RE_WHITE = Regex("\\s")
-RE_COMMA = Regex(",\\s*") # NOTE: op(a ,b ,c) better readability, instead of: op(a, b, c)
-RE_PARENED = Regex("\\((.*?)\\)")
-RE_DEFINE = Regex("\\s*(\\S+?)\\((.*?)\\) ?(.*?)\\n")
-RE_DEFINE_ARG = Regex("\\s*,\\s*")
-RE_DEFINE_LANG = Regex(".*_(.*)")
-RE_DEFINE_REF = Regex("\\${\\s*(.*?)\\s*}")
-
-def readDefine(d, s, srcpos):
-  def convertDef(m):
-    (name, sFormals, sBody) = m.groups()
-    if sBody == "": return m.group(0)+"\n" # no match, fill NL only
-    formals = sFormals # RE_DEFINE_ARG.split(sFormals)
-    def argNo(m): # find ${N} index of ref, or expr (ref).ops
-      noRef = "REF"; braceRef = lambda i: "${%d}" %formals.index(i)
-      try: return braceRef(m.group(1))
-      except ValueError: pass
-      expr = m.group(1) #v just convert ${N} to a[N] in exprs
-      refEval = lambda m1: RE_DEFINE_REF.sub(lambda m2: "a[%s]" %m2.group(1), argNo(m1))
-      expr1 = RE_PARENED.sub(refEval, expr)
-      return "${%s}" %expr1 if (expr1 != expr) else noRef
-    body = sBody # RE_DEFINE_REF.sub(argNo, sBody)
-    return "macro(d, srcpos, %r, %r, %r)\n" %(name, formals, body)
-  code = RE_DEFINE.sub(convertDef, s)
-  runCode(code, srcpos, {"d": d, "srcpos": srcpos})
-
-def macro(d, srcpos, name, params, body): # executed in eval()
-  langM = RE_DEFINE_LANG.match(name)
-  ignoreErrors = False
-  if langM == None:
-    lambCode = "lambda %s: f(%r, {}, {})".format(repr(params), params)
-  else:
-    lambCode = "lambda %s: %s"
-    if langM.group(1) != "PY": ignoreErrors = True
-  try:
-    code = compile(lambCode %(params, body), srcpos, "eval")
-    dGlo = {"scope": d, "Regex": Regex}
-    def strInterpolate(s, params, *args):
-      table = dict(zip(RE_COMMA.split(params), args))
-      evalRef = lambda m: unicodeify(eval(m.group(1), dGlo, table)) # TODO: recursive expansion, arglist, lazy if()?
-      return RE_DEFINE_REF.sub(evalRef, s) # ...and macro ',' comma(), spread()
-    dGlo["f"] = strInterpolate # recur-ref dGlo
-    d[name] = eval(code, dGlo) # defined in lambCode
-    if "see-onDefined" in FLAGS: eprint("defined %s of %s" %(name, params))
-  except SyntaxError as ex:
-    if ignoreErrors: return
-    pfix = len(name) - len("lambda") - (2 if langM == None else 0) #f"
-    eprint("--"); eprint(ex.text)
-    evalCaller = traceback.extract_stack(limit=2)[0]
-    eprint(":: %s in %s (%s:%d)" %(ex.msg, name, _sumSrcPos(evalCaller), ex.offset+pfix))
-
-def joinAlsoPrint(*args): print(*args); return "".join(args)
-
-def eprintSyntaxError(s, i, msg):
-  slErr = list(s)
-  slErr.insert(i, '<')
-  eprint("----"); eprint("".join(slErr)); eprint("%s near <:%d (count %d)" %(msg, i, len(s)))
 
 class StringBuild:
   def __init__(self, initial=""): self.io = StringIO(initial)
@@ -173,6 +109,93 @@ def takeTillFirstOccur(sr, *texts):
     sr.pos += iFound
   return s[0:iFound]
 
+def _commaSplit(text): # NOTE: op(a ,b ,c) better readability, instead of: op(a, b, c)
+  split = []; sb = StringBuild() # perf!
+  i = 0; n = len(text)
+  while i != n:
+    c = text[i]
+    if c == ',':
+      split.append(sb.str()); sb.clear()
+      i += 1
+      while i != n and text[i].isspace(): i += 1
+      continue #v merge \, due to Regex compat limitation
+    elif c == '\\' and i+1 != n and text[i+1] == ',': sb.write(','); i += 2; continue
+    else: sb.write(c)
+    i += 1
+  split.append(sb.str())
+  return split
+
+global commaSplit
+try:
+  reComma = Regex("(?<!\\\\),\\s*")
+  reEComma = Regex("\\\\,")
+  commaSplit = lambda s: [reEComma.sub(",", s1) for s1 in reComma.split(s)]
+except Exception:
+  commaSplit = _commaSplit
+
+commaSet = lambda s: set(commaSplit(s)) # trace fnames, flags
+commaRegex = lambda s: Regex("|".join(map(lambda sP: "(%s)" %sP, commaSplit(s))))
+
+FLAGS = envOr(set(), "flags", commaSet)
+
+## PART macro util
+RE_WHITE = Regex("\\s")
+RE_PARENED = Regex("\\((.*?)\\)")
+RE_DEFINE = Regex("\\s*(\\S+?)\\((.*?)\\) ?(.*?)\\n")
+RE_DEFINE_ARG = Regex("\\s*,\\s*")
+RE_DEFINE_LANG = Regex(".*_(.*)")
+RE_DEFINE_REF = Regex("\\${\\s*(.*?)\\s*}")
+
+def readDefine(d, s, srcpos):
+  def convertDef(m):
+    (name, sFormals, sBody) = m.groups()
+    if sBody == "": return m.group(0)+"\n" # no match, fill NL only
+    formals = sFormals # RE_DEFINE_ARG.split(sFormals)
+    def argNo(m): # find ${N} index of ref, or expr (ref).ops
+      noRef = "REF"; braceRef = lambda i: "${%d}" %formals.index(i)
+      try: return braceRef(m.group(1))
+      except ValueError: pass
+      expr = m.group(1) #v just convert ${N} to a[N] in exprs
+      refEval = lambda m1: RE_DEFINE_REF.sub(lambda m2: "a[%s]" %m2.group(1), argNo(m1))
+      expr1 = RE_PARENED.sub(refEval, expr)
+      return "${%s}" %expr1 if (expr1 != expr) else noRef
+    body = sBody # RE_DEFINE_REF.sub(argNo, sBody)
+    return "macro(d, srcpos, %r, %r, %r)\n" %(name, formals, body)
+  code = RE_DEFINE.sub(convertDef, s)
+  runCode(code, srcpos, {"d": d, "srcpos": srcpos})
+
+def macro(d, srcpos, name, params, body): # executed in eval()
+  langM = RE_DEFINE_LANG.match(name)
+  ignoreErrors = False
+  if langM == None:
+    lambCode = "lambda %s: f(%r, {}, {})".format(repr(params), params)
+  else:
+    lambCode = "lambda %s: %s"
+    if langM.group(1) != "PY": ignoreErrors = True
+  try:
+    code = compile(lambCode %(params, body), srcpos, "eval")
+    dGlo = {"scope": d, "Regex": Regex}
+    def strInterpolate(s, params, *args):
+      table = dict(zip(commaSplit(params), args))
+      evalRef = lambda m: unicodeify(eval(m.group(1), dGlo, table)) # TODO: recursive expansion, arglist, lazy if()?
+      return RE_DEFINE_REF.sub(evalRef, s) # ...and macro ',' comma(), spread()
+    dGlo["f"] = strInterpolate # recur-ref dGlo
+    d[name] = eval(code, dGlo) # defined in lambCode
+    if "see-onDefined" in FLAGS: eprint("defined %s of %s" %(name, params))
+  except SyntaxError as ex:
+    if ignoreErrors: return
+    pfix = len(name) - len("lambda") - (2 if langM == None else 0) #f"
+    eprint("--"); eprint(ex.text)
+    evalCaller = traceback.extract_stack(limit=2)[0]
+    eprint(":: %s in %s (%s:%d)" %(ex.msg, name, _sumSrcPos(evalCaller), ex.offset+pfix))
+
+def joinAlsoPrint(*args): print(*args); return "".join(args)
+
+def eprintSyntaxError(s, i, msg):
+  slErr = list(s)
+  slErr.insert(i, '<')
+  eprint("----"); eprint("".join(slErr)); eprint("%s near <:%d (count %d)" %(msg, i, len(s)))
+
 RE_MACRO = Regex("(#|/{2})(\\S+?)\\(\\s*(.*?)\\)", re.DOTALL)
 def _expandMacroTo(ab, sr, s0, get_subst):
   #return RE_MACRO.sub(lambda m: get_subst(m[2], m[3]), s)
@@ -204,17 +227,19 @@ def _expandMacroTo(ab, sr, s0, get_subst):
         if buf.pos == iBuf0: appendBuf(); state = 0 # nomatch, only "//()"
       except StopIteration: break
       if c1 == '(':
-        name = buf.str(); buf.clear()
-        iBeg = len(ab)
-        sr.skip(1); _expandMacroTo(ab, sr, 2, get_subst)
+        name = buf.str().lstrip("#/"); buf.clear()
+        iBeg = len(ab) #v lazy expansion
+        getSubst1 = get_subst if name != "lazy" else lambda nam, arg: "#%s(%s)" %(nam, arg)
+        sr.skip(1); _expandMacroTo(ab, sr, 2, getSubst1)
         iEnd = len(ab)
         for idx in range(iBeg, iEnd): buf.write(ab.pop(iBeg))
-        called = get_subst(name.lstrip("#/"), buf.str() ); buf.clear()
+        called = get_subst(name, buf.str() ); buf.clear()
         ab.insert(iBeg, called) # Excel-like step-by-step
         if sr.isEnd() or sr.get() != ')':
           eprintSyntaxError(sr.text, sr.pos, "expecting ')'")
           return # buf cleared
         sr.skip(1)
+      else: appendBuf(); state = 0
     gotoNextMacro()
   appendBuf(); return # adding unparsed tail
 
@@ -234,6 +259,8 @@ class FillTemplate:
     self.nPrevi = envOr(40, "nPrevi", int)
     self.writeMode = envOr("a", "writeMode")
     self.sourceSet = set()
+    self.scope["lazy"] = lambda a: a # lazy expansion
+    self.scope["eval"] = lambda s: expandMacro(s, self.getMacroResult)
 
   def _outputInPwd(self, fp_abs, text, lval_prefixes, m):
     def getSrcpos(m): # errloc feat.
@@ -267,7 +294,7 @@ class FillTemplate:
       desc = ""; isText = True
     # eval doc & output maybe
     fpOut = lval_prefixes[0]+desc
-    code1 = expandMacro(code, self.getMacroResult)
+    code1 = self.scope["eval"](code)
     if fpOut == "": return # talk-about is not for outer blocks
     sBrief = "...".join(strBrief(RE_WHITE.sub(" ", code1), self.nPrevi))
     if "see-nLines" in FLAGS:
@@ -292,7 +319,7 @@ class FillTemplate:
   MACRO_SUFFIXES = ["", "_PY", "_JS"]
   TRACE_EXPANSION = envOr(None, "traceExpansion", commaRegex)
   def getMacroResult(self, fn, s_arg):
-    args = RE_COMMA.split(s_arg); expandRes = None
+    args = commaSplit(s_arg); expandRes = None
     for suffix in FillTemplate.MACRO_SUFFIXES: # try fallback fn-ver s.
       name = fn+suffix
       cfgTe = FillTemplate.TRACE_EXPANSION
@@ -325,6 +352,8 @@ class FillTemplate:
       if not path.isdir(fpDst): mkdir(fpDst)
     chdir(fpDst); self.outputInPwd(fpSrc)
 
+  def onFinish(self): pass
+
 # TODO: Add TextEdit .create/modify Range, listenFileChange(dst, srcs, d_ftes)
 # TODO: Add auto-macro-match from output
 # TODO: improve flag set
@@ -332,6 +361,7 @@ class FillTemplate:
 if __name__ == "__main__":
   filler = FillTemplate()
   for fp in argv[1:]: filler.processFile(fp)
+  filler.onFinish()
 
 def trimBetween(cps, s): # confusing why added.
   state = 0; sb = [] # but anyone can shrink it...

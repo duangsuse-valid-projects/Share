@@ -187,3 +187,97 @@ def showSubsts():
     except StopIteration: break
 showSubsts ()
 ```
+
+### 关于宏调用的扩展
+
+咱策划了有三个扩展：
+
+1. 递归宏展开（就是宏定义里能直接 `${}` 而不必用嵌入 `scope["name"]()` 的 PY/JS 通用语法）
+2. 惰性宏展开（就是 call-by-need 按需求值，而不是 by-value 的先求值再传值调用，可以实现体带副作用的 `//if(p, a, b)`）
+3. 自动重构（就是动态构造正则表达式 `(.*?)` 匹配，实现从 `//尊敬的博士(A)` 配 `尊敬的A博士` 的双向变换）
+
+其实也可以有内联（依据 arg 指代上函数的 param 替换 body）什么的，不过那都是有点跑题了的……
+
+#### 首先说递归宏展开
+
+实际上咱已经支持递归宏展开了（和 `cpp` 不一样，LPY 会穷尽展开 `#f(g(x))` 这样的宏调用），只不过不能在宏定义里直接 `twice(s) #repeat(2, s)` 这种。
+
+首先，宏调用是不能放在 `${}` 外的，因为自咱区分 `_JS`/`_PY` 形式的宏和普通宏，参数引用理应只在钱花括号内出现。
+
+但如果这样做，普通展开结果不需要 `""`，而代码内结果需要展开成字面量，会导致许多问题（即便用 `twice(s) #repeat(2, ${s})` 也会在代码宏与普通宏之间产生不应有的联系）
+
+所以，只好用 `twice(s) ${scope["repeat"](2, s)}` 的这种形式，也有利于强调 LPY 作为预处理器，生成代码的能力有分层。
+
+#### 惰性宏展开
+
+很简单，在边解析边执行的 `_expandMacroTo` 里判断名字，如果叫 `"lazy"` （更进一步就是支持 per-macro 的 flag）就不展开它的子项，直接跳走即可（当然这个宏也可以起名像 `//>()` ，是支持的）
+
+```python
+# lazy.txt
+#lazy(//hello(1) #bye(2))
+#eval(//hello(1) #bye(2))
+//hello(1) #bye(2)
+```
+
+然后，在能拿到 expandMacro 的地方定义 `scope["lazy"]` 的闭包，它返回一个 `callable` 的 `Lazy` 闭包住所需变量即可。
+
+实现这一点必须有传值（而不只 `str`）宏的特性，其实不是太困难，参数列表是 `["a", 1, SEP, "b", "c"]` 的形式，每个逗号前只要无文本拼在其前调用结果上，自然就不会转 str
+
+```python
+while ab[i+1] != SEP:
+  a1 = ab.pop(i+1)
+  ab[i] = str(ab[i]) + str(a1)
+ab.pop(i+1) #SEP
+if len(ab) == i: break
+```
+
+当然，也可以定义 `if` 宏去求值字符串，也不需要支持传值了，但那样不可以做复杂点的宏比如 `#set!(a,int(1))`。（_实际上，目前的实现就是这种……_ 毕竟只是文本预处理器，很难想像会需要 value ，已经加入 `\,` 支持，但当然没有 `\\` 了）
+
+后来发现可以利用 `get_subst` 的参数，完全解析但只重新生成一个调用语法。
+
+目前实现上也就是 `lazy`/`eval` 的 call-by-name 手动传表达式调用。
+
+```python
+# lazy.txt
+#hello(\, Hello\, wor\,\,ld!!)
+```
+
+为此特意写了这个，可惜不能解决跳空格的问题，只能弃 Regex 彻底重写（许多旧引擎不支持 negative lookbehind `(?<!\\)`），唉。
+
+```python
+def commaSplit(text):
+  ss = RE_COMMA.split(text)
+  if len(ss) < 2: return ss
+  i = 0
+  while i != len(ss) -1:
+    s = ss[i]; n = len(s) # merge \, due to Regex compat limitation
+    if n != 0 and s[n-1] == '\\': ss[i] = s[:n - 1] +","+ ss.pop(i+1)
+    else: i += 1
+```
+
+（妈的 IPython `%timeit` 测试 `StringBuild()`、`StringIO()`、`sb=[]` 还没有 `s+="x"` 快，到 JS 里可能又反过来，真不知道怎么写好，[这个人](https://waymoot.org/home/python_string/)说最好是 `[ for ]` comprehension 其次是 `StringIO`，一群喜欢玩魔法谈甚么 Pythonic 的，不尊重用户抽象，茴字有几种写法。
+
+关于这个特性，也考虑过是不是要做到 callee 方的 define 里去（就可以弄 `lazy!if(p,a,b) ...` 这种了），后来觉得就是个预处理器，没必要引入这种实现复杂性
+
+#### 自动重构
+
+这个也需要形式化参数列表，在定义时必须预先解析成 argNo 的形式，允许生成反向的 regex 代码
+
+如果参数找不到就返回 `"REF"`，或正则式的 `.*` （实际上就不是 `${}` 的形式了），但只要能找到，就把它存入参数顺序里，并且返回 `(.*?)`
+
+这个要多测试，感觉那个 Parser 写得好渣，可惜毕竟是状态机，又含递归，难以改。
+
+```python
+# argNo.py
+RE_DEFINE_REF = Regex("\\${\\s*(.*?)\\s*}")
+RE_PARENED = Regex("\\((.*?)\\)")
+
+def argNo(m): # find ${N} index of ref, or expr (ref).ops
+  noRef = "REF"; braceRef = lambda i: "${%d}" %formals.index(i)
+  try: return braceRef(m.group(1))
+  except ValueError: pass
+  expr = m.group(1) #v just convert ${N} to a[N] in exprs
+  refEval = lambda m1: RE_DEFINE_REF.sub(lambda m2: "a[%s]" %m2.group(1), argNo(m1))
+  expr1 = RE_PARENED.sub(refEval, expr)
+  return "${%s}" %expr1 if (expr1 != expr) else noRef
+```
