@@ -224,9 +224,8 @@ def _expandMacroTo(ab, sr, s0, get_subst):
         iBuf0 = buf.pos; c1 = c
         while not (c1.isspace() or c1 in "()#/"): buf.write(c1); c1 = next(sr)
         if c1 == ')': break
-        if buf.pos == iBuf0: appendBuf(); state = 0 # nomatch, only "//()"
       except StopIteration: break
-      if c1 == '(':
+      if c1 == '(' and buf.pos != iBuf0:
         name = buf.str().lstrip("#/"); buf.clear()
         iBeg = len(ab) #v lazy expansion
         getSubst1 = get_subst if name != "lazy" else lambda nam, arg: "#%s(%s)" %(nam, arg)
@@ -239,7 +238,7 @@ def _expandMacroTo(ab, sr, s0, get_subst):
           eprintSyntaxError(sr.text, sr.pos, "expecting ')'")
           return # buf cleared
         sr.skip(1)
-      else: appendBuf(); state = 0
+      else: appendBuf(); state = 0 # nomatch, only "//()"
     gotoNextMacro()
   appendBuf(); return # adding unparsed tail
 
