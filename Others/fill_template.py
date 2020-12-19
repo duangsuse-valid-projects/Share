@@ -21,6 +21,7 @@ from shutil import copytree, rmtree
 from sys import argv, stderr
 
 def eprint(*args): print(*args, file=stderr)
+def eprintOnce(*args): print(*args, file=stderr, end="")
 
 ENV_PREFIX = "LPY_"
 def envOr(deft, name, transform=unicodeify):
@@ -133,15 +134,46 @@ try:
 except Exception:
   commaSplit = _commaSplit
 
-commaSet = lambda s: set(commaSplit(s)) # trace fnames, flags
 commaRegex = lambda s: Regex("|".join(map(lambda sP: "(%s)" %sP, commaSplit(s))))
 
-FLAGS = envOr(set(), "flags", commaSet)
+RE_SLASHS = Regex("/(.+?)/")
+class FlagSet:
+  def __init__(self): self.availableFlags = []; self.flags = set()
+  def flag(self, name):
+    self.availableFlags.append(name) # unchecked
+    ref_lazy = [None]
+    def evalFlag():
+      if ref_lazy[0] == None: ref_lazy[0] = (name in self.flags)
+      return ref_lazy[0]
+    return evalFlag
+  def __setattr__(self, name, value):
+    if not isinstance(value, str): return super().__setattr__(name, value)
+    setattr(self, name, self.flag(value))
+  def init(self, s_cfg):
+    slash = RE_SLASHS.match(s_cfg)
+    if slash == None:
+      for name in commaSplit(s_cfg): self.flags.add(name)
+    else:
+      re = commaRegex(slash.group(1))
+      for flag in self.availableFlags:
+        if re.match(flag) != None: self.flags.add(flag)
+
+def makeFlagSet():
+  f = FlagSet()
+  f.matchback = "matchback"
+  f.seeOnDefine = "see-onDefine"
+  f.seeOnTalkabout = "see-onTalkabout"
+  f.seeNLines = "see-nLines"
+  f.seeOnRender = "see-onRender"
+  f.clean = "clean"
+  return f
+flag = makeFlagSet()
+envOr(None, "flags", flag.init)
 
 ## PART macro util
 RE_WHITE = Regex("\\s")
 RE_PARENED = Regex("\\((.*?)\\)")
-RE_DEFINE = Regex("\\s*(\\S+?)\\((.*?)\\) ?(.*?)\\n")
+RE_DEFINE = Regex("[^\\n\\S]*(\\S+?)\\((.*?)\\) ?(.*?)\\n")
 RE_DEFINE_ARG = Regex("\\s*,\\s*")
 RE_DEFINE_LANG = Regex(".*_(.*)")
 RE_DEFINE_REF = Regex("\\${\\s*(.*?)\\s*}")
@@ -151,39 +183,41 @@ def readDefine(d, s, srcpos):
     (name, sFormals, sBody) = m.groups()
     if sBody == "": return m.group(0)+"\n" # no match, fill NL only
     formals = RE_DEFINE_ARG.split(sFormals)
-    evalArg = lambda idxs: RE_DEFINE_REF.sub(lambda m: argNo(formals, idxs, m), sBody)
+    evalArg = lambda idxs: RE_DEFINE_REF.sub(lambda m: argNo(name, formals, idxs, m), sBody)
     body = evalArg(None)
-    if "matchback" in FLAGS:
+    if flag.matchback():
       iSubs = []; sRe = evalArg(iSubs)
-      entry = (Regex(sRe), iSubs, name)
+      entry = (Regex(sRe), iSubs, len(formals), name)
       d["macro-regexs"].append(entry)
     return "macro(d, srcpos, %r, %r, %r, %r)\n" %(m.group(0).index(')'), name, formals, body)
   code = RE_DEFINE.sub(convertDef, s)
   runCode(code, srcpos, {"d": d, "srcpos": srcpos})
 
-from itertools import islice
 def macro(d, srcpos, m_start, name, params, body): # executed in eval()
+  if flag.seeOnDefine(): eprintOnce("define %s of %s" %(name, params))
   langM = RE_DEFINE_LANG.match(name)
   ignoreErrors = False
   if langM != None and langM.group(1) != "PY": ignoreErrors = True
-  parts = RE_DEFINE_REF.split(body) # s, c,s, c,s, ...
   compiled = [] #parts str|int|code
+  def appendNE(s):
+    if s != "": compiled.append(s)
   try:
-    for (i, part) in enumerate(parts):
-      if i % 2 == 0: # str part
-        compiled.append(part)
-      else:
-        try: compiled.append(int(part)) # ${1}
-        except ValueError: compiled.append(compile(part, srcpos, "eval")) # ${(args[1])+'x'}
-    if "see-onDefined" in FLAGS: eprint("defined %s of %s" %(name, params))
+    i0 = 0
+    for m in RE_DEFINE_REF.finditer(body): # s, c,s, c,s, ...
+      appendNE(body[i0:m.start()]); i0 = m.end()
+      part = m.group(1)
+      try: compiled.append(int(part)) # ${1}
+      except ValueError: compiled.append(compile(part, srcpos, "eval")) # ${(args[1])+'x'}
+    appendNE(body[i0:])
   except SyntaxError as ex:
+    if flag.seeOnDefine(): eprint(" ..fail")
     if ignoreErrors: return
     eprint("--"); eprint(ex.text)
     evalCaller = traceback.extract_stack(limit=2)[0]
-    no = (i+1) // 2 # see s,[c,s],... above, must-code asserted
-    match = next(islice(RE_DEFINE_REF.finditer(body), no, no+1))
-    pfix = m_start + match.start()
+    pfix = m_start + m.start()
     eprint(":: %s in %s (%s:%d)" %(ex.msg, name, _sumSrcPos(evalCaller), ex.offset+pfix))
+    return
+  if flag.seeOnDefine(): eprint(" ..done = %s" %compiled)
   dGlo = {"scope": d, "Regex": Regex}
   dLocal = {"noRef": errorNoRef}
   def strInterpolate(*args):
@@ -263,7 +297,7 @@ def expandMacro(s, get_subst):
   ab = []; _expandMacroTo(ab, StringRead(s), 0, get_subst)
   return "".join(ab)
 
-def argNo(formals, found, m): # find ${N} index of ref, or expr (ref).ops
+def argNo(macro_name, formals, found, m): # find ${N} index of ref, or expr (ref).ops
   isRegex = (found != None)
   fmts = ("(.*)", ".*") if isRegex else ("${%s}", "NOREF")
   brace = fmts[0]
@@ -280,7 +314,7 @@ def argNo(formals, found, m): # find ${N} index of ref, or expr (ref).ops
     try:
       sRef = braceRef(name)
       if isRegex and ref_hasFound[0]:
-        eprint("W: multiple ref %r in code can't be matched" %name)
+        eprint("W: argNo(%s): multiple ref %r in code can't be matched" %(macro_name, name))
         found.pop()
       ref_hasFound[0] = True #v replaces only !isRegex
       return RE_DEFINE_REF.sub(lambda m2: "(args[%s])" %m2.group(1), sRef)
@@ -307,7 +341,7 @@ class FillTemplate:
     self.sourceSet = set()
     self.scope["lazy"] = lambda a: a # lazy expansion
     self.scope["eval"] = lambda s: expandMacro(s, self.getMacroResult)
-    if "matchback" in FLAGS:
+    if flag.matchback():
       self.scope["macro-regexs"] = []
 
   def _outputInPwd(self, fp_abs, text, lval_prefixes, m):
@@ -332,7 +366,7 @@ class FillTemplate:
         self.outputInPwd(fpMd)
       elif act == "talkabout":
         prefix = code.strip()
-        if "see-onTalkabout" in FLAGS: print("Talking about %s:" %prefix)
+        if flag.seeOnTalkabout(): print("Talking about %s:" %prefix)
         lval_prefixes[0] = prefix; lval_prefixes[1] = sCmt
       elif act == "ignore": pass
       else: eprint("unknown preprocessor action: %s" %act)
@@ -345,7 +379,7 @@ class FillTemplate:
     code1 = self.scope["eval"](code)
     if fpOut == "": return # talk-about is not for outer blocks
     sBrief = "...".join(strBrief(RE_WHITE.sub(" ", code1), self.nPrevi))
-    if "see-nLines" in FLAGS:
+    if flag.seeNLines():
       code1Lns = code1.splitlines(); code1Slocs = list(filter(lambda s: not (s == "" or s.isspace()), code1Lns))
       nCode1Ln = len(code1Lns)
       print("%s N=%d nLine=%d=(%d+%d) %s" %(fpOut, len(code1), nCode1Ln, len(code1Slocs), nCode1Ln-len(code1Slocs), sBrief))
@@ -357,12 +391,13 @@ class FillTemplate:
       fd.write(code1)
 
   def outputInPwd(self, src):
-    if "see-onRender" in FLAGS: eprint("Render file %s (%d items in scope):" %(src, len(self.scope)))
+    if flag.seeOnRender(): eprint("Render file %s (%d items in scope):" %(src, len(self.scope)))
     self.sourceSet.add(src)
     fpAbs = path.join(self.fpaDir, src); sMd = ""
     with open(fpAbs, "r", encoding=FS_ENCODING) as fd: sMd = fd.read()
     prefixes = ["", ""] # talk-about feat. & server mode comment
     for m in RE_CODE.finditer(sMd): self._outputInPwd(fpAbs, sMd, prefixes, m) # could be reuse when re-impl. in JS
+    if flag.seeOnRender(): eprint("Finished rendering %s" %src)
 
   MACRO_SUFFIXES = ["", "_PY", "_JS"]
   TRACE_EXPANSION = envOr(None, "traceExpansion", commaRegex)
@@ -371,7 +406,7 @@ class FillTemplate:
     for suffix in FillTemplate.MACRO_SUFFIXES: # try fallback fn-ver s.
       name = fn+suffix
       cfgTe = FillTemplate.TRACE_EXPANSION
-      hasTrace = (cfgTe != None and cfgTe.match(name) != None)
+      hasTrace = (cfgTe != None and cfgTe.fullmatch(name) != None)
       if hasTrace: eprint("%s(%r)" %(name, s_arg))
       op = self.scope.get(name)
       if op != None:
@@ -391,7 +426,7 @@ class FillTemplate:
     (fpaDir, fpSrc) = path.split(path.abspath(src))
     self.fpaDir = fpaDir
     fpDst = path.splitext(fpSrc)[0]
-    if "clean" in FLAGS: rmtree(fpDst, ignore_errors=True)
+    if flag.clean(): rmtree(fpDst, ignore_errors=True)
     if fpTpl != "":
       if not path.isdir(fpTpl): raise EnvironmentError(fpTpl+" dir not found here")
       try: copytree(fpTpl, fpDst, dirs_exist_ok=True) # template feat.
@@ -400,7 +435,10 @@ class FillTemplate:
       if not path.isdir(fpDst): mkdir(fpDst)
     chdir(fpDst); self.outputInPwd(fpSrc)
 
-  def onFinish(self): pass
+  def onFinish(self):
+    if flag.matchback():
+      for (re, iargs, argc, name) in self.scope["macro-regexs"]:
+        print("%r = %s(%s) %d" %(re.pattern, name, iargs, argc))
 
 # TODO: Add TextEdit .create/modify Range, listenFileChange(dst, srcs, d_ftes)
 # TODO: Add auto-macro-match from output
