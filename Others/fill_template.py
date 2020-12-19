@@ -150,44 +150,57 @@ def readDefine(d, s, srcpos):
   def convertDef(m):
     (name, sFormals, sBody) = m.groups()
     if sBody == "": return m.group(0)+"\n" # no match, fill NL only
-    formals = sFormals # RE_DEFINE_ARG.split(sFormals)
-    def argNo(m): # find ${N} index of ref, or expr (ref).ops
-      noRef = "REF"; braceRef = lambda i: "${%d}" %formals.index(i)
-      try: return braceRef(m.group(1))
-      except ValueError: pass
-      expr = m.group(1) #v just convert ${N} to a[N] in exprs
-      refEval = lambda m1: RE_DEFINE_REF.sub(lambda m2: "a[%s]" %m2.group(1), argNo(m1))
-      expr1 = RE_PARENED.sub(refEval, expr)
-      return "${%s}" %expr1 if (expr1 != expr) else noRef
-    body = sBody # RE_DEFINE_REF.sub(argNo, sBody)
-    return "macro(d, srcpos, %r, %r, %r)\n" %(name, formals, body)
+    formals = RE_DEFINE_ARG.split(sFormals)
+    evalArg = lambda idxs: RE_DEFINE_REF.sub(lambda m: argNo(formals, idxs, m), sBody)
+    body = evalArg(None)
+    if "matchback" in FLAGS:
+      iSubs = []; sRe = evalArg(iSubs)
+      entry = (Regex(sRe), iSubs, name)
+      d["macro-regexs"].append(entry)
+    return "macro(d, srcpos, %r, %r, %r, %r)\n" %(m.group(0).index(')'), name, formals, body)
   code = RE_DEFINE.sub(convertDef, s)
   runCode(code, srcpos, {"d": d, "srcpos": srcpos})
 
-def macro(d, srcpos, name, params, body): # executed in eval()
+from itertools import islice
+def macro(d, srcpos, m_start, name, params, body): # executed in eval()
   langM = RE_DEFINE_LANG.match(name)
   ignoreErrors = False
-  if langM == None:
-    lambCode = "lambda %s: f(%r, {}, {})".format(repr(params), params)
-  else:
-    lambCode = "lambda %s: %s"
-    if langM.group(1) != "PY": ignoreErrors = True
+  if langM != None and langM.group(1) != "PY": ignoreErrors = True
+  parts = RE_DEFINE_REF.split(body) # s, c,s, c,s, ...
+  compiled = [] #parts str|int|code
   try:
-    code = compile(lambCode %(params, body), srcpos, "eval")
-    dGlo = {"scope": d, "Regex": Regex}
-    def strInterpolate(s, params, *args):
-      table = dict(zip(commaSplit(params), args))
-      evalRef = lambda m: unicodeify(eval(m.group(1), dGlo, table)) # TODO: recursive expansion, arglist, lazy if()?
-      return RE_DEFINE_REF.sub(evalRef, s) # ...and macro ',' comma(), spread()
-    dGlo["f"] = strInterpolate # recur-ref dGlo
-    d[name] = eval(code, dGlo) # defined in lambCode
+    for (i, part) in enumerate(parts):
+      if i % 2 == 0: # str part
+        compiled.append(part)
+      else:
+        try: compiled.append(int(part)) # ${1}
+        except ValueError: compiled.append(compile(part, srcpos, "eval")) # ${(args[1])+'x'}
     if "see-onDefined" in FLAGS: eprint("defined %s of %s" %(name, params))
   except SyntaxError as ex:
     if ignoreErrors: return
-    pfix = len(name) - len("lambda") - (2 if langM == None else 0) #f"
     eprint("--"); eprint(ex.text)
     evalCaller = traceback.extract_stack(limit=2)[0]
+    no = (i+1) // 2 # see s,[c,s],... above, must-code asserted
+    match = next(islice(RE_DEFINE_REF.finditer(body), no, no+1))
+    pfix = m_start + match.start()
     eprint(":: %s in %s (%s:%d)" %(ex.msg, name, _sumSrcPos(evalCaller), ex.offset+pfix))
+  dGlo = {"scope": d, "Regex": Regex}
+  dLocal = {"noRef": errorNoRef}
+  def strInterpolate(*args):
+    dLocal["args"] = args; res = []
+    for c in compiled:
+      if isinstance(c, str): res.append(c)
+      elif isinstance(c, int): res.append(args[c])
+      else:
+        try: res.append(unicodeify(eval(c, dGlo, dLocal)))
+        except NameError as ex:
+          tb = exc_info()[2]; eprintMdStack(tb)
+          eprint("%s, try surround it in ()" %ex)
+          res.append("FAIL")
+    return "".join(res)
+  d[name] = strInterpolate
+
+def errorNoRef(name): raise NameError("no such ref. %r" %name)
 
 def joinAlsoPrint(*args): print(*args); return "".join(args)
 
@@ -294,6 +307,8 @@ class FillTemplate:
     self.sourceSet = set()
     self.scope["lazy"] = lambda a: a # lazy expansion
     self.scope["eval"] = lambda s: expandMacro(s, self.getMacroResult)
+    if "matchback" in FLAGS:
+      self.scope["macro-regexs"] = []
 
   def _outputInPwd(self, fp_abs, text, lval_prefixes, m):
     def getSrcpos(m): # errloc feat.
