@@ -112,6 +112,10 @@ Hello Jake Bye Rose
 Bye Apple
 没有没有没有没有没有没有
 通过。
+
+//淦淦淦淦淦淦淦淦淦淦淦淦淦淦淦淦淦淦淦淦淦淦淦
+/Hello 
+/notMacro()
 ```
 
 以上；使用愉快。
@@ -301,9 +305,10 @@ def argNo(m, is_regex): # find ${N} index of ref, or expr (ref).ops
   return (brace if is_regex else brace %expr1) if refIsFound[0] else fmts[1]
 
 def printSubst(s):
-  for subs in False, True: print(s, RE_DEFINE_REF.sub(lambda m: argNo(m, subs), s))
+  found = []
+  for subs in None, found: print(s, RE_DEFINE_REF.sub(lambda m: argNo(["a", "b"], subs, m), s))
   print(found); found.clear()
-for code in "hello", "hell${x}", "hell${p}${a}", "${b}${a}", "${(b).name}${xs[(a)]}", "${(sb).a1}${(b)}": printSubst(code)
+for code in "hello", "hell${x}", "hell${p}${a}", "${b}${a}", "${(b).name}${xs[(a)]}", "${(sb).a1}${(b)}", "${(a).of(b)}${(b)}": printSubst(code)
 ```
 
 开始咱的 `refEval` 写出了个递归（看样子大概是接受 `${(${(b)})}` 了很迫真），发现是思路不清后很快解决了。

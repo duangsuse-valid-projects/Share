@@ -95,7 +95,7 @@ class StringRead:
   def skip(self, n): self.pos += n
   def isEnd(self): return (self.pos >= self._n)
 
-def takeTillFirstOccur(sr, *texts):
+def takeTillFirstOccur(sr, texts):
   s = sr.str(); iFound = -1
   for text in texts:
     idx = s.find(text)
@@ -191,9 +191,10 @@ def macro(d, srcpos, name, params, body): # executed in eval()
 
 def joinAlsoPrint(*args): print(*args); return "".join(args)
 
-def eprintSyntaxError(s, i, msg):
+def eprintSyntaxError(sr, msg):
+  s = sr.text; i = sr.pos
   slErr = list(s)
-  slErr.insert(i, '<')
+  slErr.insert(i+1, '<')
   eprint("----"); eprint("".join(slErr)); eprint("%s near <:%d (count %d)" %(msg, i, len(s)))
 
 RE_MACRO = Regex("(#|/{2})(\\S+?)\\(\\s*(.*?)\\)", re.DOTALL)
@@ -206,15 +207,17 @@ def _expandMacroTo(ab, sr, s0, get_subst):
     sBuf = buf.str(); buf.clear(); appendNE(sBuf)
   def takeToBuf(s):
     buf.write(s); sr.skip(len(s))
-  def gotoNextMacro():
-    appendNE(takeTillFirstOccur(sr, "#", "//", ")"))
-  gotoNextMacro()
+  keywds = ["#", "//"]
+  if s0 == 2: keywds.append(")")
+  def gotoNextMacroKw():
+    appendNE(takeTillFirstOccur(sr,  keywds))
+  gotoNextMacroKw()
   while not sr.isEnd():
     c = sr.get()
     if state == 0 or state == 2: # event-based state machine
       if c == ')':
         if state == 2: break
-        takeToBuf(c); appendBuf()
+        ab.append(c); sr.skip(1) # impossible
       else:
         if c == '#': takeToBuf(c)
         elif c == '/': takeToBuf("//") # asserted
@@ -234,18 +237,49 @@ def _expandMacroTo(ab, sr, s0, get_subst):
         for idx in range(iBeg, iEnd): buf.write(ab.pop(iBeg))
         called = get_subst(name, buf.str() ); buf.clear()
         ab.insert(iBeg, called) # Excel-like step-by-step
-        if sr.isEnd() or sr.get() != ')':
-          eprintSyntaxError(sr.text, sr.pos, "expecting ')'")
+        if sr.isEnd() or sr.get() != ')': # p1:impossible
+          eprintSyntaxError(sr, "expecting ')'")
           return # buf cleared
         sr.skip(1)
-      else: appendBuf(); state = 0 # nomatch, only "//()"
-    gotoNextMacro()
+      else: appendBuf() # nomatch, only "//()"
+      state = s0
+    gotoNextMacroKw()
   appendBuf(); return # adding unparsed tail
 
 def expandMacro(s, get_subst):
   ab = []; _expandMacroTo(ab, StringRead(s), 0, get_subst)
   return "".join(ab)
 
+def argNo(formals, found, m): # find ${N} index of ref, or expr (ref).ops
+  isRegex = (found != None)
+  fmts = ("(.*)", ".*") if isRegex else ("${%s}", "NOREF")
+  brace = fmts[0]
+  def braceRef(name):
+    idx = formals.index(name)
+    if isRegex: found.append(idx); return brace
+    else: return brace %str(idx)
+  try: return braceRef(m.group(1))
+  except ValueError: pass
+  expr = m.group(1) #v just convert ${(N)} to args[N] in exprs
+  ref_hasFound = [False]
+  def refEval(m1):
+    name = m1.group(1)
+    try:
+      sRef = braceRef(name)
+      if isRegex and ref_hasFound[0]:
+        eprint("W: multiple ref %r in code can't be matched" %name)
+        found.pop()
+      ref_hasFound[0] = True #v replaces only !isRegex
+      return RE_DEFINE_REF.sub(lambda m2: "(args[%s])" %m2.group(1), sRef)
+    except ValueError:
+      return "noRef(%r)" %name
+  expr1 = RE_PARENED.sub(refEval, expr)
+  return (brace if isRegex else brace %expr1) if ref_hasFound[0] else fmts[1]
+
+def printSubst(s):
+  found = []
+  for subs in None, found: print(s, RE_DEFINE_REF.sub(lambda m: argNo(["a", "b"], subs, m), s))
+  print(found); found.clear()
 
 ## PART output process / main
 RE_CODE = Regex("```\\w*\\n(#|/{2})?( ?!?!?\\S+\\n)?(.*?)```", re.DOTALL) #!compat

@@ -19,7 +19,7 @@ def argNo(m, is_regex): # find ${N} index of ref, or expr (ref).ops
     name1 = m1.group(1)
     try:
       if refIsFound[0]: return "noRef(%r, %r)" %(name1, "DUP")
-      sRef = braceRef(name1)
+      sRef = braceRef(name1) #v replaces only non-regex
       refIsFound[0] = True
       return RE_DEFINE_REF.sub(lambda m2: "args[%s]" %m2.group(1), sRef)
     except ValueError:
@@ -28,6 +28,7 @@ def argNo(m, is_regex): # find ${N} index of ref, or expr (ref).ops
   return (brace if is_regex else brace %expr1) if refIsFound[0] else fmts[1]
 
 def printSubst(s):
-  for subs in False, True: print(s, RE_DEFINE_REF.sub(lambda m: argNo(m, subs), s))
+  found = []
+  for subs in None, found: print(s, RE_DEFINE_REF.sub(lambda m: argNo(["a", "b"], subs, m), s))
   print(found); found.clear()
-for code in "hello", "hell${x}", "hell${p}${a}", "${b}${a}", "${(b).name}${xs[(a)]}", "${(sb).a1}${(b)}": printSubst(code)
+for code in "hello", "hell${x}", "hell${p}${a}", "${b}${a}", "${(b).name}${xs[(a)]}", "${(sb).a1}${(b)}", "${(a).of(b)}${(b)}": printSubst(code)
