@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function, unicode_literals
 import re # using Regex as tokenizer
-from re import compile as Regex
 
 from sys import exc_info, version_info
 import traceback
@@ -15,11 +14,13 @@ if version_info.major == 2:
   def unicodeify(s): return s if isinstance(s, unicode) else unicode(s, FS_ENCODING)
 else:
   def unicodeify(s): return s
+unicodeType = type("")
 
 from os import mkdir, chdir, path, getenv
 from shutil import copytree, rmtree
 from sys import argv, stderr
 
+## PART basic environment
 def eprint(*args): print(*args, file=stderr)
 def eprintOnce(*args): print(*args, file=stderr, end="")
 
@@ -38,37 +39,107 @@ def _mkdirs(fp):
 
 def mkdirs(fp):
   base = path.dirname(fp)
-  if base != "": _mkdirs(base)
+  if base != "": _mkdirs(base) # require dir fp
 
-def _sumSrcPos(tb):
+def _sumSrcPos(tb): # get/sum eval() fail source position depends on its .file "XXX.md:code_start"
   (src, lineno) = tb[0].rsplit(':')
-  posBeg = int(lineno)
-  return "%s:%d+%d, %s:%d" %(src, posBeg, tb[1], src, posBeg+tb[1])
+  pos0 = int(lineno); pos = tb[1]
+  return "%s:%d+%d, %s:%d" %(src, pos0, pos, src, pos0+pos)
+
+def _getSrcPos(exc_info):
+  (etype, ex, tb) = exc_info
+  callees = traceback.extract_tb(tb, limit=2)
+  return (ex.filename, ex.lineno) if len(callees) == 1 and etype == SyntaxError else callees[-1] # compat
 
 def eprintMdStack(tb):
   for caller in reversed(traceback.extract_tb(tb)):
     try: eprint(_sumSrcPos(caller))
     except ValueError: break
 
-def runCode(code, srcpos, locals):
+def runMdCode(code, srcpos, locals):
   try: eval(compile(code, srcpos, "exec"), None, locals)
-  except BaseException:
-    (etype, ex, tb) = exc_info()
+  except BaseException as ex:
     eprint("----"); eprint(code)
-    callees = traceback.extract_tb(tb, limit=2)
     try:
-      callee = (ex.filename, ex.lineno) if len(callees) == 1 and etype == SyntaxError else callees[-1]
-      eprint(":: %s (%s)" %(ex, _sumSrcPos(callee)))
+      eprint(":: %s (%s)" %(ex, _sumSrcPos(_getSrcPos(exc_info()))))
     except ValueError: eprint(str(ex)) # PY2 exc_info() errloc
 
-# for i in range(0, 8): print(i,__import__("fill_template").strBrief("helloa", i))
-def strBrief(s, n_vp):
-  nS = len(s)
-  if nS <= n_vp: return (s,)
-  (iVp, nRem) = divmod(n_vp, 2) # no overlap idx.
-  return (s[:(iVp + nRem)], s[(nS - iVp):])
+class Regex:
+  class Match:
+    def __init__(self, m): self._m = m
+    def groups(self): return self._m.groups()
+    def group(self, nth): return self._m.group(nth)
+    @property
+    def span(self): return range(*self._m.span())
+    @property
+    def pos0(self): return self._m.start()
+    @property
+    def pos1(self): return self._m.end()
+    def __str__(self): return "%s (at %d..%d)" %(self.group(0), self.pos0, self.pos1 -1)
+    __repr__ = __str__
+  @staticmethod
+  def _match(m): return Regex.Match(m) if m != None else None
 
-class StringBuild:
+  def __init__(self, code, flags=""): # parse flags
+    self.flags = flags
+    if flags == "": self._re = re.compile(code)
+    else:
+      iflags = 0
+      for c in flags:
+        try: iflags = iflags + getattr(re, c.upper())
+        except AttributeError: raise ValueError("unknown flag %s" %c)
+      self._re = re.compile(code, iflags)
+  def test(self, s): return self._re.match(s) != None
+  def match(self, s): return Regex._match(self._re.match(s))
+
+  def iterateMatch(self, s): return map(Regex._match, self._re.finditer(s))
+  def replaceIn(self, s, subst): return self._re.sub(subst, s)
+  def bireplaceIn(self, s, subst, subst_unmatch):
+    sb = []; i0 = 0
+    def append(x): # appendNotNone
+      if x != None: sb.append(x)
+    for m in self.iterateMatch(s):
+      append(subst_unmatch(s[i0:m.pos0])); i0 = m.pos1
+      append(subst(m))
+    append(subst_unmatch(s[i0:]))
+    return "".join(sb)
+
+  def split(self, s): return self._re.split(s)
+  def toFullmatch(self): return Regex("^%s$" %self.source, self.flags)
+  @property
+  def source(self): return self._re.pattern
+  def __str__(self): return "/%s/%s" %(self.source, self.flags)
+  __repr__ = __str__
+
+RE_SLASHS = Regex("/(.+?)/")
+class FlagSet:
+  def __init__(self):
+    self.availableFlags = []; self.flags = set()
+    self._attrNames = []
+  def __setattr__(self, name, value):
+    if isinstance(value, str):
+      self.availableFlags.append(value)
+      self._attrNames.append(name)
+    return self._setattr(name, value)
+  if  version_info.major == 2:
+    def _setattr(self, name, value): self.__dict__[name] = value
+  else:
+    def _setattr(self, name, value): super().__setattr__(name, value)
+
+  def refresh(self):
+    for (i, name) in enumerate(self._attrNames): setattr(self, name, self.availableFlags[i] in self.flags)
+  def init(self, s_cfg):
+    slash = RE_SLASHS.match(s_cfg)
+    if slash == None:
+      for name in commaSplit(s_cfg): self.flags.add(name)
+    else:
+      re = commaRegex(slash.group(1))
+      for flag in self.availableFlags:
+        if re.match(flag) != None: self.flags.add(flag)
+    self.refresh()
+
+
+class StringBuilder: # with pos
   def __init__(self, initial=""): self.io = StringIO(initial)
   if version_info.major == 2:
     def write(self, s): self.io.write(unicodeify(s))
@@ -81,7 +152,7 @@ class StringBuild:
   @pos.setter
   def pos(self, i): self.io.seek(i)
 
-class StringRead:
+class StringReader:
   def __init__(self, s):
     self.text = s
     self.pos = 0; self._n = len(self.text)
@@ -91,16 +162,16 @@ class StringRead:
     self.pos += 1
     return self.text[self.pos]
   next = __next__ # PY2
+  def skip(self, n): self.pos += n
   def str(self): return self.text[self.pos:]
   def get(self): return self.text[self.pos]
-  def skip(self, n): self.pos += n
   def isEnd(self): return (self.pos >= self._n)
 
 def takeTillFirstOccur(sr, texts):
   s = sr.str(); iFound = -1
   for text in texts:
     idx = s.find(text)
-    if idx != -1: iFound = idx; break # first found
+    if idx != -1: iFound = idx; break # get first found.
   if iFound == -1: # EOF.
     sr.pos = len(sr.text); iFound = sr.pos
   else:
@@ -110,55 +181,49 @@ def takeTillFirstOccur(sr, texts):
     sr.pos += iFound
   return s[0:iFound]
 
+def eprintSyntaxError(sr, msg):
+  s = sr.text; i = sr.pos
+  slErr = list(s)
+  slErr.insert(i+1, '<')
+  eprint("----"); eprint("".join(slErr))
+  eprint("%s near <:%d (count %d)" %(msg, i, len(s)))
+
+# for i in range(0, 8): print(i,__import__("fill_template").strBrief("helloa", i))
+def strBrief(s, n_vp):
+  nS = len(s)
+  if nS <= n_vp: return (s,)
+  (iVp, nRem) = divmod(n_vp, 2) # no overlap idx.
+  return (s[:(iVp + nRem)], s[(nS - iVp):])
+
 def _commaSplit(text): # NOTE: op(a ,b ,c) better readability, instead of: op(a, b, c)
-  split = []; sb = StringBuild() # perf!
+  parts = []; sb = StringBuilder() # perf!
   i = 0; n = len(text)
   while i != n:
     c = text[i]
     if c == ',':
-      split.append(sb.str()); sb.clear()
+      parts.append(sb.str()); sb.clear()
       i += 1
-      while i != n and text[i].isspace(): i += 1
-      continue #v merge \, due to Regex compat limitation
+      while i != n and text[i].isspace(): i += 1 #< skip white
+      continue #v merge "\\," due to Regex compat limitation
     elif c == '\\' and i+1 != n and text[i+1] == ',': sb.write(','); i += 2; continue
     else: sb.write(c)
     i += 1
-  split.append(sb.str())
-  return split
+  parts.append(sb.str())
+  return parts
 
 global commaSplit
 try:
   reComma = Regex("(?<!\\\\),\\s*")
-  reEComma = Regex("\\\\,")
-  commaSplit = lambda s: [reEComma.sub(",", s1) for s1 in reComma.split(s)]
+  reEComma = Regex("\\\\,") # escaper
+  def commaSplit(s): return [reEComma.replaceIn(s1, ",") for s1 in reComma.split(s)]
 except Exception:
   commaSplit = _commaSplit
 
-commaRegex = lambda s: Regex("|".join(map(lambda sP: "(%s)" %sP, commaSplit(s))))
+def commaRegex(s):
+  cases = map(lambda sP: "(%s)" %sP, commaSplit(s))
+  return Regex("|".join(cases)).toFullmatch() # NOTE: config-default.
 
-RE_SLASHS = Regex("/(.+?)/")
-class FlagSet:
-  def __init__(self): self.availableFlags = []; self.flags = set()
-  def flag(self, name):
-    self.availableFlags.append(name) # unchecked
-    ref_lazy = [None]
-    def evalFlag():
-      if ref_lazy[0] == None: ref_lazy[0] = (name in self.flags)
-      return ref_lazy[0]
-    return evalFlag
-  def __setattr__(self, name, value):
-    if not isinstance(value, str): return super().__setattr__(name, value)
-    setattr(self, name, self.flag(value))
-  def init(self, s_cfg):
-    slash = RE_SLASHS.match(s_cfg)
-    if slash == None:
-      for name in commaSplit(s_cfg): self.flags.add(name)
-    else:
-      re = commaRegex(slash.group(1))
-      for flag in self.availableFlags:
-        if re.match(flag) != None: self.flags.add(flag)
-
-def makeFlagSet():
+def _appFlagSet():
   f = FlagSet()
   f.matchback = "matchback"
   f.seeOnDefine = "see-onDefine"
@@ -167,87 +232,98 @@ def makeFlagSet():
   f.seeOnRender = "see-onRender"
   f.clean = "clean"
   return f
-flag = makeFlagSet()
+flag = _appFlagSet()
 envOr(None, "flags", flag.init)
 
 ## PART macro util
 RE_WHITE = Regex("\\s")
 RE_PARENED = Regex("\\((.*?)\\)")
-RE_DEFINE = Regex("[^\\n\\S]*(\\S+?)\\((.*?)\\) ?(.*?)\\n")
+RE_DEFINE = Regex("[^\\n\\S]*(\\S+?)\\((.*?)\\) (.*?)\\n")
 RE_DEFINE_ARG = Regex("\\s*,\\s*")
+RE_DEFINE_REF = Regex("\\${(.*?)}")
 RE_DEFINE_LANG = Regex(".*_(.*)")
-RE_DEFINE_REF = Regex("\\${\\s*(.*?)\\s*}")
 
-def readDefine(d, s, srcpos):
-  def convertDef(m):
-    (name, sFormals, sBody) = m.groups()
-    if sBody == "": return m.group(0)+"\n" # no match, fill NL only
-    formals = RE_DEFINE_ARG.split(sFormals)
-    evalArg = lambda idxs: RE_DEFINE_REF.sub(lambda m: argNo(name, formals, idxs, m), sBody)
-    body = evalArg(None)
-    if flag.matchback():
-      iSubs = []; sRe = evalArg(iSubs)
-      entry = (Regex(sRe), iSubs, len(formals), name)
-      d["macro-regexs"].append(entry)
-    return "macro(d, srcpos, %r, %r, %r, %r)\n" %(m.group(0).index(')'), name, formals, body)
-  code = RE_DEFINE.sub(convertDef, s)
-  runCode(code, srcpos, {"d": d, "srcpos": srcpos})
+RE_ARG_CODE = Regex("args\\[(\d+)\\]")
+RE_ARG_NOREF = Regex("noRef\\((.+?)\\)") # for traceback
+
+def convertDef(d, m):
+  (name, sFormals, sBody) = m.groups()
+  if sBody == "": return m.group(0)+"\n" # no match, fill NL only
+  formals = RE_DEFINE_ARG.split(sFormals)
+  def evalArg(found):
+    arg = lambda m: convertArgNo(name, formals, found, m)
+    return RE_DEFINE_REF.bireplaceIn(sBody, arg, re.escape) if found != None else RE_DEFINE_REF.replaceIn(sBody, arg)
+  body = evalArg(None)
+  if flag.matchback:
+    iArgs = []; sRe = evalArg(iArgs)
+    entry = (Regex(sRe), iArgs, len(formals), name)
+    d["macro-regexs"].append(entry)
+  iBody = m.group(0).index(')')+1 + 1 #len(" ")
+  return "macro(d, srcpos, %r, %r, %r, %r)\n" %(iBody, name, formals, body)
+
+def executeDefine(d, s, srcpos):
+  code = RE_DEFINE.replaceIn(s, lambda m: convertDef(d, m))
+  runMdCode(code, srcpos, {"d": d, "srcpos": srcpos})
+
+class NoSuchRefError(Exception):
+  def __init__(self, name): super().__init__(name)
+  def __str__(self): return "no such ref. %r" %self.args[0]
+def _errorNoRef(name): raise NoSuchRefError(name)
+
+class NonlocalReturn(Exception):
+  INST = None
+NonlocalReturn.INST = NonlocalReturn("nonlocal return")
 
 def macro(d, srcpos, m_start, name, params, body): # executed in eval()
-  if flag.seeOnDefine(): eprintOnce("define %s of %s" %(name, params))
+  def _onSyntaxError(ex, srcpos, m): # m_start, params
+    eprint("--"); eprint(ex.text)
+    pfix = m_start + (m.pos0+2) #len("${")
+    sfix = RE_ARG_CODE.replaceIn(ex.text[:ex.offset +1], lambda m1: params[int(m1.group(1))])
+    sfix = RE_ARG_NOREF.replaceIn(sfix, lambda m1: eval(m1.group(1)))
+    eprint(sfix)
+    eprint(":: %s in %s (%s:%d)" %(ex.msg, name, srcpos, pfix+len(sfix) + 1))
+
+  if flag.seeOnDefine: eprintOnce("define %s of %s" %(name, params))
   langM = RE_DEFINE_LANG.match(name)
   ignoreErrors = False
-  if langM != None and langM.group(1) != "PY": ignoreErrors = True
+  if langM != None and langM.group(1) != "PY": ignoreErrors = True; eprintOnce(" (try %s)" %langM.group(1))
   compiled = [] #parts str|int|code
   def appendNE(s):
     if s != "": compiled.append(s)
-  try:
-    i0 = 0
-    for m in RE_DEFINE_REF.finditer(body): # s, c,s, c,s, ...
-      appendNE(body[i0:m.start()]); i0 = m.end()
-      part = m.group(1)
-      try: compiled.append(int(part)) # ${1}
-      except ValueError: compiled.append(compile(part, srcpos, "eval")) # ${(args[1])+'x'}
-    appendNE(body[i0:])
-  except SyntaxError as ex:
-    if flag.seeOnDefine(): eprint(" ..fail")
-    if ignoreErrors: return
-    eprint("--"); eprint(ex.text)
-    evalCaller = traceback.extract_stack(limit=2)[0]
-    pfix = m_start + m.start()
-    eprint(":: %s in %s (%s:%d)" %(ex.msg, name, _sumSrcPos(evalCaller), ex.offset+pfix))
-    return
-  if flag.seeOnDefine(): eprint(" ..done = %s" %compiled)
-  dGlo = {"scope": d, "Regex": Regex}
-  dLocal = {"noRef": errorNoRef}
-  def strInterpolate(*args):
+  def appendCode(m):
+    part = m.group(1)
+    try: compiled.append(int(part)) # ${1}
+    except ValueError:
+      try: compiled.append(compile(part, srcpos, "eval")) # ${(args[1])+'x'}
+      except SyntaxError as ex:
+        if flag.seeOnDefine: eprint(" ..fail")
+        if not ignoreErrors:
+          _onSyntaxError(ex, _sumSrcPos(_getSrcPos(exc_info())), m)
+        raise NonlocalReturn.INST
+  try: RE_DEFINE_REF.bireplaceIn(body, appendCode, appendNE) # s, c,s, c,s, ...
+  except NonlocalReturn: return
+
+  if flag.seeOnDefine: eprint(" ..done = %s" %compiled)
+  dGlobal = {"scope": d, "Regex": Regex, "noRef": _errorNoRef}
+  dLocal = {}
+  def strInterpolate(*args): # macro evaluator
     dLocal["args"] = args; res = []
     for c in compiled:
-      if isinstance(c, str): res.append(c)
+      if isinstance(c, unicodeType): res.append(c)
       elif isinstance(c, int): res.append(args[c])
       else:
-        try: res.append(unicodeify(eval(c, dGlo, dLocal)))
+        try: res.append(unicodeify(eval(c, dGlobal, dLocal)))
         except NameError as ex:
           tb = exc_info()[2]; eprintMdStack(tb)
           eprint("%s, try surround it in ()" %ex)
-          res.append("FAIL")
+          res.append("NOREF") # once.
     return "".join(res)
   d[name] = strInterpolate
 
-def errorNoRef(name): raise NameError("no such ref. %r" %name)
-
-def joinAlsoPrint(*args): print(*args); return "".join(args)
-
-def eprintSyntaxError(sr, msg):
-  s = sr.text; i = sr.pos
-  slErr = list(s)
-  slErr.insert(i+1, '<')
-  eprint("----"); eprint("".join(slErr)); eprint("%s near <:%d (count %d)" %(msg, i, len(s)))
-
-RE_MACRO = Regex("(#|/{2})(\\S+?)\\(\\s*(.*?)\\)", re.DOTALL)
+RE_MACRO = Regex("(#|/{2})(\\S+?)\\(\\s*(.*?)\\)", "s")
 def _expandMacroTo(ab, sr, s0, get_subst):
-  #return RE_MACRO.sub(lambda m: get_subst(m[2], m[3]), s)
-  buf = StringBuild(); state = s0
+  #return RE_MACRO.replaceIn(s, lambda m: get_subst(m.group(2), m.group(3)))
+  buf = StringBuilder(); state = s0
   def appendNE(s):
     if s != "": ab.append(s)
   def appendBuf():
@@ -255,7 +331,7 @@ def _expandMacroTo(ab, sr, s0, get_subst):
   def takeToBuf(s):
     buf.write(s); sr.skip(len(s))
   keywds = ["#", "//"]
-  if s0 == 2: keywds.append(")")
+  if s0 == 2: keywds.append(")") # in Call
   def gotoNextMacroKw():
     appendNE(takeTillFirstOccur(sr,  keywds))
   gotoNextMacroKw()
@@ -264,7 +340,7 @@ def _expandMacroTo(ab, sr, s0, get_subst):
     if state == 0 or state == 2: # event-based state machine
       if c == ')':
         if state == 2: break
-        ab.append(c); sr.skip(1) # impossible
+        ab.append(c); sr.skip(1) # impossible !in Call
       else:
         if c == '#': takeToBuf(c)
         elif c == '/': takeToBuf("//") # asserted
@@ -279,12 +355,12 @@ def _expandMacroTo(ab, sr, s0, get_subst):
         name = buf.str().lstrip("#/"); buf.clear()
         iBeg = len(ab) #v lazy expansion
         getSubst1 = get_subst if name != "lazy" else lambda nam, arg: "#%s(%s)" %(nam, arg)
-        sr.skip(1); _expandMacroTo(ab, sr, 2, getSubst1)
+        sr.skip(1); _expandMacroTo(ab, sr, 2, getSubst1) # whitespace skipped later in commaSplit()
         iEnd = len(ab)
         for idx in range(iBeg, iEnd): buf.write(ab.pop(iBeg))
         called = get_subst(name, buf.str() ); buf.clear()
         ab.insert(iBeg, called) # Excel-like step-by-step
-        if sr.isEnd() or sr.get() != ')': # p1:impossible
+        if sr.isEnd() or sr.get() != ')': # p2:impossible
           eprintSyntaxError(sr, "expecting ')'")
           return # buf cleared
         sr.skip(1)
@@ -294,10 +370,10 @@ def _expandMacroTo(ab, sr, s0, get_subst):
   appendBuf(); return # adding unparsed tail
 
 def expandMacro(s, get_subst):
-  ab = []; _expandMacroTo(ab, StringRead(s), 0, get_subst)
+  ab = []; _expandMacroTo(ab, StringReader(s), 0, get_subst)
   return "".join(ab)
 
-def argNo(macro_name, formals, found, m): # find ${N} index of ref, or expr (ref).ops
+def convertArgNo(macro_name, formals, found, m): # resolve ${N} index of ref, or expr (ref).ops
   isRegex = (found != None)
   fmts = ("(.*)", ".*") if isRegex else ("${%s}", "NOREF")
   brace = fmts[0]
@@ -305,7 +381,7 @@ def argNo(macro_name, formals, found, m): # find ${N} index of ref, or expr (ref
     idx = formals.index(name)
     if isRegex: found.append(idx); return brace
     else: return brace %str(idx)
-  try: return braceRef(m.group(1))
+  try: return braceRef(m.group(1).strip())
   except ValueError: pass
   expr = m.group(1) #v just convert ${(N)} to args[N] in exprs
   ref_hasFound = [False]
@@ -317,39 +393,39 @@ def argNo(macro_name, formals, found, m): # find ${N} index of ref, or expr (ref
         eprint("W: argNo(%s): multiple ref %r in code can't be matched" %(macro_name, name))
         found.pop()
       ref_hasFound[0] = True #v replaces only !isRegex
-      return RE_DEFINE_REF.sub(lambda m2: "(args[%s])" %m2.group(1), sRef)
+      return RE_DEFINE_REF.replaceIn(sRef, lambda m2: "(args[%s])" %m2.group(1))
     except ValueError:
-      return "noRef(%r)" %name
-  expr1 = RE_PARENED.sub(refEval, expr)
-  return (brace if isRegex else brace %expr1) if ref_hasFound[0] else fmts[1]
+      return "(noRef(%r))" %name
+  expr1 = RE_PARENED.replaceIn(expr, refEval)
+  return (brace if isRegex else brace %expr1) if ref_hasFound[0] or not isIdentifier(expr) else fmts[1]
 
-def printSubst(s):
-  found = []
-  for subs in None, found: print(s, RE_DEFINE_REF.sub(lambda m: argNo(["a", "b"], subs, m), s))
-  print(found); found.clear()
+def isIdentifier(s):
+  return RE_WHITE.match(expr) == None
 
 ## PART output process / main
-RE_CODE = Regex("```\\w*\\n(#|/{2})?( ?!?!?\\S+\\n)?(.*?)```", re.DOTALL) #!compat
-RE_INVALID = Regex("!|#")
+RE_MD_CODE = Regex("```\\w*\\n(#|/{2})?( ?!?!?\\S+\\n)?(.*?)```", "s")
+RE_CMD_INVALID = Regex("!|#")
+_reCodeAny = "(\\(\\.\\*\\))|(\\.\\*)"
+RE_MATCHBACK_INVALID = Regex("(^%s.*)|(.*%s$)" %(_reCodeAny, _reCodeAny))
 
 class FillTemplate:
   def __init__(self, scope={}):
-    self.scope=scope
+    self.scope = scope
     self.fpTpl = envOr("", "template") # TODO: support !!include (+init.h.md), !!include-onfinish, Makefile doMake()
     self.nPrevi = envOr(40, "nPrevi", int)
     self.writeMode = envOr("a", "writeMode")
     self.sourceSet = set()
     self.scope["lazy"] = lambda a: a # lazy expansion
     self.scope["eval"] = lambda s: expandMacro(s, self.getMacroResult)
-    if flag.matchback():
+    if flag.matchback:
       self.scope["macro-regexs"] = []
 
   def _outputInPwd(self, fp_abs, text, lval_prefixes, m):
     def getSrcpos(m): # errloc feat.
       fpMd = path.relpath(fp_abs, self.fpaDir)
-      return "%s:%d" %(fpMd, text.count('\n', 0, m.start())+2)
+      return "%s:%d" %(fpMd, text.count('\n', 0, m.pos0)+2)
     def getDir(): return path.dirname(fp_abs)
-    # extracted (continue=return, self.prefix[Fp/Cmt]=lval_prefixes) from outputInPwd
+    # extracted from outputInPwd (continue=return, self.prefix[Fp/Cmt]=lval_prefixes)
     (sCmt, sDesc, code) = m.groups()
     if sCmt == None and lval_prefixes[0] == "": return
     # is //-header omitted?
@@ -357,29 +433,32 @@ class FillTemplate:
     desc = "" if isText else sDesc.strip()
     if desc.startswith("!!"):
       act = desc[2:]
-      if act == "define": readDefine(self.scope, code, getSrcpos(m))
+      if act == "define": executeDefine(self.scope, code, getSrcpos(m))
       elif act.startswith("execute"):
-        if act[7:].lstrip("-") == "PY":
-          runCode(code, getSrcpos(m), {"__FILE__": fp_abs, "__DIR__": getDir(), "scope": self.scope})
+        langM = act[7:].lstrip("-")
+        if langM == "PY" or langM == "":
+          runMdCode(code, getSrcpos(m), {"__FILE__": fp_abs, "__DIR__": getDir(), "scope": self.scope})
       elif act == "include":
         fpMd = path.relpath(path.join(getDir(), code.strip()), self.fpaDir)
         self.outputInPwd(fpMd)
       elif act == "talkabout":
         prefix = code.strip()
-        if flag.seeOnTalkabout(): print("Talking about %s:" %prefix)
+        if flag.seeOnTalkabout: print("Talking about %s:" %prefix)
         lval_prefixes[0] = prefix; lval_prefixes[1] = sCmt
       elif act == "ignore": pass
+      # there's no "pragma" action or pragma-once, reinclude protect should use "allowReinclude"
+      # but it's not effecient for preprocessors (have to parse file header), so I decided to use special filename form.
       else: eprint("unknown preprocessor action: %s" %act)
       return
-    if desc.startswith("!") or RE_INVALID.match(desc) != None: # notify '!'!
+    if desc.startswith("!") or RE_CMD_INVALID.test(desc): # notify '!'!
       eprint("unknown command %s, treating as text" %desc)
       desc = ""; isText = True
     # eval doc & output maybe
     fpOut = lval_prefixes[0]+desc
     code1 = self.scope["eval"](code)
     if fpOut == "": return # talk-about is not for outer blocks
-    sBrief = "...".join(strBrief(RE_WHITE.sub(" ", code1), self.nPrevi))
-    if flag.seeNLines():
+    sBrief = "...".join(strBrief(RE_WHITE.replaceIn(code1, " "), self.nPrevi))
+    if flag.seeNLines:
       code1Lns = code1.splitlines(); code1Slocs = list(filter(lambda s: not (s == "" or s.isspace()), code1Lns))
       nCode1Ln = len(code1Lns)
       print("%s N=%d nLine=%d=(%d+%d) %s" %(fpOut, len(code1), nCode1Ln, len(code1Slocs), nCode1Ln-len(code1Slocs), sBrief))
@@ -391,13 +470,15 @@ class FillTemplate:
       fd.write(code1)
 
   def outputInPwd(self, src):
-    if flag.seeOnRender(): eprint("Render file %s (%d items in scope):" %(src, len(self.scope)))
+    if (src in self.sourceSet) and not ".relude." in src: eprint("Render file %s: pass" %src); return
+    if flag.seeOnRender: eprint("Render file %s (%d items in scope):" %(src, len(self.scope)))
     self.sourceSet.add(src)
     fpAbs = path.join(self.fpaDir, src); sMd = ""
     with open(fpAbs, "r", encoding=FS_ENCODING) as fd: sMd = fd.read()
-    prefixes = ["", ""] # talk-about feat. & server mode comment
-    for m in RE_CODE.finditer(sMd): self._outputInPwd(fpAbs, sMd, prefixes, m) # could be reuse when re-impl. in JS
-    if flag.seeOnRender(): eprint("Finished rendering %s" %src)
+    prefixes = ["", ""] # talk-about feat & server mode comment
+    for m in RE_MD_CODE.iterateMatch(sMd):
+      self._outputInPwd(fpAbs, sMd, prefixes, m) # could be reuse when re-impl in JS
+    if flag.seeOnRender: eprint("Finished rendering %s" %src)
 
   MACRO_SUFFIXES = ["", "_PY", "_JS"]
   TRACE_EXPANSION = envOr(None, "traceExpansion", commaRegex)
@@ -406,7 +487,7 @@ class FillTemplate:
     for suffix in FillTemplate.MACRO_SUFFIXES: # try fallback fn-ver s.
       name = fn+suffix
       cfgTe = FillTemplate.TRACE_EXPANSION
-      hasTrace = (cfgTe != None and cfgTe.fullmatch(name) != None)
+      hasTrace = (cfgTe != None and cfgTe.match(name) != None)
       if hasTrace: eprint("%s(%r)" %(name, s_arg))
       op = self.scope.get(name)
       if op != None:
@@ -426,7 +507,7 @@ class FillTemplate:
     (fpaDir, fpSrc) = path.split(path.abspath(src))
     self.fpaDir = fpaDir
     fpDst = path.splitext(fpSrc)[0]
-    if flag.clean(): rmtree(fpDst, ignore_errors=True)
+    if flag.clean: rmtree(fpDst, ignore_errors=True)
     if fpTpl != "":
       if not path.isdir(fpTpl): raise EnvironmentError(fpTpl+" dir not found here")
       try: copytree(fpTpl, fpDst, dirs_exist_ok=True) # template feat.
@@ -436,13 +517,21 @@ class FillTemplate:
     chdir(fpDst); self.outputInPwd(fpSrc)
 
   def onFinish(self):
-    if flag.matchback():
-      for (re, iargs, argc, name) in self.scope["macro-regexs"]:
-        print("%r = %s(%s) %d" %(re.pattern, name, iargs, argc))
+    if flag.matchback: # valid filter
+      reMacros = self.scope["macro-regexs"]
+      reMacros1 = []
+      invalids = set()
+      for tup in reMacros:
+        (re, iargs, argc, name) = tup
+        print("%s = %s(%s) %d" %(re, name, iargs, argc))
+        if RE_MATCHBACK_INVALID.test(re.source): invalids.add(name)
+        else: reMacros1.append(tup)
+      print("invalid: %s" %", ".join(invalids))
+      self.scope["macro-regexs"] = reMacros1
 
 # TODO: Add TextEdit .create/modify Range, listenFileChange(dst, srcs, d_ftes)
 # TODO: Add auto-macro-match from output
-# TODO: improve flag set
+# TODO: make "%r" repr() unified
 
 if __name__ == "__main__":
   filler = FillTemplate()
@@ -458,3 +547,4 @@ def trimBetween(cps, s): # confusing why added.
   return "".join(sb)
 
 parenCps = { 0: ['(', 1], 1: [')', 0-1] }
+def joinAlsoPrint(*args): print(*args); return "".join(args) # test. get_subst

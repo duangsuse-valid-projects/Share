@@ -29,6 +29,6 @@ def argNo(m, is_regex): # find ${N} index of ref, or expr (ref).ops
 
 def printSubst(s):
   found = []
-  for subs in None, found: print(s, RE_DEFINE_REF.sub(lambda m: argNo(["a", "b"], subs, m), s))
+  for subs in None, found: print(s, RE_DEFINE_REF.replaceIn(s, lambda m: argNo(["a", "b"], subs, m)))
   print(found); found.clear()
 for code in "hello", "hell${x}", "hell${p}${a}", "${b}${a}", "${(b).name}${xs[(a)]}", "${(sb).a1}${(b)}", "${(a).of(b)}${(b)}": printSubst(code)

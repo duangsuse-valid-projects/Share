@@ -94,6 +94,13 @@ String Interpolation 问题没有解决主要是懒得解决
 FillTemplate.h.md
 ```
 
+你也可以 include 第二遍，但除非文件名包含 `.relude.`，否则不会实际执行：
+
+```plain
+// !!include
+FillTemplate.h.md
+```
+
 ```plain
 // hell.txt
 #repeat(没有, 6)
@@ -306,7 +313,7 @@ def argNo(m, is_regex): # find ${N} index of ref, or expr (ref).ops
 
 def printSubst(s):
   found = []
-  for subs in None, found: print(s, RE_DEFINE_REF.sub(lambda m: argNo(["a", "b"], subs, m), s))
+  for subs in None, found: print(s, RE_DEFINE_REF.replaceIn(s, lambda m: argNo(["a", "b"], subs, m)))
   print(found); found.clear()
 for code in "hello", "hell${x}", "hell${p}${a}", "${b}${a}", "${(b).name}${xs[(a)]}", "${(sb).a1}${(b)}", "${(a).of(b)}${(b)}": printSubst(code)
 ```
