@@ -256,7 +256,8 @@ sNOREF = "NOREF" # script constants
 sFAIL = "FAIL"
 sERR = "ERR"
 kReMacros = "macro-regexs"
-kTestLazy = "__testlazy__"
+sCall = "#%s(%s)"
+def getFuncName(op): return op.__name__
 
 def _convertDef(d, m):
   (name, sFormals, sBody) = m.groups()
@@ -335,8 +336,8 @@ def macro(d, srcpos, m_start, name, params, body): # executed in eval()
   d[name] = strInterpolate
 
 RE_MACRO = Regex(r"(#|/{2})(\S+?)\(\s*(.*?)\)", "s")
-def _expandMacroTo(ab, sr, s0, get_subst):
-  #return RE_MACRO.replaceIn(s, lambda m: get_subst(m.group(2), m.group(3)))
+def _expandMacroTo(ab, sr, s0, resolve, get_subst):
+  #return RE_MACRO.replaceIn(s, lambda m: get_subst(resolve(m.group(2)), m.group(3)))
   buf = StringBuilder(); state = s0
   def appendNE(s):
     if s != "": ab.append(s)
@@ -367,11 +368,13 @@ def _expandMacroTo(ab, sr, s0, get_subst):
       except StopIteration: break
       if c1 == '(' and buf.pos != iBuf0:
         name = buf.str().lstrip("#/"); buf.clear()
+        resolved = resolve(name)
         iBeg = len(ab) #v lazy expansion
-        sr.skip(1); _expandMacroTo(ab, sr, 2, _substLazy if get_subst(kTestLazy, name) else get_subst)
+        isLazy = getFuncName(resolved[1]) == "callByExpr" if resolved != None else False
+        sr.skip(1); _expandMacroTo(ab, sr, 2, resolve, _substLazy if isLazy else get_subst)
         iEnd = len(ab) #^ whitespace skipped later in commaSplit()
         for idx in range(iBeg, iEnd): buf.write(ab.pop(iBeg))
-        called = get_subst(name, buf.str() ); buf.clear()
+        called = get_subst(resolved, buf.str() ) if resolved != None else sERR; buf.clear()
         ab.insert(iBeg, called) # Excel-like step-by-step
         if sr.isEnd() or sr.get() != ')': # p2:impossible
           eprintSyntaxError(sr, "expecting ')'")
@@ -382,10 +385,10 @@ def _expandMacroTo(ab, sr, s0, get_subst):
     gotoNextMacroKw()
   appendBuf(); return # adding unparsed tail
 
-def _substLazy(nam, arg): return "#%s(%s)" %(nam, arg)
+def _substLazy(resolved, arg): return sCall %(resolved[0], arg)
 
-def expandMacro(s, get_subst):
-  ab = []; _expandMacroTo(ab, StringReader(s), 0, get_subst)
+def expandMacro(s, resolve, get_subst):
+  ab = []; _expandMacroTo(ab, StringReader(s), 0, resolve, get_subst)
   return "".join(ab)
 
 def _convertArgNo(macro_name, formals, found, m): # resolve ${N} index of ref, or expr (ref).ops
@@ -421,11 +424,12 @@ def isIdentifier(s):
 ## PART output process / main
 RE_MD_CODE = Regex(r"```\w*\n(#|/{2})?( ?!?!?\S+\n)?(.*?)```", "s")
 RE_CMD_INVALID = Regex(r"!|#")
-_reCodeAny = r"(\(\.\*\))|(\.\*)"
+_reCodeAny = r"((\(\.\*\))|(\.\*))"
 RE_MATCHBACK_INVALID = Regex(r"(^%s.*)|(.*%s$)" %(_reCodeAny, _reCodeAny))
 
 sComma = ", "
-def getFuncName(op): return op.__name__
+def commaJoin(texts):
+  return sComma.join([text.replace(",", "\\,") for text in texts])
 
 class FillTemplate:
   def __init__(self, scope={}):
@@ -435,8 +439,7 @@ class FillTemplate:
     self.fpaDir = ""
     self.sourceSet = set()
     self.scope["expr"] = FillTemplate.callByExpr # lazy expansion (actually call-by-name, aka. by-expr, replaces by-value)
-    self.scope["eval"] = lambda s: expandMacro(s, self.getMacroResult)
-    self.scope[kTestLazy] = self.testLazy
+    self.scope["eval"] = lambda s: expandMacro(s, self.resolveMacro, self.evalMacro)
     if flag.matchback:
       self.scope[kReMacros] = []
     self.fpTpl = envOr("", "template") # TODO: support !!include (+init.h.md), !!include-onfinish, Makefile doMake()
@@ -509,38 +512,34 @@ class FillTemplate:
 
   MACRO_SUFFIXES = ["", "_PY", "_JS"]
   TRACE_EXPANSION = envOr(None, "traceExpansion", commaRegex)
-  def resolveOp(self, fn):
+  def resolveMacro(self, fn):
     for suffix in FillTemplate.MACRO_SUFFIXES: # try fallback fn-ver s.
       name = fn + suffix
       op = self.scope.get(name)
       if op != None: return (name, op)
     return None
-  def testLazy(self, fn): # NOTE pref: in get_subst, not optimized
-    resv = self.resolveOp(fn)
-    return getFuncName(resv[1]) == "callByExpr" if resv != None else False
-  def getMacroResult(self, fn, s_arg):
-    expandRes = None; resolved = self.resolveOp(fn)
-    if resolved == None: expandRes = sERR # not traced
-    else:
-      (name, op) = resolved
-      args = commaSplit(s_arg)
-      cfgTe = FillTemplate.TRACE_EXPANSION # trace
-      hasTrace = (cfgTe != None and cfgTe.match(name) != None)
-      if hasTrace: eprint("%s(%s)" %(name, sComma.join(map(repr, args))) )
-      try: expandRes = unicodeify(op(*args))
-      except BaseException:
-        expandRes = sFAIL # funny terminology
-        tb = exc_info()[2]
-        eprint("Exception in %s %r" %(name, args))
-        eprintMdStack(tb)
-        eprint(traceback.format_exc())
-      if hasTrace: eprint("  = %r" %expandRes)
+
+  def evalMacro(self, resolved, s_arg): # apply macro to strs, -> str
+    expandRes = None
+    (name, op) = resolved
+    args = commaSplit(s_arg)
+    cfgTe = FillTemplate.TRACE_EXPANSION # trace
+    hasTrace = (cfgTe != None and cfgTe.match(name) != None)
+    if hasTrace: eprint("%s(%s)" %(name, sComma.join(map(repr, args))) )
+    try: expandRes = unicodeify(op(*args))
+    except BaseException:
+      expandRes = sFAIL # funny terminology
+      tb = exc_info()[2]
+      eprint("Exception in %s %r" %(name, args))
+      eprintMdStack(tb)
+      eprint(traceback.format_exc())
+    if hasTrace: eprint("  = %r" %expandRes)
     return expandRes
 
   def processFile(self, src):
-    (fpaDir, fpSrc) = path.split(path.abspath(src))
+    (fpaDir, fpMd) = path.split(path.abspath(src))
     self.fpaDir = fpaDir
-    fpDst = path.splitext(fpSrc)[0]
+    fpDst = path.splitext(fpMd)[0]
     if flag.clean: rmtree(fpDst, ignore_errors=True)
     fpTpl = self.fpTpl
     if fpTpl != "":
@@ -549,7 +548,7 @@ class FillTemplate:
       except TypeError: copytree(fpTpl, fpDst)
     else: # fpTpl ""
       if not path.isdir(fpDst): mkdir(fpDst)
-    chdir(fpDst); self.outputInPwd(fpSrc)
+    chdir(fpDst); self.outputInPwd(fpMd)
 
   def onFinish(self):
     print("Running finish hook:")
@@ -564,6 +563,17 @@ class FillTemplate:
         else: reMacros1.append(tup)
       print("invalid: %s" %sComma.join(invalids))
       self.scope[kReMacros] = reMacros1
+      while True: print(eval(input()))
+
+  def matchback(self, text):
+    def genArgs(m):
+      args = ["" for i in range(argc)]
+      for (i, no) in enumerate(iargs): args[no] = m.group(1+i)
+      return args
+    sAcc = text
+    for (re, iargs, argc, name) in self.scope[kReMacros]:
+      sAcc = re.replaceIn(sAcc, lambda m: sCall %(name, commaJoin(genArgs(m)))  )
+    return sAcc
 
 # TODO: Add TextEdit .create/modify Range, listenFileChange(dst, srcs, d_ftes)
 # TODO: Add auto-macro-match from output
