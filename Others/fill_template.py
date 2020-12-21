@@ -6,7 +6,7 @@ from sys import exc_info, version_info
 import traceback
 
 from io import StringIO # needs unicode, so not cStringIO. perf
-from sys import getfilesystemencoding # choose String[Build/Read] stream impl cfg.
+from sys import getfilesystemencoding
 FS_ENCODING = getfilesystemencoding()
 
 if version_info.major == 2:
@@ -20,33 +20,35 @@ from os import mkdir, chdir, path, getenv
 from shutil import copytree, rmtree
 from sys import argv, stderr
 
+
 ## PART basic environment
 def eprint(*args): print(*args, file=stderr)
 def eprintOnce(*args): print(*args, file=stderr, end="")
+
+def printOnce(*args): print(*args, end="")
 
 ENV_PREFIX = "LPY_"
 def envOr(deft, name, transform=unicodeify):
   value = getenv(ENV_PREFIX+name)
   return deft if value == None else transform(value)
 
-def _mkdirs(fp):
-  base = path.dirname(fp) # just for fun... bad
-  try:
-    if base != "": _mkdirs(base)
-    mkdir(fp)
+def _mkdirs(dfp):
+  dfp0 = path.dirname(dfp) # created for compat.
+  if dfp0 != "": _mkdirs(dfp0)
+  try: mkdir(dfp)
   except FileExistsError as ex:
-    if not path.isdir(fp): raise ex
+    if not path.isdir(dfp): raise ex
 
 def mkdirs(fp):
-  base = path.dirname(fp)
-  if base != "": _mkdirs(base) # require dir fp
+  dfp = path.dirname(fp)
+  if dfp != "": _mkdirs(dfp) # require dir fp
 
-def _sumSrcPos(tb): # get/sum eval() fail source position depends on its .file "XXX.md:code_start"
-  (src, lineno) = tb[0].rsplit(':')
-  pos0 = int(lineno); pos = tb[1]
+def _sumSrcPos(tbf): # get/sum eval() fail source position depends on its .file "XXX.md:code_start"
+  (src, lineno) = tbf[0].rsplit(':')
+  pos0 = int(lineno); pos = tbf[1] # line pos
   return "%s:%d+%d, %s:%d" %(src, pos0, pos, src, pos0+pos)
 
-def _getSrcPos(exc_info):
+def _getSrcPos(exc_info): # -> tbf
   (etype, ex, tb) = exc_info
   callees = traceback.extract_tb(tb, limit=2)
   return (ex.filename, ex.lineno) if len(callees) == 1 and etype == SyntaxError else callees[-1] # compat
@@ -64,6 +66,8 @@ def runMdCode(code, srcpos, locals):
       eprint(":: %s (%s)" %(ex, _sumSrcPos(_getSrcPos(exc_info()))))
     except ValueError: eprint(str(ex)) # PY2 exc_info() errloc
 
+
+## PART common abstractions
 class Regex:
   class Match:
     def __init__(self, m): self._m = m
@@ -111,7 +115,7 @@ class Regex:
   def __str__(self): return "/%s/%s" %(self.source, self.flags)
   __repr__ = __str__
 
-RE_SLASHS = Regex("/(.+?)/")
+RE_SLASHS = Regex(r"/(.+?)/")
 class FlagSet:
   def __init__(self):
     self.availableFlags = []; self.flags = set()
@@ -213,8 +217,8 @@ def _commaSplit(text): # NOTE: op(a ,b ,c) better readability, instead of: op(a,
 
 global commaSplit
 try:
-  reComma = Regex("(?<!\\\\),\\s*")
-  reEComma = Regex("\\\\,") # escaper
+  reComma = Regex(r"(?<!\\),\s*")
+  reEComma = Regex(r"\\,") # escaper
   def commaSplit(s): return [reEComma.replaceIn(s1, ",") for s1 in reComma.split(s)]
 except Exception:
   commaSplit = _commaSplit
@@ -225,44 +229,51 @@ def commaRegex(s):
 
 def _appFlagSet():
   f = FlagSet()
+  f.watch = "watch"
   f.matchback = "matchback"
+  f.seeOnRender = "see-onRender"
   f.seeOnDefine = "see-onDefine"
   f.seeOnTalkabout = "see-onTalkabout"
   f.seeNLines = "see-nLines"
-  f.seeOnRender = "see-onRender"
   f.clean = "clean"
   return f
 flag = _appFlagSet()
 envOr(None, "flags", flag.init)
 
+
 ## PART macro util
-RE_WHITE = Regex("\\s")
-RE_PARENED = Regex("\\((.*?)\\)")
-RE_DEFINE = Regex("[^\\n\\S]*(\\S+?)\\((.*?)\\) (.*?)\\n")
-RE_DEFINE_ARG = Regex("\\s*,\\s*")
-RE_DEFINE_REF = Regex("\\${(.*?)}")
-RE_DEFINE_LANG = Regex(".*_(.*)")
+RE_WHITE = Regex(r"\s")
+RE_PARENED = Regex(r"\((.*?)\)")
+RE_DEFINE = Regex(r"[^\n\S]*(\S+?)\((.*?)\) (.*?)\n")
+RE_DEFINE_ARG = Regex(r"\s*,\s*")
+RE_DEFINE_REF = Regex(r"\${(.*?)}")
+RE_DEFINE_LANG = Regex(r".*_(.*)")
 
-RE_ARG_CODE = Regex("args\\[(\d+)\\]")
-RE_ARG_NOREF = Regex("noRef\\((.+?)\\)") # for traceback
+RE_ARG_CODE = Regex(r"args\[(\d+)\]")
+RE_ARG_NOREF = Regex(r"noRef\((.+?)\)") # for traceback
 
-def convertDef(d, m):
+sNOREF = "NOREF" # script constants
+sFAIL = "FAIL"
+sERR = "ERR"
+kReMacros = "macro-regexs"
+
+def _convertDef(d, m):
   (name, sFormals, sBody) = m.groups()
-  if sBody == "": return m.group(0)+"\n" # no match, fill NL only
+  if sBody == "": return m.group(0)+"\n" # no match, plus NL only
   formals = RE_DEFINE_ARG.split(sFormals)
   def evalArg(found):
-    arg = lambda m: convertArgNo(name, formals, found, m)
+    arg = lambda m: _convertArgNo(name, formals, found, m)
     return RE_DEFINE_REF.bireplaceIn(sBody, arg, re.escape) if found != None else RE_DEFINE_REF.replaceIn(sBody, arg)
   body = evalArg(None)
   if flag.matchback:
     iArgs = []; sRe = evalArg(iArgs)
     entry = (Regex(sRe), iArgs, len(formals), name)
-    d["macro-regexs"].append(entry)
+    d[kReMacros].append(entry)
   iBody = m.group(0).index(')')+1 + 1 #len(" ")
   return "macro(d, srcpos, %r, %r, %r, %r)\n" %(iBody, name, formals, body)
 
 def executeDefine(d, s, srcpos):
-  code = RE_DEFINE.replaceIn(s, lambda m: convertDef(d, m))
+  code = RE_DEFINE.replaceIn(s, lambda m: _convertDef(d, m))
   runMdCode(code, srcpos, {"d": d, "srcpos": srcpos})
 
 class NoSuchRefError(Exception):
@@ -274,8 +285,10 @@ class NonlocalReturn(Exception):
   INST = None
 NonlocalReturn.INST = NonlocalReturn("nonlocal return")
 
+macroGlobals = {"Regex": Regex, "noRef": _errorNoRef}
+
 def macro(d, srcpos, m_start, name, params, body): # executed in eval()
-  def _onSyntaxError(ex, srcpos, m): # m_start, params
+  def _onSyntaxError(ex, srcpos, m): # m_start, params, name
     eprint("--"); eprint(ex.text)
     pfix = m_start + (m.pos0+2) #len("${")
     sfix = RE_ARG_CODE.replaceIn(ex.text[:ex.offset +1], lambda m1: params[int(m1.group(1))])
@@ -304,8 +317,8 @@ def macro(d, srcpos, m_start, name, params, body): # executed in eval()
   except NonlocalReturn: return
 
   if flag.seeOnDefine: eprint(" ..done = %s" %compiled)
-  dGlobal = {"scope": d, "Regex": Regex, "noRef": _errorNoRef}
-  dLocal = {}
+  dGlobal = macroGlobals.copy(); dGlobal["scope"] = d
+  dLocal = {} #<^ per-interpreter, per-call
   def strInterpolate(*args): # macro evaluator
     dLocal["args"] = args; res = []
     for c in compiled:
@@ -316,11 +329,11 @@ def macro(d, srcpos, m_start, name, params, body): # executed in eval()
         except NameError as ex:
           tb = exc_info()[2]; eprintMdStack(tb)
           eprint("%s, try surround it in ()" %ex)
-          res.append("NOREF") # once.
+          res.append(sNOREF) # once.
     return "".join(res)
   d[name] = strInterpolate
 
-RE_MACRO = Regex("(#|/{2})(\\S+?)\\(\\s*(.*?)\\)", "s")
+RE_MACRO = Regex(r"(#|/{2})(\S+?)\(\s*(.*?)\)", "s")
 def _expandMacroTo(ab, sr, s0, get_subst):
   #return RE_MACRO.replaceIn(s, lambda m: get_subst(m.group(2), m.group(3)))
   buf = StringBuilder(); state = s0
@@ -349,14 +362,13 @@ def _expandMacroTo(ab, sr, s0, get_subst):
       try:
         iBuf0 = buf.pos; c1 = c
         while not (c1.isspace() or c1 in "()#/"): buf.write(c1); c1 = next(sr)
-        if c1 == ')': break
+        if c1 == ')': break # "//a)"
       except StopIteration: break
       if c1 == '(' and buf.pos != iBuf0:
         name = buf.str().lstrip("#/"); buf.clear()
         iBeg = len(ab) #v lazy expansion
-        getSubst1 = get_subst if name != "lazy" else lambda nam, arg: "#%s(%s)" %(nam, arg)
-        sr.skip(1); _expandMacroTo(ab, sr, 2, getSubst1) # whitespace skipped later in commaSplit()
-        iEnd = len(ab)
+        sr.skip(1); _expandMacroTo(ab, sr, 2, get_subst if name != "lazy" else _substLazy)
+        iEnd = len(ab) #^ whitespace skipped later in commaSplit()
         for idx in range(iBeg, iEnd): buf.write(ab.pop(iBeg))
         called = get_subst(name, buf.str() ); buf.clear()
         ab.insert(iBeg, called) # Excel-like step-by-step
@@ -369,13 +381,15 @@ def _expandMacroTo(ab, sr, s0, get_subst):
     gotoNextMacroKw()
   appendBuf(); return # adding unparsed tail
 
+def _substLazy(nam, arg): return "#%s(%s)" %(nam, arg)
+
 def expandMacro(s, get_subst):
   ab = []; _expandMacroTo(ab, StringReader(s), 0, get_subst)
   return "".join(ab)
 
-def convertArgNo(macro_name, formals, found, m): # resolve ${N} index of ref, or expr (ref).ops
+def _convertArgNo(macro_name, formals, found, m): # resolve ${N} index of ref, or expr (ref).ops
   isRegex = (found != None)
-  fmts = ("(.*)", ".*") if isRegex else ("${%s}", "NOREF")
+  fmts = ("(.*)", ".*") if isRegex else ("${%s}", sNOREF)
   brace = fmts[0]
   def braceRef(name):
     idx = formals.index(name)
@@ -402,29 +416,31 @@ def convertArgNo(macro_name, formals, found, m): # resolve ${N} index of ref, or
 def isIdentifier(s):
   return RE_WHITE.match(expr) == None
 
+
 ## PART output process / main
-RE_MD_CODE = Regex("```\\w*\\n(#|/{2})?( ?!?!?\\S+\\n)?(.*?)```", "s")
-RE_CMD_INVALID = Regex("!|#")
-_reCodeAny = "(\\(\\.\\*\\))|(\\.\\*)"
-RE_MATCHBACK_INVALID = Regex("(^%s.*)|(.*%s$)" %(_reCodeAny, _reCodeAny))
+RE_MD_CODE = Regex(r"```\w*\n(#|/{2})?( ?!?!?\S+\n)?(.*?)```", "s")
+RE_CMD_INVALID = Regex(r"!|#")
+_reCodeAny = r"(\(\.\*\))|(\.\*)"
+RE_MATCHBACK_INVALID = Regex(r"(^%s.*)|(.*%s$)" %(_reCodeAny, _reCodeAny))
 
 class FillTemplate:
   def __init__(self, scope={}):
     self.scope = scope
-    self.fpTpl = envOr("", "template") # TODO: support !!include (+init.h.md), !!include-onfinish, Makefile doMake()
     self.nPrevi = envOr(40, "nPrevi", int)
     self.writeMode = envOr("a", "writeMode")
+    self.fpaDir = ""
     self.sourceSet = set()
     self.scope["lazy"] = lambda a: a # lazy expansion
     self.scope["eval"] = lambda s: expandMacro(s, self.getMacroResult)
     if flag.matchback:
-      self.scope["macro-regexs"] = []
+      self.scope[kReMacros] = []
+    self.fpTpl = envOr("", "template") # TODO: support !!include (+init.h.md), !!include-onfinish, Makefile doMake()
 
-  def _outputInPwd(self, fp_abs, text, lval_prefixes, m):
+  def _outputInPwd(self, fpa, text, lval_prefixes, m):
     def getSrcpos(m): # errloc feat.
-      fpMd = path.relpath(fp_abs, self.fpaDir)
-      return "%s:%d" %(fpMd, text.count('\n', 0, m.pos0)+2)
-    def getDir(): return path.dirname(fp_abs)
+      fpMd = path.relpath(fpa, self.fpaDir)
+      return "%s:%d" %(fpMd, text.count('\n', 0, m.pos0)+2) #"```\n".count('\n') +1
+    def getDir(): return path.dirname(fpa)
     # extracted from outputInPwd (continue=return, self.prefix[Fp/Cmt]=lval_prefixes)
     (sCmt, sDesc, code) = m.groups()
     if sCmt == None and lval_prefixes[0] == "": return
@@ -435,15 +451,15 @@ class FillTemplate:
       act = desc[2:]
       if act == "define": executeDefine(self.scope, code, getSrcpos(m))
       elif act.startswith("execute"):
-        langM = act[7:].lstrip("-")
-        if langM == "PY" or langM == "":
-          runMdCode(code, getSrcpos(m), {"__FILE__": fp_abs, "__DIR__": getDir(), "scope": self.scope})
+        langM = act[7:]
+        if langM == "-PY" or langM == "":
+          runMdCode(code, getSrcpos(m), {"__FILE__": fpa, "__DIR__": getDir(), "scope": self.scope})
       elif act == "include":
         fpMd = path.relpath(path.join(getDir(), code.strip()), self.fpaDir)
         self.outputInPwd(fpMd)
       elif act == "talkabout":
         prefix = code.strip()
-        if flag.seeOnTalkabout: print("Talking about %s:" %prefix)
+        if flag.seeOnTalkabout: eprint("Talking about %s:" %prefix)
         lval_prefixes[0] = prefix; lval_prefixes[1] = sCmt
       elif act == "ignore": pass
       # there's no "pragma" action or pragma-once, reinclude protect should use "allowReinclude"
@@ -453,17 +469,11 @@ class FillTemplate:
     if desc.startswith("!") or RE_CMD_INVALID.test(desc): # notify '!'!
       eprint("unknown command %s, treating as text" %desc)
       desc = ""; isText = True
-    # eval doc & output maybe
-    fpOut = lval_prefixes[0]+desc
+    # eval doc & output (has cmd/talkabout)
+    fpOut = lval_prefixes[0] + desc
     code1 = self.scope["eval"](code)
-    if fpOut == "": return # talk-about is not for outer blocks
-    sBrief = "...".join(strBrief(RE_WHITE.replaceIn(code1, " "), self.nPrevi))
-    if flag.seeNLines:
-      code1Lns = code1.splitlines(); code1Slocs = list(filter(lambda s: not (s == "" or s.isspace()), code1Lns))
-      nCode1Ln = len(code1Lns)
-      print("%s N=%d nLine=%d=(%d+%d) %s" %(fpOut, len(code1), nCode1Ln, len(code1Slocs), nCode1Ln-len(code1Slocs), sBrief))
-    else:
-      print("%s N=%d %s" %(fpOut, len(code1), sBrief))
+    if fpOut == "": return # unk cmd & no talkabout.
+    printOnce(fpOut); printOnce(" "); print(self.showSummary(code1))
     mkdirs(fpOut)
     with open(fpOut, self.writeMode, encoding=FS_ENCODING) as fd:
       if isText and sCmt != None: fd.write(sCmt) # for "##"
@@ -473,22 +483,31 @@ class FillTemplate:
     if (src in self.sourceSet) and not ".relude." in src: eprint("Render file %s: pass" %src); return
     if flag.seeOnRender: eprint("Render file %s (%d items in scope):" %(src, len(self.scope)))
     self.sourceSet.add(src)
-    fpAbs = path.join(self.fpaDir, src); sMd = ""
-    with open(fpAbs, "r", encoding=FS_ENCODING) as fd: sMd = fd.read()
+    fpaMd = path.join(self.fpaDir, src); sMd = ""
+    with open(fpaMd, "r", encoding=FS_ENCODING) as fd: sMd = fd.read()
     prefixes = ["", ""] # talk-about feat & server mode comment
     for m in RE_MD_CODE.iterateMatch(sMd):
-      self._outputInPwd(fpAbs, sMd, prefixes, m) # could be reuse when re-impl in JS
+      self._outputInPwd(fpaMd, sMd, prefixes, m) # could be reuse when re-impl in JS
     if flag.seeOnRender: eprint("Finished rendering %s" %src)
+
+  def showSummary(self, text):
+    sBrief = "...".join(strBrief(RE_WHITE.replaceIn(text, " "), self.nPrevi))
+    if flag.seeNLines:
+      lns = text.splitlines(); slocs = list(filter(lambda s: not (s == "" or s.isspace()), lns))
+      nLn = len(lns); nSloc = len(slocs)
+      return "N=%d nLine=%d=(%d+%d) %s" %(len(text), nLn, nSloc, nLn-nSloc, sBrief)
+    else:
+      return "N=%d %s" %(len(text), sBrief)
 
   MACRO_SUFFIXES = ["", "_PY", "_JS"]
   TRACE_EXPANSION = envOr(None, "traceExpansion", commaRegex)
   def getMacroResult(self, fn, s_arg):
     args = commaSplit(s_arg); expandRes = None
+    cfgTe = FillTemplate.TRACE_EXPANSION
     for suffix in FillTemplate.MACRO_SUFFIXES: # try fallback fn-ver s.
-      name = fn+suffix
-      cfgTe = FillTemplate.TRACE_EXPANSION
+      name = fn + suffix
       hasTrace = (cfgTe != None and cfgTe.match(name) != None)
-      if hasTrace: eprint("%s(%r)" %(name, s_arg))
+      if hasTrace: eprint("%s(%s)" %(name, ", ".join(map(repr, args))) )
       op = self.scope.get(name)
       if op != None:
         try: expandRes = unicodeify(op(*args)); break
@@ -497,17 +516,17 @@ class FillTemplate:
           eprint("Exception in %s %r" %(name, args))
           eprintMdStack(tb)
           eprint(traceback.format_exc())
-          expandRes = "FAIL"; break
-    if expandRes == None: expandRes = "ERR" # funny terminology
+          expandRes = sFAIL; break
+    if expandRes == None: expandRes = sERR # funny terminology
     if hasTrace: eprint("  = %r" %expandRes)
     return expandRes
 
   def processFile(self, src):
-    fpTpl = self.fpTpl
     (fpaDir, fpSrc) = path.split(path.abspath(src))
     self.fpaDir = fpaDir
     fpDst = path.splitext(fpSrc)[0]
     if flag.clean: rmtree(fpDst, ignore_errors=True)
+    fpTpl = self.fpTpl
     if fpTpl != "":
       if not path.isdir(fpTpl): raise EnvironmentError(fpTpl+" dir not found here")
       try: copytree(fpTpl, fpDst, dirs_exist_ok=True) # template feat.
@@ -517,8 +536,9 @@ class FillTemplate:
     chdir(fpDst); self.outputInPwd(fpSrc)
 
   def onFinish(self):
+    print("Running finish hook:")
     if flag.matchback: # valid filter
-      reMacros = self.scope["macro-regexs"]
+      reMacros = self.scope[kReMacros]
       reMacros1 = []
       invalids = set()
       for tup in reMacros:
@@ -527,11 +547,11 @@ class FillTemplate:
         if RE_MATCHBACK_INVALID.test(re.source): invalids.add(name)
         else: reMacros1.append(tup)
       print("invalid: %s" %", ".join(invalids))
-      self.scope["macro-regexs"] = reMacros1
+      self.scope[kReMacros] = reMacros1
 
 # TODO: Add TextEdit .create/modify Range, listenFileChange(dst, srcs, d_ftes)
 # TODO: Add auto-macro-match from output
-# TODO: make "%r" repr() unified
+# TODO: make "%r" repr() and String.format unified
 
 if __name__ == "__main__":
   filler = FillTemplate()
