@@ -32,17 +32,6 @@ def envOr(deft, name, transform=unicodeify):
   value = getenv(ENV_PREFIX+name)
   return deft if value == None else transform(value)
 
-def _mkdirs(dfp):
-  dfp0 = path.dirname(dfp) # created for compat.
-  if dfp0 != "": _mkdirs(dfp0)
-  try: mkdir(dfp)
-  except FileExistsError as ex:
-    if not path.isdir(dfp): raise ex
-
-def mkdirs(fp):
-  dfp = path.dirname(fp)
-  if dfp != "": _mkdirs(dfp) # require dir fp
-
 def _sumSrcPos(tbf): # get/sum eval() fail source position depends on its .file "XXX.md:code_start"
   (src, lineno) = tbf[0].rsplit(':')
   pos0 = int(lineno); pos = tbf[1] # line pos
@@ -143,6 +132,54 @@ class FlagSet:
     self.refresh()
 
 
+class FileWatcher: # not portable. Linux 2.6 DNotify / Win32 file
+  def watch(self, fp, op, mode="m"): # modes: am cd [r]ename
+    if not path.isdir(fp): return self._watch(path.dirname(fp), lambda fp1: op(fp1) if fp1 == fp else None, mode)
+    else: return self._watch(fp, op, mode)
+  try:
+    global os, fcntl, signal, sleep
+    import os
+    import fcntl, signal
+    from time import sleep
+    _modes = {"a": "ACCESS", "m": "MODIFY", "c": "CREATE"} # no DELETE, RENAME, ATTRIB
+    def __init__(self):
+      self._dfp_ops = []; self._mtimes = {}
+      signal.signal(signal.SIGIO, self._rescan)
+    def _watch(self, dfp, op, mode):
+      fd = os.open(dfp,  os.O_RDONLY)
+      fcntl.fcntl(fd, fcntl.F_SETSIG, 0)
+      imode = fcntl.DN_MULTISHOT
+      for c in mode: imode = imode | getattr(fcntl, "DN_%s" %FileWatcher._modes[c])
+      fcntl.fcntl(fd, fcntl.F_NOTIFY, imode); self._dfp_ops.append((dfp, op))
+    def _rescan(self, signum, frame): # DN_ has no capacity of getting path (no more than fd)
+      mts = self._mtimes
+      for (dfp, op) in self._dfp_ops:
+        for fp in os.listdir(dfp):
+          fpa = path.join(dfp, fp)
+          fs = os.stat(fpa)
+          fid = fs.st_ino; mt = fs.st_mtime
+          mt0 = mts.get(fid)
+          if mt0 == None or mt != mt0: mts[fid] = mt; op(fpa)
+    def mainloop(self):
+      while True: sleep(10000)
+  except ImportError:
+    global win32file, win32con
+    import win32file, win32con
+    def __init__(self): self._hDir_ops = []
+    def _watch(self, dfp, op, mode): # NOTE: no impl for mode c/d/(m), and renamed from/to
+      flagFs = win32con.FILE_SHARE_READ | win32con.FILE_SHARE_WRITE
+      flagB = win32con.FILE_FLAG_BACKUP_SEMANTICS #v 0x1=FILE_LIST_DIRECTORY
+      hDir = win32file.CreateFile(fp, 0x0001, flagFs, None, win32con.OPEN_EXISTING, flagB, None)
+      self._hDir_ops.append((hDir, op))
+    def mainloop(self):
+      imode = win32con.FILE_NOTIFY_CHANGE_LAST_WRITE
+      while True:
+        for (hDir, op) in self._hDir_ops:
+          results = win32file.ReadDirectoryChangesW(hDir, 1024, False, imode, None, None)
+          for actnum, fp in results:
+            if actnum == 3: op(fp) #"Updated"
+
+
 class StringBuilder: # with pos
   def __init__(self, initial=""): self.io = StringIO(initial)
   if version_info.major == 2:
@@ -235,6 +272,7 @@ def _appFlagSet():
   f.seeOnDefine = "see-onDefine"
   f.seeOnTalkabout = "see-onTalkabout"
   f.seeNLines = "see-nLines"
+  f.seePaths = "see-paths"
   f.clean = "clean"
   return f
 flag = _appFlagSet()
@@ -438,6 +476,7 @@ class FillTemplate:
     self.writeMode = envOr("a", "writeMode")
     self.fpaDir = ""
     self.sourceSet = set()
+    self._dstDirs = set()
     self.scope["expr"] = FillTemplate.callByExpr # lazy expansion (actually call-by-name, aka. by-expr, replaces by-value)
     self.scope["eval"] = lambda s: expandMacro(s, self.resolveMacro, self.evalMacro)
     if flag.matchback:
@@ -485,7 +524,7 @@ class FillTemplate:
     code1 = self.scope["eval"](code)
     if fpOut == "": return # unk cmd & no talkabout.
     printOnce(fpOut); printOnce(" "); print(self.showSummary(code1))
-    mkdirs(fpOut)
+    self.mkdirs(fpOut)
     with open(fpOut, self.writeMode, encoding=FS_ENCODING) as fd:
       if isText and sCmt != None: fd.write(sCmt) # for "##"
       fd.write(code1)
@@ -548,6 +587,7 @@ class FillTemplate:
       except TypeError: copytree(fpTpl, fpDst)
     else: # fpTpl ""
       if not path.isdir(fpDst): mkdir(fpDst)
+    self._dstDirs.add(fpDst)
     chdir(fpDst); self.outputInPwd(fpMd)
 
   def onFinish(self):
@@ -563,7 +603,9 @@ class FillTemplate:
         else: reMacros1.append(tup)
       print("invalid: %s" %sComma.join(invalids))
       self.scope[kReMacros] = reMacros1
-      while True: print(eval(input()))
+    if flag.seePaths:
+      print("src: %s" %commaJoin(self.sourceSet))
+      print("dst: %s" %commaJoin(self._dstDirs))
 
   def matchback(self, text):
     def genArgs(m):
@@ -574,6 +616,17 @@ class FillTemplate:
     for (re, iargs, argc, name) in self.scope[kReMacros]:
       sAcc = re.replaceIn(sAcc, lambda m: sCall %(name, commaJoin(genArgs(m)))  )
     return sAcc
+
+  def _mkdirs(self, dfp):
+    dfp0 = path.dirname(dfp) # created for compat.
+    if dfp0 != "": _mkdirs(dfp0)
+    try: mkdir(dfp); self._dstDirs.add(dfp)
+    except FileExistsError as ex:
+      if not path.isdir(dfp): raise ex
+
+  def mkdirs(self, fp):
+    dfp = path.dirname(fp)
+    if dfp != "": self._mkdirs(dfp) # require dir fp
 
 # TODO: Add TextEdit .create/modify Range, listenFileChange(dst, srcs, d_ftes)
 # TODO: Add auto-macro-match from output
