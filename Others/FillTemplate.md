@@ -225,7 +225,7 @@ showSubsts ()
 
 ```python
 # lazy.txt
-#lazy(//hello(1) #bye(2))
+#expr(//hello(1) #bye(2))
 #eval(//hello(1) #bye(2))
 //hello(1) #bye(2)
 ```

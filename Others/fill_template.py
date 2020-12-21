@@ -256,6 +256,7 @@ sNOREF = "NOREF" # script constants
 sFAIL = "FAIL"
 sERR = "ERR"
 kReMacros = "macro-regexs"
+kTestLazy = "__testlazy__"
 
 def _convertDef(d, m):
   (name, sFormals, sBody) = m.groups()
@@ -367,7 +368,7 @@ def _expandMacroTo(ab, sr, s0, get_subst):
       if c1 == '(' and buf.pos != iBuf0:
         name = buf.str().lstrip("#/"); buf.clear()
         iBeg = len(ab) #v lazy expansion
-        sr.skip(1); _expandMacroTo(ab, sr, 2, get_subst if name != "lazy" else _substLazy)
+        sr.skip(1); _expandMacroTo(ab, sr, 2, _substLazy if get_subst(kTestLazy, name) else get_subst)
         iEnd = len(ab) #^ whitespace skipped later in commaSplit()
         for idx in range(iBeg, iEnd): buf.write(ab.pop(iBeg))
         called = get_subst(name, buf.str() ); buf.clear()
@@ -423,6 +424,9 @@ RE_CMD_INVALID = Regex(r"!|#")
 _reCodeAny = r"(\(\.\*\))|(\.\*)"
 RE_MATCHBACK_INVALID = Regex(r"(^%s.*)|(.*%s$)" %(_reCodeAny, _reCodeAny))
 
+sComma = ", "
+def getFuncName(op): return op.__name__
+
 class FillTemplate:
   def __init__(self, scope={}):
     self.scope = scope
@@ -430,11 +434,15 @@ class FillTemplate:
     self.writeMode = envOr("a", "writeMode")
     self.fpaDir = ""
     self.sourceSet = set()
-    self.scope["lazy"] = lambda a: a # lazy expansion
+    self.scope["expr"] = FillTemplate.callByExpr # lazy expansion (actually call-by-name, aka. by-expr, replaces by-value)
     self.scope["eval"] = lambda s: expandMacro(s, self.getMacroResult)
+    self.scope[kTestLazy] = self.testLazy
     if flag.matchback:
       self.scope[kReMacros] = []
     self.fpTpl = envOr("", "template") # TODO: support !!include (+init.h.md), !!include-onfinish, Makefile doMake()
+
+  @staticmethod
+  def callByExpr(se): return se # btw. lazy evaluation of macro arg is not effecient, since only str arg is supported.
 
   def _outputInPwd(self, fpa, text, lval_prefixes, m):
     def getSrcpos(m): # errloc feat.
@@ -501,24 +509,32 @@ class FillTemplate:
 
   MACRO_SUFFIXES = ["", "_PY", "_JS"]
   TRACE_EXPANSION = envOr(None, "traceExpansion", commaRegex)
-  def getMacroResult(self, fn, s_arg):
-    args = commaSplit(s_arg); expandRes = None
-    cfgTe = FillTemplate.TRACE_EXPANSION
+  def resolveOp(self, fn):
     for suffix in FillTemplate.MACRO_SUFFIXES: # try fallback fn-ver s.
       name = fn + suffix
-      hasTrace = (cfgTe != None and cfgTe.match(name) != None)
-      if hasTrace: eprint("%s(%s)" %(name, ", ".join(map(repr, args))) )
       op = self.scope.get(name)
-      if op != None:
-        try: expandRes = unicodeify(op(*args)); break
-        except BaseException:
-          tb = exc_info()[2]
-          eprint("Exception in %s %r" %(name, args))
-          eprintMdStack(tb)
-          eprint(traceback.format_exc())
-          expandRes = sFAIL; break
-    if expandRes == None: expandRes = sERR # funny terminology
-    if hasTrace: eprint("  = %r" %expandRes)
+      if op != None: return (name, op)
+    return None
+  def testLazy(self, fn): # NOTE pref: in get_subst, not optimized
+    resv = self.resolveOp(fn)
+    return getFuncName(resv[1]) == "callByExpr" if resv != None else False
+  def getMacroResult(self, fn, s_arg):
+    expandRes = None; resolved = self.resolveOp(fn)
+    if resolved == None: expandRes = sERR # not traced
+    else:
+      (name, op) = resolved
+      args = commaSplit(s_arg)
+      cfgTe = FillTemplate.TRACE_EXPANSION # trace
+      hasTrace = (cfgTe != None and cfgTe.match(name) != None)
+      if hasTrace: eprint("%s(%s)" %(name, sComma.join(map(repr, args))) )
+      try: expandRes = unicodeify(op(*args))
+      except BaseException:
+        expandRes = sFAIL # funny terminology
+        tb = exc_info()[2]
+        eprint("Exception in %s %r" %(name, args))
+        eprintMdStack(tb)
+        eprint(traceback.format_exc())
+      if hasTrace: eprint("  = %r" %expandRes)
     return expandRes
 
   def processFile(self, src):
@@ -546,7 +562,7 @@ class FillTemplate:
         print("%s = %s(%s) %d" %(re, name, iargs, argc))
         if RE_MATCHBACK_INVALID.test(re.source): invalids.add(name)
         else: reMacros1.append(tup)
-      print("invalid: %s" %", ".join(invalids))
+      print("invalid: %s" %sComma.join(invalids))
       self.scope[kReMacros] = reMacros1
 
 # TODO: Add TextEdit .create/modify Range, listenFileChange(dst, srcs, d_ftes)
