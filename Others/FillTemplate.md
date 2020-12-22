@@ -62,10 +62,38 @@ if __name__ == "__main__": print(trimBetween(parenCps, "hello( no) hawaii"))
 
 当然如果只是这样就太短，几乎不需要专门创个文件了，所以它还有 CPP(C语言预处理器) 的主要功能：宏调用，为简单实现，是基于 Python `eval("lambda params: body")` 的（当然我也可以选择实现成模板字符串 `d=dict(zip(params, args)); RE_REF.gsub(d.__getitem__, s)` 的形式，但是就不能用 `if`、`map` 的简单编译期运算了）。
 
+```python
+# !!execute
+global suffix
+suffix = "wtf" # 示例而已
+scope["sregex_addWtf"] = "(\w*)" # 还不支持传递 regex，得自己手写（划掉）
+scope["addWtf"] = lambda s: s+suffix
+scope["inv_addWtf"] = lambda s: s.rstrip(suffix)
+```
+
+插一条更新：现在支持自动更新逆向计算引用，只要你定义 `inv_XXX` 即可
+
+```python
+# 开启 finish-repl flag.
+>self.scope["inv_addWtf"]("axwtf")
+ax
+>self.scope["inv_bye"](["axwtf"])
+['ax']
+>self.scope["bye"]("ax")
+Bye axwtf
+>self.matchback("Bye axwtf")
+#bye(ax)
+>self.matchback('"Hello {}".format(t)')
+#hello_PY()
+>self.matchback('"Hey Bye afk NMSL!!!') # 只要遍历规则一遍即可，先换 #nmsl(Bye afk) 照样能匹配，无关顺序
+"#nmsl(#bye(afk))
+```
+
 ```bash
 # !!define
 hello(t) Hello ${t}
-bye(t) Bye ${t}
+nmsl(t) Hey ${t} NMSL!!!
+bye(t) Bye ${scope["addWtf"](t)}
 hello_PY(t) "Hello {}".format(t)
 bye_PY(t) "Bye {}".format(t)
 ```

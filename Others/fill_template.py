@@ -131,53 +131,65 @@ class FlagSet:
         if re.match(flag) != None: self.flags.add(flag)
     self.refresh()
 
+class GroupingH:
+  def __init__(self): self.d = {}
+  def add(self, k, v):
+    vs = self.d.get(k)
+    if vs != None: vs.append(v)
+    else: self.d[k] = [v]
+  def items(): return self.d.items()
 
 class FileWatcher: # not portable. Linux 2.6 DNotify / Win32 file
   def watch(self, fp, op, mode="m"): # modes: am cd [r]ename
-    if not path.isdir(fp): return self._watch(path.dirname(fp), lambda fp1: op(fp1) if fp1 == fp else None, mode)
-    else: return self._watch(fp, op, mode)
+    if not path.isdir(fp): #v coerce to file listen
+      return self._watch(path.dirname(fp), lambda fp1: op(fp1) if fp1 == fp else None, mode)
+    else: return self._watch(fp, op, mode) #^ WARN: use shorthand above can cause watch event loss
   try:
     global os, fcntl, signal, sleep
     import os
     import fcntl, signal
     from time import sleep
     _modes = {"a": "ACCESS", "m": "MODIFY", "c": "CREATE"} # no DELETE, RENAME, ATTRIB
+    for (k, v) in _modes.items(): _modes[k] = getattr(fcntl, "DN_%s" %v)
     def __init__(self):
-      self._dfp_ops = []; self._mtimes = {}
+      self._dfp_ops = GroupingH(); self._mtimes = {}
       signal.signal(signal.SIGIO, self._rescan)
     def _watch(self, dfp, op, mode):
       fd = os.open(dfp,  os.O_RDONLY)
       fcntl.fcntl(fd, fcntl.F_SETSIG, 0)
       imode = fcntl.DN_MULTISHOT
-      for c in mode: imode = imode | getattr(fcntl, "DN_%s" %FileWatcher._modes[c])
-      fcntl.fcntl(fd, fcntl.F_NOTIFY, imode); self._dfp_ops.append((dfp, op))
+      for c in mode: imode = imode | FileWatcher._modes[c]
+      fcntl.fcntl(fd, fcntl.F_NOTIFY, imode); self._dfp_ops.add(dfp, op)
     def _rescan(self, signum, frame): # DN_ has no capacity of getting path (no more than fd)
       mts = self._mtimes
-      for (dfp, op) in self._dfp_ops:
+      for (dfp, ops) in self._dfp_ops.items():
         for fp in os.listdir(dfp):
           fpa = path.join(dfp, fp)
           fs = os.stat(fpa)
           fid = fs.st_ino; mt = fs.st_mtime
           mt0 = mts.get(fid)
-          if mt0 == None or mt != mt0: mts[fid] = mt; op(fpa)
+          if mt0 == None or mt != mt0: mts[fid] = mt
+          for op in ops: op(fpa) # required to notice each at once (on dir entry).
     def mainloop(self):
       while True: sleep(10000)
   except ImportError:
     global win32file, win32con
     import win32file, win32con
-    def __init__(self): self._hDir_ops = []
+    def __init__(self): self._hDir_ops = GroupingH()
     def _watch(self, dfp, op, mode): # NOTE: no impl for mode c/d/(m), and renamed from/to
       flagFs = win32con.FILE_SHARE_READ | win32con.FILE_SHARE_WRITE
       flagB = win32con.FILE_FLAG_BACKUP_SEMANTICS #v 0x1=FILE_LIST_DIRECTORY
       hDir = win32file.CreateFile(fp, 0x0001, flagFs, None, win32con.OPEN_EXISTING, flagB, None)
-      self._hDir_ops.append((hDir, op))
-    def mainloop(self):
+      self._hDir_ops.add(hDir, op)
+    def _rescan(self):
       imode = win32con.FILE_NOTIFY_CHANGE_LAST_WRITE
-      while True:
-        for (hDir, op) in self._hDir_ops:
-          results = win32file.ReadDirectoryChangesW(hDir, 1024, False, imode, None, None)
-          for actnum, fp in results:
-            if actnum == 3: op(fp) #"Updated"
+      for (hDir, ops) in self._hDir_ops.items():
+        results = win32file.ReadDirectoryChangesW(hDir, 1024, False, imode, None, None)
+        for actnum, fp in results:
+          if actnum == 3: #"Updated"
+            for op in ops: op(fp)
+    def mainloop(self):
+      while True: self._rescan()
 
 
 class StringBuilder: # with pos
@@ -273,6 +285,8 @@ def _appFlagSet():
   f.seeOnTalkabout = "see-onTalkabout"
   f.seeNLines = "see-nLines"
   f.seePaths = "see-paths"
+  f.seeScope = "see-scope"
+  f.finishRepl = "finish-repl"
   f.clean = "clean"
   return f
 flag = _appFlagSet()
@@ -289,12 +303,18 @@ RE_DEFINE_LANG = Regex(r".*_(.*)")
 
 RE_ARG_CODE = Regex(r"args\[(\d+)\]")
 RE_ARG_NOREF = Regex(r"noRef\((.+?)\)") # for traceback
+RE_ARG_CALL = Regex(r"scope\[\"(.+?)\"\]\(\S+?\)") # inv feat
+
+_reCodeAny = r"((\(\.\*\))|(\.\*))"
+RE_MATCHBACK_INVALID = Regex(r"(^%s.*)|(.*%s$)" %(_reCodeAny, _reCodeAny))
 
 sNOREF = "NOREF" # script constants
 sFAIL = "FAIL"
 sERR = "ERR"
 kReMacros = "macro-regexs"
-sCall = "#%s(%s)"
+fkInvRegex = "sregex_%s"
+fkInv = "inv_%s"
+fsCall = "#%s(%s)"
 def getFuncName(op): return op.__name__
 
 def _convertDef(d, m):
@@ -302,7 +322,7 @@ def _convertDef(d, m):
   if sBody == "": return m.group(0)+"\n" # no match, plus NL only
   formals = RE_DEFINE_ARG.split(sFormals)
   def evalArg(found):
-    arg = lambda m: _convertArgNo(name, formals, found, m)
+    def arg(m): return _convertArgNo(d, name, formals, found, m)
     return RE_DEFINE_REF.bireplaceIn(sBody, arg, re.escape) if found != None else RE_DEFINE_REF.replaceIn(sBody, arg)
   body = evalArg(None)
   if flag.matchback:
@@ -341,13 +361,18 @@ def macro(d, srcpos, m_start, name, params, body): # executed in eval()
   ignoreErrors = False
   if langM != None and langM.group(1) != "PY": ignoreErrors = True; eprintOnce(" (try %s)" %langM.group(1))
   compiled = [] #parts str|int|code
+  invOperators = []
   def appendNE(s):
     if s != "": compiled.append(s)
   def appendCode(m):
     part = m.group(1)
     try: compiled.append(int(part)) # ${1}
     except ValueError:
-      try: compiled.append(compile(part, srcpos, "eval")) # ${(args[1])+'x'}
+      try:
+        compiled.append(compile(part, srcpos, "eval")) # ${(args[1])+'x'}
+        if flag.matchback:
+          inv = _findCallVar(d, part, fkInv) # query call inv_ support
+          if inv != None: invOperators.append((len(compiled)-1 - 1, inv) ) # NOTE: lastIndex-1, affected by bireplaceIn order.
       except SyntaxError as ex:
         if flag.seeOnDefine: eprint(" ..fail")
         if not ignoreErrors:
@@ -356,6 +381,13 @@ def macro(d, srcpos, m_start, name, params, body): # executed in eval()
   try: RE_DEFINE_REF.bireplaceIn(body, appendCode, appendNE) # s, c,s, c,s, ...
   except NonlocalReturn: return
 
+  if len(invOperators) != 0: # define auto-generated inverse op
+    if flag.seeOnDefine: eprint(" (with inv %r)" %invOperators)
+    iargs = next(iter(filter(lambda t: t[3] == name, d[kReMacros])))[1] # !=None asserted
+    def invOp(args):
+      for (i, inv) in invOperators: args[i] = inv(args[i])
+      return args
+    d[fkInv %name] = invOp # used in FillTemplate.matchback(s)
   if flag.seeOnDefine: eprint(" ..done = %s" %compiled)
   dGlobal = macroGlobals.copy(); dGlobal["scope"] = d
   dLocal = {} #<^ per-interpreter, per-call
@@ -373,7 +405,13 @@ def macro(d, srcpos, m_start, name, params, body): # executed in eval()
     return "".join(res)
   d[name] = strInterpolate
 
-RE_MACRO = Regex(r"(#|/{2})(\S+?)\(\s*(.*?)\)", "s")
+def _findCallVar(d, expr, fk): # NOTE: can't read assigned val in define!!, use execute!! before defs.
+  m = RE_ARG_CALL.match(expr)
+  if m != None:
+    return d.get(fk %m.group(1))
+  return None
+
+RE_MACRO = Regex(r"(#|/{2})(\S+?)\((.*?)\)", "s") # NOTE: first whites not skipped
 def _expandMacroTo(ab, sr, s0, resolve, get_subst):
   #return RE_MACRO.replaceIn(s, lambda m: get_subst(resolve(m.group(2)), m.group(3)))
   buf = StringBuilder(); state = s0
@@ -423,13 +461,13 @@ def _expandMacroTo(ab, sr, s0, resolve, get_subst):
     gotoNextMacroKw()
   appendBuf(); return # adding unparsed tail
 
-def _substLazy(resolved, arg): return sCall %(resolved[0], arg)
+def _substLazy(resolved, arg): return fsCall %(resolved[0], arg)
 
 def expandMacro(s, resolve, get_subst):
   ab = []; _expandMacroTo(ab, StringReader(s), 0, resolve, get_subst)
   return "".join(ab)
 
-def _convertArgNo(macro_name, formals, found, m): # resolve ${N} index of ref, or expr (ref).ops
+def _convertArgNo(d, macro_name, formals, found, m): # resolve ${N} index of ref, or expr (ref).ops
   isRegex = (found != None)
   fmts = ("(.*)", ".*") if isRegex else ("${%s}", sNOREF)
   brace = fmts[0]
@@ -448,10 +486,13 @@ def _convertArgNo(macro_name, formals, found, m): # resolve ${N} index of ref, o
       if isRegex and ref_hasFound[0]:
         eprint("W: argNo(%s): multiple ref %r in code can't be matched" %(macro_name, name))
         found.pop()
-      ref_hasFound[0] = True #v replaces only !isRegex
-      return RE_DEFINE_REF.replaceIn(sRef, lambda m2: "(args[%s])" %m2.group(1))
+      ref_hasFound[0] = True
+      return RE_DEFINE_REF.replaceIn(sRef, lambda m2: "(args[%s])" %m2.group(1)) #< replaces only fnd. braceRef
     except ValueError:
       return "(noRef(%r))" %name
+  if isRegex: # custom regex for call
+    sre = _findCallVar(d, expr, fkInvRegex)
+    if sre != None: brace = sre
   expr1 = RE_PARENED.replaceIn(expr, refEval)
   return (brace if isRegex else brace %expr1) if ref_hasFound[0] or not isIdentifier(expr) else fmts[1]
 
@@ -462,8 +503,6 @@ def isIdentifier(s):
 ## PART output process / main
 RE_MD_CODE = Regex(r"```\w*\n(#|/{2})?( ?!?!?\S+\n)?(.*?)```", "s")
 RE_CMD_INVALID = Regex(r"!|#")
-_reCodeAny = r"((\(\.\*\))|(\.\*))"
-RE_MATCHBACK_INVALID = Regex(r"(^%s.*)|(.*%s$)" %(_reCodeAny, _reCodeAny))
 
 sComma = ", "
 def commaJoin(texts):
@@ -606,15 +645,25 @@ class FillTemplate:
     if flag.seePaths:
       print("src: %s" %commaJoin(self.sourceSet))
       print("dst: %s" %commaJoin(self._dstDirs))
+    if flag.seeScope:
+      eprint(self.scope)
+    if flag.finishRepl:
+      while True:
+        try: print(eval(input(">")))
+        except EOFError: break
+        except KeyboardInterrupt: break
+        except BaseException: traceback.print_exc()
 
   def matchback(self, text):
     def genArgs(m):
       args = ["" for i in range(argc)]
       for (i, no) in enumerate(iargs): args[no] = m.group(1+i)
+      opInv = self.scope.get(fkInv %name)
+      if opInv != None: return opInv(args) # for (generated) inverse operators
       return args
     sAcc = text
     for (re, iargs, argc, name) in self.scope[kReMacros]:
-      sAcc = re.replaceIn(sAcc, lambda m: sCall %(name, commaJoin(genArgs(m)))  )
+      sAcc = re.replaceIn(sAcc, lambda m: fsCall %(name, commaJoin(genArgs(m)))  )
     return sAcc
 
   def _mkdirs(self, dfp):
