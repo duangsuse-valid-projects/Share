@@ -85,7 +85,7 @@ Bye axwtf
 #bye(ax)
 >self.matchback('"Hello {}".format(t)')
 #hello_PY()
->self.matchback('"Hey Bye afk NMSL!!!') # 只要遍历规则一遍即可，先换 #nmsl(Bye afk) 照样能匹配，无关顺序
+>self.matchback('"Hey Bye afkxxxxssx NMSL!!!') # 只要遍历规则一遍即可，先换 #nmsl(Bye afk) 照样能匹配，无关顺序
 "#nmsl(#bye(afk))
 ```
 
@@ -93,7 +93,7 @@ Bye axwtf
 # !!define
 hello(t) Hello ${t}
 nmsl(t) Hey ${t} NMSL!!!
-bye(t) Bye ${scope["addWtf"](t)}
+bye(t) Bye ${call["addWtf"](t)}
 hello_PY(t) "Hello {}".format(t)
 bye_PY(t) "Bye {}".format(t)
 ```

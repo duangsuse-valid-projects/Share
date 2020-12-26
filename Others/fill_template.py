@@ -16,7 +16,7 @@ else:
   def unicodeify(s): return s
 unicodeType = type("")
 
-from os import mkdir, chdir, path, getenv
+from os import mkdir, chdir, remove, path, getenv
 from shutil import copytree, rmtree
 from sys import argv, stderr
 
@@ -48,7 +48,11 @@ def eprintMdStack(tb):
     except ValueError: break
 
 def runMdCode(code, srcpos, locals):
-  try: eval(compile(code, srcpos, "exec"), None, locals)
+  try:
+    eval(compile(code, srcpos, "exec"), None, locals)
+    if flag.vseeRunCode:
+      ex = SyntaxError("see run code", (srcpos, 0, 0, ""))
+      raise ex
   except BaseException as ex:
     eprint("----"); eprint(code)
     try:
@@ -72,6 +76,9 @@ class Regex:
     __repr__ = __str__
   @staticmethod
   def _match(m): return Regex.Match(m) if m != None else None
+  @staticmethod
+  def _substFn(v_sxop): #v !=None asserted
+    return lambda m: v_sxop(Regex.Match(m)) if callable(v_sxop) else v_sxop
 
   def __init__(self, code, flags=""): # parse flags
     self.flags = flags
@@ -86,7 +93,7 @@ class Regex:
   def match(self, s): return Regex._match(self._re.match(s))
 
   def iterateMatch(self, s): return map(Regex._match, self._re.finditer(s))
-  def replaceIn(self, s, subst): return self._re.sub(subst, s)
+  def replaceIn(self, s, subst): return self._re.sub(Regex._substFn(subst), s)
   def bireplaceIn(self, s, subst, subst_unmatch):
     sb = []; i0 = 0
     def append(x): # appendNotNone
@@ -137,7 +144,7 @@ class GroupingH:
     vs = self.d.get(k)
     if vs != None: vs.append(v)
     else: self.d[k] = [v]
-  def items(): return self.d.items()
+  def items(self): return self.d.items()
 
 class FileWatcher: # not portable. Linux 2.6 DNotify / Win32 file
   def watch(self, fp, op, mode="m"): # modes: am cd [r]ename
@@ -160,16 +167,20 @@ class FileWatcher: # not portable. Linux 2.6 DNotify / Win32 file
       imode = fcntl.DN_MULTISHOT
       for c in mode: imode = imode | FileWatcher._modes[c]
       fcntl.fcntl(fd, fcntl.F_NOTIFY, imode); self._dfp_ops.add(dfp, op)
+      self._rescan(0, None) # init ._mtimes
     def _rescan(self, signum, frame): # DN_ has no capacity of getting path (no more than fd)
       mts = self._mtimes
       for (dfp, ops) in self._dfp_ops.items():
         for fp in os.listdir(dfp):
           fpa = path.join(dfp, fp)
-          fs = os.stat(fpa)
+          try: fs = os.stat(fpa)
+          except FileNotFoundError: continue # ignore volatile-deleted
           fid = fs.st_ino; mt = fs.st_mtime
           mt0 = mts.get(fid)
-          if mt0 == None or mt != mt0: mts[fid] = mt
-          for op in ops: op(fpa) # required to notice each at once (on dir entry).
+          if mt0 == None or mt != mt0:
+            mts[fid] = mt
+            if signum != 0:
+              for op in ops: op(fpa) # required to notice each at once (on dir entry).
     def mainloop(self):
       while True: sleep(10000)
   except ImportError:
@@ -285,8 +296,11 @@ def _appFlagSet():
   f.seeOnTalkabout = "see-onTalkabout"
   f.seeNLines = "see-nLines"
   f.seePaths = "see-paths"
-  f.seeScope = "see-scope"
+  f.vseeScope = "vsee-scope"
+  f.vseeRunCode = "vsee-runcode"
+  f.vseeMacroCode = "vsee-macrocode"
   f.finishRepl = "finish-repl"
+  f.serveMacroIO = "serve-macroio"
   f.clean = "clean"
   return f
 flag = _appFlagSet()
@@ -303,10 +317,11 @@ RE_DEFINE_LANG = Regex(r".*_(.*)")
 
 RE_ARG_CODE = Regex(r"args\[(\d+)\]")
 RE_ARG_NOREF = Regex(r"noRef\((.+?)\)") # for traceback
-RE_ARG_CALL = Regex(r"scope\[\"(.+?)\"\]\(\S+?\)") # inv feat
+RE_ARG_CALL = Regex(r"call\[\"(.+?)\"\]\(\s*\S+?\s*\)") # inv feat
 
 _reCodeAny = r"((\(\.\*\))|(\.\*))"
 RE_MATCHBACK_INVALID = Regex(r"(^%s.*)|(.*%s$)" %(_reCodeAny, _reCodeAny))
+matchbackREFlags = envOr("s", "matchbackREFlags")
 
 sNOREF = "NOREF" # script constants
 sFAIL = "FAIL"
@@ -327,7 +342,7 @@ def _convertDef(d, m):
   body = evalArg(None)
   if flag.matchback:
     iArgs = []; sRe = evalArg(iArgs)
-    entry = (Regex(sRe), iArgs, len(formals), name)
+    entry = (Regex(sRe, matchbackREFlags), iArgs, len(formals), name)
     d[kReMacros].append(entry)
   iBody = m.group(0).index(')')+1 + 1 #len(" ")
   return "macro(d, srcpos, %r, %r, %r, %r)\n" %(iBody, name, formals, body)
@@ -371,8 +386,12 @@ def macro(d, srcpos, m_start, name, params, body): # executed in eval()
       try:
         compiled.append(compile(part, srcpos, "eval")) # ${(args[1])+'x'}
         if flag.matchback:
-          inv = _findCallVar(d, part, fkInv) # query call inv_ support
+          inv = _findCallVar(d, part, fkInv) # query call inv_ support, valid syntax asserted
           if inv != None: invOperators.append((len(compiled)-1 - 1, inv) ) # NOTE: lastIndex-1, affected by bireplaceIn order.
+        if flag.vseeMacroCode:
+          eprint("")
+          ex = SyntaxError("see code"); ex.text = part; ex.offset = len(part) -1
+          _onSyntaxError(ex, _sumSrcPos((srcpos, 0)), m) # lineno=0
       except SyntaxError as ex:
         if flag.seeOnDefine: eprint(" ..fail")
         if not ignoreErrors:
@@ -389,7 +408,8 @@ def macro(d, srcpos, m_start, name, params, body): # executed in eval()
       return args
     d[fkInv %name] = invOp # used in FillTemplate.matchback(s)
   if flag.seeOnDefine: eprint(" ..done = %s" %compiled)
-  dGlobal = macroGlobals.copy(); dGlobal["scope"] = d
+  dGlobal = macroGlobals.copy()
+  dGlobal["scope"] = d; dGlobal["call"] = CallObject(d)
   dLocal = {} #<^ per-interpreter, per-call
   def strInterpolate(*args): # macro evaluator
     dLocal["args"] = args; res = []
@@ -402,6 +422,7 @@ def macro(d, srcpos, m_start, name, params, body): # executed in eval()
           tb = exc_info()[2]; eprintMdStack(tb)
           eprint("%s, try surround it in ()" %ex)
           res.append(sNOREF) # once.
+        # pass NoSuchRefError
     return "".join(res)
   d[name] = strInterpolate
 
@@ -410,6 +431,13 @@ def _findCallVar(d, expr, fk): # NOTE: can't read assigned val in define!!, use 
   if m != None:
     return d.get(fk %m.group(1))
   return None
+
+class CallObject:
+  def __init__(self, d): self._d = d
+  def __getitem__(self, k):
+    op = self._d.get(k); return op if callable(op) else lambda *args: self._onErr(k, args)
+  def _onErr(self, k, args):
+    raise NoSuchRefError("operation[%r] not callable: %r(%r)" %(k, self._d.get(k), args))
 
 RE_MACRO = Regex(r"(#|/{2})(\S+?)\((.*?)\)", "s") # NOTE: first whites not skipped
 def _expandMacroTo(ab, sr, s0, resolve, get_subst):
@@ -491,12 +519,12 @@ def _convertArgNo(d, macro_name, formals, found, m): # resolve ${N} index of ref
     except ValueError:
       return "(noRef(%r))" %name
   if isRegex: # custom regex for call
-    sre = _findCallVar(d, expr, fkInvRegex)
+    sre = _findCallVar(d, expr, fkInvRegex) # NOTE: enclosed call["g"](call["f"](s)) is ok.
     if sre != None: brace = sre
   expr1 = RE_PARENED.replaceIn(expr, refEval)
   return (brace if isRegex else brace %expr1) if ref_hasFound[0] or not isIdentifier(expr) else fmts[1]
 
-def isIdentifier(s):
+def isIdentifier(expr):
   return RE_WHITE.match(expr) == None
 
 
@@ -514,8 +542,9 @@ class FillTemplate:
     self.nPrevi = envOr(40, "nPrevi", int)
     self.writeMode = envOr("a", "writeMode")
     self.fpaDir = ""
-    self.sourceSet = set()
+    self.mdOuts = {}
     self._dstDirs = set()
+    self._incOnFinish = set()
     self.scope["expr"] = FillTemplate.callByExpr # lazy expansion (actually call-by-name, aka. by-expr, replaces by-value)
     self.scope["eval"] = lambda s: expandMacro(s, self.resolveMacro, self.evalMacro)
     if flag.matchback:
@@ -527,7 +556,7 @@ class FillTemplate:
 
   def _outputInPwd(self, fpa, text, lval_prefixes, m):
     def getSrcpos(m): # errloc feat.
-      fpMd = path.relpath(fpa, self.fpaDir)
+      fpMd = self._relpath(fpa)
       return "%s:%d" %(fpMd, text.count('\n', 0, m.pos0)+2) #"```\n".count('\n') +1
     def getDir(): return path.dirname(fpa)
     # extracted from outputInPwd (continue=return, self.prefix[Fp/Cmt]=lval_prefixes)
@@ -537,15 +566,15 @@ class FillTemplate:
     isText = (sDesc == None)
     desc = "" if isText else sDesc.strip()
     if desc.startswith("!!"):
-      act = desc[2:]
+      act = desc[2:] #<v cmd / arg1
+      def getFp(): return path.relpath(path.join(getDir(), code.strip()), self.fpaDir)
       if act == "define": executeDefine(self.scope, code, getSrcpos(m))
       elif act.startswith("execute"):
         langM = act[7:]
         if langM == "-PY" or langM == "":
           runMdCode(code, getSrcpos(m), {"__FILE__": fpa, "__DIR__": getDir(), "scope": self.scope})
-      elif act == "include":
-        fpMd = path.relpath(path.join(getDir(), code.strip()), self.fpaDir)
-        self.outputInPwd(fpMd)
+      elif act == "include": self.outputInPwd(getFp())
+      elif act == "include-onfinish": self._incOnFinish.add(getFp())
       elif act == "talkabout":
         prefix = code.strip()
         if flag.seeOnTalkabout: eprint("Talking about %s:" %prefix)
@@ -567,17 +596,24 @@ class FillTemplate:
     with open(fpOut, self.writeMode, encoding=FS_ENCODING) as fd:
       if isText and sCmt != None: fd.write(sCmt) # for "##"
       fd.write(code1)
+      self.mdOuts[self._relpath(fpa)].add(path.abspath(fpOut)) # watch feat
 
   def outputInPwd(self, src):
-    if (src in self.sourceSet) and not ".relude." in src: eprint("Render file %s: pass" %src); return
+    if (src in self.mdOuts) and not ".relude." in src: eprint("Render file %s: pass" %src); return
     if flag.seeOnRender: eprint("Render file %s (%d items in scope):" %(src, len(self.scope)))
-    self.sourceSet.add(src)
-    fpaMd = path.join(self.fpaDir, src); sMd = ""
-    with open(fpaMd, "r", encoding=FS_ENCODING) as fd: sMd = fd.read()
+    self.mdOuts[src] = set()
+    fpaMd = self._path(src); sMd = ""
+    with open(fpaMd, "r", encoding=FS_ENCODING) as fd:
+      sMd = fd.read()
+      if flag.watch: # workaround for unknown filesys bug in server mode
+        while sMd == "": sMd = fd.read()
     prefixes = ["", ""] # talk-about feat & server mode comment
     for m in RE_MD_CODE.iterateMatch(sMd):
       self._outputInPwd(fpaMd, sMd, prefixes, m) # could be reuse when re-impl in JS
     if flag.seeOnRender: eprint("Finished rendering %s" %src)
+
+  def _path(self, fp): return path.join(self.fpaDir, fp)
+  def _relpath(self, fpa): return path.relpath(fpa, self.fpaDir)
 
   def showSummary(self, text):
     sBrief = "...".join(strBrief(RE_WHITE.replaceIn(text, " "), self.nPrevi))
@@ -628,9 +664,10 @@ class FillTemplate:
       if not path.isdir(fpDst): mkdir(fpDst)
     self._dstDirs.add(fpDst)
     chdir(fpDst); self.outputInPwd(fpMd)
+    self.onFinish()
 
-  def onFinish(self):
-    print("Running finish hook:")
+  def finishSteps(self):
+    print("Running finalize steps:")
     if flag.matchback: # valid filter
       reMacros = self.scope[kReMacros]
       reMacros1 = []
@@ -643,9 +680,9 @@ class FillTemplate:
       print("invalid: %s" %sComma.join(invalids))
       self.scope[kReMacros] = reMacros1
     if flag.seePaths:
-      print("src: %s" %commaJoin(self.sourceSet))
+      print("src: %s" %commaJoin(self.mdOuts.keys()))
       print("dst: %s" %commaJoin(self._dstDirs))
-    if flag.seeScope:
+    if flag.vseeScope:
       eprint(self.scope)
     if flag.finishRepl:
       while True:
@@ -653,6 +690,62 @@ class FillTemplate:
         except EOFError: break
         except KeyboardInterrupt: break
         except BaseException: traceback.print_exc()
+    if flag.watch or flag.serveMacroIO:
+      fw = FileWatcher()
+      print("Watching file changes...")
+      atexit = self.registerFileWatch(fw)
+      try: fw.mainloop()
+      except KeyboardInterrupt:
+        print("bye.")
+        if atexit != None: atexit()
+
+  def onFinish(self):
+    if len(self._incOnFinish) != 0:
+      print("Running onfinish hooks...")
+      for inc in self._incOnFinish: self.outputInPwd(inc)
+      self._incOnFinish.clear()
+
+  def registerFileWatch(self, fw): # this will listen only the last file if multiple one given
+    atexit = None
+    if flag.serveMacroIO:
+      ffpaListen = self._path("_%s.text")
+      fpIO = [ffpaListen %name for name in ["macro", "matchback"]]
+      (fI, fO) = map(lambda fp: open(fp, "a+", encoding=FS_ENCODING), fpIO)
+      def printGtail(f, op): #^ mode "a" makes fptr=EOF after write, so
+        s = f.read()
+        if s != "": printOnce(op(s))
+      def onIO(fp):
+        if fp == fpIO[0]: printGtail(fI, self.scope["eval"])
+        elif fp == fpIO[1]: printGtail(fO, self.matchback)
+      fw.watch(self.fpaDir, onIO)
+      def atexit():
+        fI.close(); fO.close()
+        for fp in fpIO: remove(fp)
+    if flag.watch: #v watch defs
+      ref_isActive = [False]
+      def sourceChange(fpa):
+        if ref_isActive[0]: return # reentrant protect
+        ref_isActive[0] = True
+        if path.isdir(fpa): return
+        fp = self._relpath(fpa)
+        print(fpa)
+        try:
+          outs = self.mdOuts[fp]
+          if flag.seeOnRender: eprintOnce("Re-")
+          else: print("Re-generate %s" %fp)
+          for fpRm in outs: remove(fpRm)
+          del self.mdOuts[fp]
+          self.outputInPwd(fp); self.onFinish()
+        except KeyError: pass
+        ref_isActive[0] = False
+      fw.watch(self.fpaDir, sourceChange)
+      def outputChange(fpa):
+        if ref_isActive[0]: return # during re-gen
+        print(fpa) # TODO
+      for dst in self._dstDirs:
+        fpaDst = self._path(dst)
+        fw.watch(fpaDst, outputChange)
+    return atexit
 
   def matchback(self, text):
     def genArgs(m):
@@ -684,7 +777,7 @@ class FillTemplate:
 if __name__ == "__main__":
   filler = FillTemplate()
   for fp in argv[1:]: filler.processFile(fp)
-  filler.onFinish()
+  filler.finishSteps()
 
 def trimBetween(cps, s): # confusing why added.
   state = 0; sb = [] # but anyone can shrink it...
