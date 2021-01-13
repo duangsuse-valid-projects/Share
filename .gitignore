@@ -1,5 +1,8 @@
 _site
 **/.jekyll-cache/
+**/.idea/modules/
+**/.idea/uiDesigner.xml
+**/.idea/workspace.xml
 *.kdev4
 *.stash
 *.o
