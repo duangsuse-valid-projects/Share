@@ -1,0 +1,187 @@
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Enclosed Titles</title>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/12.0.4/markdown-it.min.js" integrity="sha512-0DkA2RqFvfXBVeti0R1l0E8oMkmY0X+bAA2i02Ld8xhpjpvqORUcE/UBe+0KOPzi5iNah0aBpW6uaNNrqCk73Q==" crossorigin="anonymous"></script>
+<style>
+* { box-sizing: border-box; }
+.row:after {
+  content: "";
+  display: table;
+  clear: both;
+}
+.col { float: left; width: 50%; padding: 10px; }
+@media screen and (max-width: 700px) {
+  .col { width: 100%; }
+}
+
+textarea {
+  border: none; resize: none; outline: none;
+  width: 100%; height: 100%;
+  padding: 10px; margin: -10px;
+}
+</style>
+
+<script>
+var lastHDepth = 0/*当前文段层深度*/;
+const RE_HTAG = /H(\d+)/
+, isHeading=(e) => RE_HTAG.test(e.tagName)
+, getHeadingDepth=(e) => { lastHDepth=parseInt(RE_HTAG.exec(e.tagName)[1]); return lastHDepth; }
+, getElementDepth=(e) => isHeading(e)? getHeadingDepth(e) : lastHDepth;
+
+function eachRemaining(xz) {
+  return {[Symbol.iterator]: ()=>xz};
+}
+function _readTreeRec(ez, items, nlev) {
+  let n = nlev;
+  for (let e of eachRemaining(ez)) peek:do {
+    let n1=getElementDepth(e); if (n1<n) return [n1,e];
+    if (!isHeading(e)) {
+      if (n1==n) items.push(e);
+    } else if (n1==n) {
+      return [n1,e];
+    } else {
+      let items1 = [e]; let nc_e = _readTreeRec(ez, items1, getHeadingDepth(e)); items.push(items1);
+      let [nc, eEnd] = nc_e;
+      if (nc<n) return nc_e/*chain nlev*/;
+      else { e=eEnd; continue peek; }
+    }
+    e = null;
+  } while (!!e);
+  return [n,null];
+}
+function parseHeadingTree(e=document.body) {
+  let root = [];
+  readTreeRec(e.childNodes[Symbol.iterator](), root, 0);
+  return root;
+}
+function _readTreeRec1(ez, items, lev0, limit=100) {
+  let ns = 0, stk = [];
+  var n = lev0, layer = items;
+  const continueAt = (n1) => {
+    stk.push(layer);
+    let nPop = 0;
+    do { n = ns%limit; ns = ns/limit; nPop++; } while (n > n1);
+    /*assert n>=0*/
+    let old = stk.splice(stk.length - nPop, nPop)/*simulate layer=pop()*N */;
+    if (old.length>=2) for (let i=old.length-1; i!=0; i--) { old[i-1].push(old[i]); }
+    layer = old[0];
+  };
+  const onItem = (e) => {
+    let n1=getElementDepth(e); if (n1<n) { continueAt(n1); return onItem(e); }
+    if (!isHeading(e)) {
+      if (n1==n) layer.push(e);
+    } else if (n1==n) {
+      continueAt(n-1); return onItem(e);
+    } else {
+      stk.push(layer); layer = [e];
+      n = getHeadingDepth(e); ns = ns*limit+n;
+    }
+  };
+  for (let e of eachRemaining(ez)) onItem(e);
+  continueAt(lev0);
+  return layer;
+}
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", ()=> {
+const helem=(id) => document.getElementById(id);
+const elemText=(tag, s) => { let e=document.createElement(tag); e.textContent=s; return e; }
+const elemChilds=(tag, es) => { let e=document.createElement(tag); for (let e1 of es)e.appendChild(e1); return e; }
+
+document.querySelectorAll("select").forEach(e=> {
+  let eb1 = e.previousSibling;
+  if (eb1.nodeType!=Node.TEXT_NODE) return;
+  let s = eb1.textContent;
+  let m = /(\S+):$/.exec(s);
+  let eT = document.createTextNode(s.slice(0, -m[0].length)), eL = elemText("label", m[1]+"：");
+  eL.setAttribute("for", e.id);
+  if (!!m) { eb1.remove(); for (let eb of [eT, eL]) e.parentNode.insertBefore(eb, e); }
+});
+const bindReselect=(e, op)=> {
+  e.addEventListener("change", op.bind(null, e));
+  op(e);
+};
+
+const taCode = helem("code"),
+  sFmt = helem("fmt"),
+  sAlgor = helem("algor"),
+  eMsg = helem("msg"),
+  btGen = helem("do-gen"),
+  eHtml = helem("html");
+taCode.value = taCode.value || `# 你好世界
+总之，你好了，**这个**世界！
+## 那么
+为美好的世界送上礼花！
+### 深度
+什么鬼
+# 再见世界
+显式还正常吗？
+# 拜拜啦
+现在仍正常吗？
+`;
+bindReselect(sAlgor, (e) => { readTreeRec = (e.selectedIndex==1)? _readTreeRec1 : _readTreeRec; });
+var oldFmt=-1;
+bindReselect(sFmt, (e) => {
+  let fmt1 = e.selectedIndex;
+  if (oldFmt==0&&fmt1==1) taCode.value = mdit.render(taCode.value);
+  else if (oldFmt==2&&fmt1==3) taCode.value = JSON.stringify(parseMyson(taCode.value));
+  oldFmt = fmt1;
+});
+
+const mdit = markdownit({
+  html: true,
+  linkify: true,
+  typographer: true
+});
+const renderTree=(xs)=> {
+  let head = xs.shift();
+  let eDesc = elemText("a", "");
+  let ei = elemText("li", "");
+  let e = [ei];
+  for (let e1 of head.childNodes) ei.appendChild(e1.cloneNode());
+  ei.insertBefore(eDesc, ei.lastElementChild);
+  var sum = 0, sumE = 0;
+  for (let xe of xs) {
+    if (xe instanceof Array) { let ts=renderTree(xe); e.push(elemChilds("ul", ts)); }
+    else { sum += xe.textContent.length; sumE++; }
+  }
+  eDesc.textContent = `(${sum}c, ${sumE}es)`;
+  var id = head.textContent;
+  while (document.getElementById(id) != null) id = id+"'";
+  head.id = id; eDesc.href = '#'+id;
+  return e;
+};
+const updatePreview=()=> {
+  let t1 = performance.now();
+  switch (sFmt.selectedIndex) {
+    case 0: eHtml.innerHTML = mdit.render(taCode.value); break;
+    case 1: eHtml.innerHTML = taCode.value; break;
+  }
+  let t2 = performance.now();
+  let trees = parseHeadingTree(eHtml);
+  console.log(trees);
+  let t3 = performance.now();
+  eMsg.textContent = `Rendered(${t2-t1})+parsed(${t3-t2}) in ${t3-t1}ms`;
+  eHtml.insertBefore(elemChilds("details", trees.map(t => elemChilds("ul", renderTree(t)))), eHtml.firstChild);
+};
+btGen.onclick = updatePreview;
+taCode.addEventListener('keypress', (ev)=> {
+  if (ev.ctrlKey&&ev.key=="Enter") btGen.click();
+});
+updatePreview();
+});
+</script>
+</head>
+
+<body>
+<div class="row">
+  <div class="col">
+  Mode:<select id="fmt"><option>Markdown</option> <option>HTML</option> <option>Myson</option> <option>Json</option></select>
+  Parser:<select id="algor"><option>Recurse</option> <option>IntStack</option></select>
+    <span id="msg" style="color:blue">Info</span> <button id="do-gen" style="float:right">Generate</button>
+  <hr/>
+  <textarea id="code"></textarea></div>
+  <hr/>
+  <div id="html" class="col"><h1>Hello, world</h1></div>
+</div>
