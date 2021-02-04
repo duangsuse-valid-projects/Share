@@ -1,0 +1,79 @@
+<!DOCTYPE html><!-- Looks required, or cell height -=6 -->
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Spaceship&amp;Element Asteroids</title>
+  <style>.gameArea { margin: auto; }
+.gameArea table tr td {
+  width: 50px;
+  height: 50px;
+  border-style: outset;
+  padding: 0;
+  text-align: center;
+}
+.ball { width: 40px; height: 40px; }
+  </style>
+  <script defer src="asteroids.js"></script>
+</head>
+<body>
+<div class="main">
+  <div class="gameArea"></div>
+</div>
+<div id="balls" style="visibility: hidden">
+  <svg class="ball">
+    <ellipse fill="url(#ball_1)" stroke="#fff" stroke-width="0" cx="20" cy="20" rx="20" ry="20"></ellipse>
+  </svg>
+</div>
+<script>
+function el(tag, conf, childs, ns) {
+  let e = (!!ns)? document.createElementNS(ns, tag) : document.createElement(tag); conf(e);
+  if (!!childs) for (let ee of childs) e.appendChild(ee);
+  return e;
+}
+const withNone = (e)=>{},
+  withClass = (...css)=>(e)=>{ for (let s of css) e.classList.add(s); },
+  withAttr = (kv)=>(e)=>{ for (let k in kv) e.setAttribute(k, kv[k]); };
+const qs = s => document.querySelector(s);
+const also = (op, x) => { op(x); return x; };
+const cached = (op, cache) => x => { let y=cache.get(x); return (y!==undefined)? y : also(it=>cache.set(x,it), op(x)); };
+const randPick = (xs) => xs[Math.floor(Math.random()*xs.length)];
+
+function cells(n, m, op_init) {
+  let rows = Array(n);
+  for (let i=0; i<n; i++) {
+    rows[i] = Array(m);
+    for (let j=0; j<m; j++) rows[i][j] = op_init(i, j);
+  }
+  return rows;
+}
+
+const ballColors = "rgb(0,0,0) rgb(255,0,0) rgb(0,255,0) rgb(0,255,255) rgb(255,0,255) rgb(255,255,0) rgb(100,0,0)".split(" ");
+const NS_SVG = "http://www.w3.org/2000/svg";
+
+let eTable = el("table", withNone,
+  cells(10, 10, (i,j) => el("td", withNone)).map(es => el("tr", withNone, es))
+);
+let eBallDef = el("defs", withNone, ballColors.map((css, i) =>
+  el("linearGradient", withAttr({id: "ball_"+(i+1), x1:"70%", y1:"0%", x2:"30%", y2:"100%"}),
+    [0, 1].map(pos => el("stop", withAttr({offset: pos? "100%":"0%", style: `stop-color:${css};stop-opacity:${pos? "10%":"1"}`}), null, NS_SVG) ), NS_SVG)
+), NS_SVG);
+qs('.gameArea').appendChild(eTable);
+qs('.ball').appendChild(eBallDef); // init #ball_N svg gradient
+let drawBall;
+{
+  let firstBall = qs('.ball');
+  let eTepl = firstBall.cloneNode(true); eTepl.children[1].remove(); // don't redef #ball_N
+  const baseBall = cached(color_id => {
+    let e = eTepl.cloneNode(true);
+    e.getElementsByTagName("ellipse")[0].setAttribute("fill", `url(#${color_id})`);
+    qs('#balls').appendChild(e);
+    return e;
+  }, new Map([["ball_1", firstBall]]));
+  drawBall = color_id => baseBall(color_id).cloneNode(true);
+}
+for (let row of eTable.children) {
+  randPick(row.children).appendChild(drawBall(randPick(eBallDef.children).id));
+}
+</script>
+</body>
+</html>
