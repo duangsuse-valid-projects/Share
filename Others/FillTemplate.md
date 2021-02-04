@@ -317,7 +317,7 @@ RE_PARENED = Regex("\\((.*?)\\)")
 formals = ["a", "b"]
 found = []
 def argNo(m, is_regex): # find ${N} index of ref, or expr (ref).ops
-  fmts = ("(.*)", ".*") if is_regex else ("${%s}", "NOREF")
+  fmts = ("(.*)", ".*") if is_regex else ("${ %s}", "NOREF") # Jekyll: no { %
   brace = fmts[0]
   def braceRef(name):
     idx = formals.index(name)
