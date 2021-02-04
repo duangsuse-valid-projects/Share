@@ -46,7 +46,7 @@ function cells(n, m, op_init) {
   }
   return rows;
 }
-function redoWithKey(key, op) {
+function redoByKey(key, op) { // split(' ') to support multiple key maybe?
   document.addEventListener("keydown", (ev) => { if (ev.key == key) op(); });
   return op();
 }
@@ -60,7 +60,7 @@ let eBallDef = el("defs", withNone, ballColors.map((css, i) =>
     [0, 1].map(pos => el("stop", withAttr({offset: pos? "100%":"0%", style: `stop-color:${css};stop-opacity:${pos? "10%":"1"}`}), null, NS_SVG) ), NS_SVG)
 ), NS_SVG);
 
-redoWithKey('1', () => {
+redoByKey('1', () => {
   qs('.gameArea').appendChild(also(e => eTables.push(e), el("table", withNone,
     cells(10, 10, (i,j) => el("td", withNone)).map(es => el("tr", withNone, es))
   )));
@@ -78,9 +78,9 @@ let drawBall;
   }, new Map([["ball_1", firstBall]]));
   drawBall = color_id => baseBall(color_id).cloneNode(true);
 }
-redoWithKey('2', () => { // add rand balls
+redoByKey('2', () => { // add rand balls
   for (let eTable of eTables)
-  for (let row of eTable.children) { randPick(row.children).appendChild(drawBall(randPick(eBallDef.children).id)); }
+  for (let row of eTable.children) if (row.childElementCount != 0) { randPick(row.children).appendChild(drawBall(randPick(eBallDef.children).id)); }
 });
 </script>
 </body>
