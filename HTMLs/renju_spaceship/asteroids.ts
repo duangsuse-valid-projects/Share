@@ -4,7 +4,6 @@ function Asteroids() {
 	class Vector { // mutable math xy / velocity
 		x:number; y:number;
 		constructor(x, y) { this.x = x; this.y = y; }
-		static of(x, y) { return new Vector(x, y); }
 		copy() { return new Vector(this.x, this.y); }
 		add(vec) {
 			this.x += vec.x;
@@ -16,7 +15,7 @@ function Asteroids() {
 			this.y *= factor;
 			return this;
 		}
-		rotate(angle) {
+		rotate(angle) { // radians
 			const x = this.x, y = this.y;
 			this.x = x * Math.cos(angle) - Math.sin(angle) * y;
 			this.y = x * Math.sin(angle) + Math.cos(angle) * y;
@@ -59,11 +58,11 @@ function Asteroids() {
 			return typeof vec === "object" && this.x === vec.x && this.y === vec.y;
 		}
 		toString() {
-			return `[Vector(${this.x}, ${this.y}) deg=${this.angle()}, l=${this.distance()}]`;
+			return `[Vector(${this.x}, ${this.y}) rad=${this.angle()}, l=${this.distance()}]`;
 		}
 	}
 
-	class Line {
+	class Line { // unused, collision is done by getElementFromPoint
 		p1: Vector; p2: Vector
 		constructor(p1, p2) { this.p1 = p1; this.p2 = p2; }
 		shift(pos:Vector) {
@@ -97,10 +96,33 @@ function Asteroids() {
 		}
 		static inOne(n:number) { return (n >= 0.0) && (n <= 1.0); }
 	}
-	const ignoredTypes = ["HTML", "HEAD", "BODY", "SCRIPT", "TITLE", "META", "STYLE", "LINK", "SHAPE", "LINE", "GROUP", "IMAGE", "STROKE", "FILL", "SKEW", "PATH", "TEXTPATH"];
-	const hiddenTypes = ["BR", "HR"];
+	function size(element) { // value unused in updateEnemyIndex, L179
+		let el = element, left = 0, top = 0;
+		do {
+			left += el.offsetLeft || 0;
+			top += el.offsetTop || 0;
+			el = el.offsetParent;
+		} while (el);
+		return {
+			x: left,
+			y: top,
+			width: element.offsetWidth || 10,
+			height: element.offsetHeight || 10
+		};
+	}
+
+	function radians(deg) {
+		return deg * Math.PI / 180;
+	}
+
+	function random(first, last) {
+		return Math.floor(Math.random() * (last + 1) + first);
+	}
+
+	const ignoredTypes = new Set(["HTML", "HEAD", "BODY", "SCRIPT", "TITLE", "META", "STYLE", "LINK", "SHAPE", "LINE", "GROUP", "IMAGE", "STROKE", "FILL", "SKEW", "PATH", "TEXTPATH"]);
+	const hiddenTypes = new Set(["BR", "HR"]);
 	const SEC_MS = 1000;
-	const FPS = 50;
+	const FPS = 60;
 	const acc = 300;
 	const maxSpeed = 600;
 	const rotSpeed = 360;
@@ -110,12 +132,12 @@ function Asteroids() {
 	const timeBetweenBlink = 250;
 	const bulletRadius = 2;
 	const isIE = !!window.ActiveXObject;
-	const maxParticles = isIE ? 20 : 40;
-	const maxBullets = isIE ? 10 : 20;
+	const maxParticles = isIE? 20 : 40;
+	const maxBullets = isIE? 10 : 20;
 
 	const my = this;
 	let w = document.documentElement.clientWidth, h = document.documentElement.clientHeight;
-	let wh = Vector.of(w, h);
+	let wh = new Vector(w, h);
 	const playerWidth = 20, playerHeight = 30;
 	const playerVerts = [
 		[-1 * playerHeight / 2, -1 * playerWidth / 2],
@@ -133,10 +155,10 @@ function Asteroids() {
 		}
 		this.updated.blink.isActive = !this.updated.blink.isActive;
 	};
-	this.pos = Vector.of(100, 100);
+	this.pos = new Vector(100, 100);
 	this.lastPos = this.pos;
-	this.vel = Vector.of(0, 0);
-	this.dir = Vector.of(0, 1);
+	this.vel = new Vector(0, 0);
+	this.dir = new Vector(0, 1);
 	this.keysPressed = {};
 	this.firedAt = 0;
 	this.updated = {
@@ -147,7 +169,7 @@ function Asteroids() {
 			isActive: false
 		}
 	};
-	this.scrollPos = Vector.of(0, 0);
+	this.scrollPos = new Vector(0, 0);
 	this.bullets = [];
 	this.enemies = [];
 	this.dying = [];
@@ -161,7 +183,7 @@ function Asteroids() {
 		const all = document.body.getElementsByTagName("*");
 		my.enemies = [];
 		for (let i = 0, el; el = all[i]; i++) {
-			if (!(ignoredTypes.includes(el.tagName.toUpperCase())) && el.prefix !== "g_vml_" && hasOnlyTextualChildren(el) && el.className !== "ASTEROIDSYEAH" && el.offsetHeight > 0) {
+			if (!(ignoredTypes.has(el.tagName.toUpperCase())) && el.prefix !== "g_vml_" && hasOnlyTextualChildren(el) && el.className !== "ASTEROIDSYEAH" && el.offsetHeight > 0) {
 				//el.aSize = size(el); //unused
 				my.enemies.push(el);
 				el.classList.add("ASTEROIDSYEAHENEMY");
@@ -194,29 +216,6 @@ function Asteroids() {
 		}
 	})();
 	createFlames();
-
-	function radians(deg) {
-		return deg * Math.PI / 180;
-	}
-
-	function random(from, to) {
-		return Math.floor(Math.random() * (to + 1) + from);
-	}
-
-	function size(element) {
-		let el = element, left = 0, top = 0;
-		do {
-			left += el.offsetLeft || 0;
-			top += el.offsetTop || 0;
-			el = el.offsetParent;
-		} while (el);
-		return {
-			x: left,
-			y: top,
-			width: element.offsetWidth || 10,
-			height: element.offsetHeight || 10
-		};
-	}
 
 	function applyVisibility(vis) {
 		for (let p of ASTEROIDS.players) {
@@ -269,7 +268,7 @@ function Asteroids() {
 	}
 
 	function addParticles(startPos) {
-		const time = new Date().getTime();
+		const time = performance.now();
 		const amount = maxParticles;
 		for (let i = 0; i < amount; i++) {
 			my.particles.push({
@@ -286,10 +285,10 @@ function Asteroids() {
 
 	function hasOnlyTextualChildren(element) {
 		if (element.offsetLeft < -100 && element.offsetWidth > 0 && element.offsetHeight > 0) return false;
-		if (hiddenTypes.includes(element.tagName)) return true;
+		if (hiddenTypes.has(element.tagName)) return true;
 		if (element.offsetWidth === 0 && element.offsetHeight === 0) return false;
 		for (let i = 0; i < element.childNodes.length; i++) {
-			if (!(hiddenTypes.includes(element.childNodes[i].tagName)) && element.childNodes[i].childNodes.length !== 0) return false;
+			if (!(hiddenTypes.has(element.childNodes[i].tagName)) && element.childNodes[i].childNodes.length !== 0) return false;
 		}
 		return true;
 	}
@@ -303,8 +302,8 @@ function Asteroids() {
 		}
 		document.head.appendChild(style);
 	}
-
 	function removeElement(id) { document.getElementById(id).remove(); }
+
 	this.gameContainer = document.createElement("div");
 	this.gameContainer.className = "ASTEROIDSYEAH";
 	document.body.appendChild(this.gameContainer);
@@ -312,7 +311,7 @@ function Asteroids() {
 	this.canvas.setAttribute("width", w);
 	this.canvas.setAttribute("height", h);
 	this.canvas.className = "ASTEROIDSYEAH";
-	Object.assign(this.canvas.style, {
+	Object.assign(this.canvas.style, { // init game display
 		width: w + "px",
 		height: h + "px",
 		position: "fixed",
@@ -322,14 +321,14 @@ function Asteroids() {
 		right: "0px",
 		zIndex: "10000"
 	});
-	this.canvas.addEventListener("mousedown", function(e) {
+	this.canvas.addEventListener("mousedown", (ev) => { // game click
 		const message = document.createElement("span");
 		message.style.position = "absolute";
 		message.style.color = "red";
 		message.innerHTML = "Press Esc to Quit";
 		document.body.appendChild(message);
-		const x = e.pageX || (e.clientX + document.documentElement.scrollLeft);
-		const y = e.pageY || (e.clientY + document.documentElement.scrollTop);
+		const x = ev.pageX || (ev.clientX + document.documentElement.scrollLeft);
+		const y = ev.pageY || (ev.clientY + document.documentElement.scrollTop);
 		message.style.left = x - message.offsetWidth / 2 + "px";
 		message.style.top = y - message.offsetHeight / 2 + "px";
 		setTimeout(function() {
@@ -342,7 +341,7 @@ function Asteroids() {
 		my.canvas.style.display = "none";
 		w = document.documentElement.clientWidth;
 		h = document.documentElement.clientHeight;
-		wh = Vector.of(w, h);
+		wh = new Vector(w, h);
 		my.canvas.setAttribute("width", w);
 		my.canvas.setAttribute("height", h);
 		Object.assign(my.canvas.style, {
@@ -356,7 +355,7 @@ function Asteroids() {
 	this.ctx = this.canvas.getContext("2d");
 	this.ctx.fillStyle = "black";
 	this.ctx.strokeStyle = "black";
-	if (!document.getElementById("ASTEROIDS-NAVIGATION")) {
+	if (!document.getElementById("ASTEROIDS-NAVIGATION")) { // game right-corner
 		this.navigation = document.createElement("div");
 		this.navigation.id = "ASTEROIDS-NAVIGATION";
 		this.navigation.className = "ASTEROIDSYEAH";
@@ -383,7 +382,8 @@ function Asteroids() {
 	setScore();
 	let keys = new Set(["ArrowUp", "ArrowDown", "ArrowRight", "ArrowLeft", " ", "w", "a", "s", "d"]);
 	registerKeyEvents(keys, keys.add('b'));
-	this.ctx.clear = function() {
+
+	this.ctx.clear = function() { //v begin canvas-render part
 		this.clearRect(0, 0, w, h);
 	};
 	this.ctx.clear();
@@ -449,15 +449,23 @@ function Asteroids() {
 
 	addParticles(this.pos); // initial animation
 	document.body.classList.add("ASTEROIDSYEAH");
-	let lastUpdate = performance.now();
-	let FPS_MS = SEC_MS / FPS;
-	let updateFunc: FrameRequestCallback;
-	this.update = function(nowTime:DOMHighResTimeStamp) { // (new Date).getTime()-performance.now() // nearly constant
+	function refreshMainloop(func:(time:number, delta:number, next:Op)=>any, fps:number): Op {
+		const fpsMs = SEC_MS / fps;
+		let next: Op;
+		let lastUpdate = performance.now(); // (new Date).getTime()-performance.now() //nearly constant
+		const handler: FrameRequestCallback = (time) => {
+			const tDelta = (time - lastUpdate);
+			if (tDelta < fpsMs) next(); // wait accumulate
+			else {
+				const delta = tDelta / SEC_MS;
+				lastUpdate = time; func(time, delta, next);
+			}
+		};
+		next = () => requestAnimationFrame(handler);
+		return next;
+	}
+	this.update = function(nowTime:number, delta:number, next:Op) { // next() should be replaced by exit() event dispatch
 		let forceChange = false;
-		const tDelta = (nowTime - lastUpdate);
-		if (tDelta < FPS_MS) return requestAnimationFrame(updateFunc); // wait accumulate
-		const delta = tDelta / SEC_MS;
-		lastUpdate = nowTime;
 		let drawFlame = false;
 		if (nowTime - this.updated.flame > 50) {
 			createFlames();
@@ -538,7 +546,7 @@ function Asteroids() {
 			bulletVel.add(this.bullets[i].startVel.copy().mul(delta));
 			this.bullets[i].pos.add(bulletVel).cycleInBounds(wh);
 			const murdered = getElementFromPoint(this.bullets[i].pos.x, this.bullets[i].pos.y);
-			if (murdered && murdered.tagName && !(ignoredTypes.includes(murdered.tagName.toUpperCase())) && hasOnlyTextualChildren(murdered) && murdered.className !== "ASTEROIDSYEAH") {
+			if (murdered && murdered.tagName && !(ignoredTypes.has(murdered.tagName.toUpperCase())) && hasOnlyTextualChildren(murdered) && murdered.className !== "ASTEROIDSYEAH") {
 				addParticles(this.bullets[i].pos);
 				this.dying.push(murdered); // key space
 				this.bullets.splice(i, 1);
@@ -563,7 +571,7 @@ function Asteroids() {
 				continue;
 			}
 		}
-		if (forceChange || this.bullets.length !== 0 || this.particles.length !== 0 || !this.pos.is(this.lastPos) || this.vel.distance() > 0) {
+		if (forceChange || this.bullets.length !== 0 || this.particles.length !== 0 || !this.pos.equals(this.lastPos) || this.vel.distance() > 0) {
 			this.ctx.clear();
 			this.ctx.drawPlayer();
 			if (drawFlame) this.ctx.drawFlames(my.flame);
@@ -575,10 +583,9 @@ function Asteroids() {
 			}
 		}
 		this.lastPos = this.pos;
-		return requestAnimationFrame(updateFunc);
+		next();
 	}
-	updateFunc = this.update.bind(this);
-	requestAnimationFrame(updateFunc);
+	refreshMainloop(this.update.bind(this), FPS)();
 
 	function destroy() {
 		for (let op of eventCancellers) op();

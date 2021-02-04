@@ -46,18 +46,25 @@ function cells(n, m, op_init) {
   }
   return rows;
 }
+function redoWithKey(key, op) {
+  document.addEventListener("keydown", (ev) => { if (ev.key == key) op(); });
+  return op();
+}
 
 const ballColors = "rgb(0,0,0) rgb(255,0,0) rgb(0,255,0) rgb(0,255,255) rgb(255,0,255) rgb(255,255,0) rgb(100,0,0)".split(" ");
 const NS_SVG = "http://www.w3.org/2000/svg";
 
-let eTable = el("table", withNone,
-  cells(10, 10, (i,j) => el("td", withNone)).map(es => el("tr", withNone, es))
-);
+let eTables = [];
 let eBallDef = el("defs", withNone, ballColors.map((css, i) =>
   el("linearGradient", withAttr({id: "ball_"+(i+1), x1:"70%", y1:"0%", x2:"30%", y2:"100%"}),
     [0, 1].map(pos => el("stop", withAttr({offset: pos? "100%":"0%", style: `stop-color:${css};stop-opacity:${pos? "10%":"1"}`}), null, NS_SVG) ), NS_SVG)
 ), NS_SVG);
-qs('.gameArea').appendChild(eTable);
+
+redoWithKey('1', () => {
+  qs('.gameArea').appendChild(also(e => eTables.push(e), el("table", withNone,
+    cells(10, 10, (i,j) => el("td", withNone)).map(es => el("tr", withNone, es))
+  )));
+});
 qs('.ball').appendChild(eBallDef); // init #ball_N svg gradient
 let drawBall;
 {
@@ -71,9 +78,10 @@ let drawBall;
   }, new Map([["ball_1", firstBall]]));
   drawBall = color_id => baseBall(color_id).cloneNode(true);
 }
-for (let row of eTable.children) {
-  randPick(row.children).appendChild(drawBall(randPick(eBallDef.children).id));
-}
+redoWithKey('2', () => { // add rand balls
+  for (let eTable of eTables)
+  for (let row of eTable.children) { randPick(row.children).appendChild(drawBall(randPick(eBallDef.children).id)); }
+});
 </script>
 </body>
 </html>

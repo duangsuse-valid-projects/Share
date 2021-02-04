@@ -6,7 +6,6 @@ function Asteroids() {
             this.x = x;
             this.y = y;
         }
-        Vector.of = function (x, y) { return new Vector(x, y); };
         Vector.prototype.copy = function () { return new Vector(this.x, this.y); };
         Vector.prototype.add = function (vec) {
             this.x += vec.x;
@@ -68,7 +67,7 @@ function Asteroids() {
             return typeof vec === "object" && this.x === vec.x && this.y === vec.y;
         };
         Vector.prototype.toString = function () {
-            return "[Vector(" + this.x + ", " + this.y + ") deg=" + this.angle() + ", l=" + this.distance() + "]";
+            return "[Vector(" + this.x + ", " + this.y + ") rad=" + this.angle() + ", l=" + this.distance() + "]";
         };
         return Vector;
     }());
@@ -106,10 +105,30 @@ function Asteroids() {
         Line.inOne = function (n) { return (n >= 0.0) && (n <= 1.0); };
         return Line;
     }());
-    var ignoredTypes = ["HTML", "HEAD", "BODY", "SCRIPT", "TITLE", "META", "STYLE", "LINK", "SHAPE", "LINE", "GROUP", "IMAGE", "STROKE", "FILL", "SKEW", "PATH", "TEXTPATH"];
-    var hiddenTypes = ["BR", "HR"];
+    function size(element) {
+        var el = element, left = 0, top = 0;
+        do {
+            left += el.offsetLeft || 0;
+            top += el.offsetTop || 0;
+            el = el.offsetParent;
+        } while (el);
+        return {
+            x: left,
+            y: top,
+            width: element.offsetWidth || 10,
+            height: element.offsetHeight || 10
+        };
+    }
+    function radians(deg) {
+        return deg * Math.PI / 180;
+    }
+    function random(first, last) {
+        return Math.floor(Math.random() * (last + 1) + first);
+    }
+    var ignoredTypes = new Set(["HTML", "HEAD", "BODY", "SCRIPT", "TITLE", "META", "STYLE", "LINK", "SHAPE", "LINE", "GROUP", "IMAGE", "STROKE", "FILL", "SKEW", "PATH", "TEXTPATH"]);
+    var hiddenTypes = new Set(["BR", "HR"]);
     var SEC_MS = 1000;
-    var FPS = 50;
+    var FPS = 60;
     var acc = 300;
     var maxSpeed = 600;
     var rotSpeed = 360;
@@ -123,7 +142,7 @@ function Asteroids() {
     var maxBullets = isIE ? 10 : 20;
     var my = this;
     var w = document.documentElement.clientWidth, h = document.documentElement.clientHeight;
-    var wh = Vector.of(w, h);
+    var wh = new Vector(w, h);
     var playerWidth = 20, playerHeight = 30;
     var playerVerts = [
         [-1 * playerHeight / 2, -1 * playerWidth / 2],
@@ -141,10 +160,10 @@ function Asteroids() {
         }
         this.updated.blink.isActive = !this.updated.blink.isActive;
     };
-    this.pos = Vector.of(100, 100);
+    this.pos = new Vector(100, 100);
     this.lastPos = this.pos;
-    this.vel = Vector.of(0, 0);
-    this.dir = Vector.of(0, 1);
+    this.vel = new Vector(0, 0);
+    this.dir = new Vector(0, 1);
     this.keysPressed = {};
     this.firedAt = 0;
     this.updated = {
@@ -155,7 +174,7 @@ function Asteroids() {
             isActive: false
         }
     };
-    this.scrollPos = Vector.of(0, 0);
+    this.scrollPos = new Vector(0, 0);
     this.bullets = [];
     this.enemies = [];
     this.dying = [];
@@ -169,7 +188,7 @@ function Asteroids() {
         var all = document.body.getElementsByTagName("*");
         my.enemies = [];
         for (var i = 0, el = void 0; el = all[i]; i++) {
-            if (!(ignoredTypes.includes(el.tagName.toUpperCase())) && el.prefix !== "g_vml_" && hasOnlyTextualChildren(el) && el.className !== "ASTEROIDSYEAH" && el.offsetHeight > 0) {
+            if (!(ignoredTypes.has(el.tagName.toUpperCase())) && el.prefix !== "g_vml_" && hasOnlyTextualChildren(el) && el.className !== "ASTEROIDSYEAH" && el.offsetHeight > 0) {
                 //el.aSize = size(el); //unused
                 my.enemies.push(el);
                 el.classList.add("ASTEROIDSYEAHENEMY");
@@ -202,26 +221,6 @@ function Asteroids() {
         };
     })();
     createFlames();
-    function radians(deg) {
-        return deg * Math.PI / 180;
-    }
-    function random(from, to) {
-        return Math.floor(Math.random() * (to + 1) + from);
-    }
-    function size(element) {
-        var el = element, left = 0, top = 0;
-        do {
-            left += el.offsetLeft || 0;
-            top += el.offsetTop || 0;
-            el = el.offsetParent;
-        } while (el);
-        return {
-            x: left,
-            y: top,
-            width: element.offsetWidth || 10,
-            height: element.offsetHeight || 10
-        };
-    }
     function applyVisibility(vis) {
         for (var _i = 0, _a = ASTEROIDS.players; _i < _a.length; _i++) {
             var p = _a[_i];
@@ -275,7 +274,7 @@ function Asteroids() {
         return element;
     }
     function addParticles(startPos) {
-        var time = new Date().getTime();
+        var time = performance.now();
         var amount = maxParticles;
         for (var i = 0; i < amount; i++) {
             my.particles.push({
@@ -291,12 +290,12 @@ function Asteroids() {
     function hasOnlyTextualChildren(element) {
         if (element.offsetLeft < -100 && element.offsetWidth > 0 && element.offsetHeight > 0)
             return false;
-        if (hiddenTypes.includes(element.tagName))
+        if (hiddenTypes.has(element.tagName))
             return true;
         if (element.offsetWidth === 0 && element.offsetHeight === 0)
             return false;
         for (var i = 0; i < element.childNodes.length; i++) {
-            if (!(hiddenTypes.includes(element.childNodes[i].tagName)) && element.childNodes[i].childNodes.length !== 0)
+            if (!(hiddenTypes.has(element.childNodes[i].tagName)) && element.childNodes[i].childNodes.length !== 0)
                 return false;
         }
         return true;
@@ -330,14 +329,14 @@ function Asteroids() {
         right: "0px",
         zIndex: "10000"
     });
-    this.canvas.addEventListener("mousedown", function (e) {
+    this.canvas.addEventListener("mousedown", function (ev) {
         var message = document.createElement("span");
         message.style.position = "absolute";
         message.style.color = "red";
         message.innerHTML = "Press Esc to Quit";
         document.body.appendChild(message);
-        var x = e.pageX || (e.clientX + document.documentElement.scrollLeft);
-        var y = e.pageY || (e.clientY + document.documentElement.scrollTop);
+        var x = ev.pageX || (ev.clientX + document.documentElement.scrollLeft);
+        var y = ev.pageY || (ev.clientY + document.documentElement.scrollTop);
         message.style.left = x - message.offsetWidth / 2 + "px";
         message.style.top = y - message.offsetHeight / 2 + "px";
         setTimeout(function () {
@@ -351,7 +350,7 @@ function Asteroids() {
         my.canvas.style.display = "none";
         w = document.documentElement.clientWidth;
         h = document.documentElement.clientHeight;
-        wh = Vector.of(w, h);
+        wh = new Vector(w, h);
         my.canvas.setAttribute("width", w);
         my.canvas.setAttribute("height", h);
         Object.assign(my.canvas.style, {
@@ -365,7 +364,7 @@ function Asteroids() {
     this.ctx = this.canvas.getContext("2d");
     this.ctx.fillStyle = "black";
     this.ctx.strokeStyle = "black";
-    if (!document.getElementById("ASTEROIDS-NAVIGATION")) {
+    if (!document.getElementById("ASTEROIDS-NAVIGATION")) { // game right-corner
         this.navigation = document.createElement("div");
         this.navigation.id = "ASTEROIDS-NAVIGATION";
         this.navigation.className = "ASTEROIDSYEAH";
@@ -458,16 +457,25 @@ function Asteroids() {
     };
     addParticles(this.pos); // initial animation
     document.body.classList.add("ASTEROIDSYEAH");
-    var lastUpdate = performance.now();
-    var FPS_MS = SEC_MS / FPS;
-    var updateFunc;
-    this.update = function (nowTime) {
+    function refreshMainloop(func, fps) {
+        var fpsMs = SEC_MS / fps;
+        var next;
+        var lastUpdate = performance.now(); // (new Date).getTime()-performance.now() //nearly constant
+        var handler = function (time) {
+            var tDelta = (time - lastUpdate);
+            if (tDelta < fpsMs)
+                next(); // wait accumulate
+            else {
+                var delta = tDelta / SEC_MS;
+                lastUpdate = time;
+                func(time, delta, next);
+            }
+        };
+        next = function () { return requestAnimationFrame(handler); };
+        return next;
+    }
+    this.update = function (nowTime, delta, next) {
         var forceChange = false;
-        var tDelta = (nowTime - lastUpdate);
-        if (tDelta < FPS_MS)
-            return requestAnimationFrame(updateFunc); // wait accumulate
-        var delta = tDelta / SEC_MS;
-        lastUpdate = nowTime;
         var drawFlame = false;
         if (nowTime - this.updated.flame > 50) {
             createFlames();
@@ -552,7 +560,7 @@ function Asteroids() {
             bulletVel.add(this.bullets[i].startVel.copy().mul(delta));
             this.bullets[i].pos.add(bulletVel).cycleInBounds(wh);
             var murdered = getElementFromPoint(this.bullets[i].pos.x, this.bullets[i].pos.y);
-            if (murdered && murdered.tagName && !(ignoredTypes.includes(murdered.tagName.toUpperCase())) && hasOnlyTextualChildren(murdered) && murdered.className !== "ASTEROIDSYEAH") {
+            if (murdered && murdered.tagName && !(ignoredTypes.has(murdered.tagName.toUpperCase())) && hasOnlyTextualChildren(murdered) && murdered.className !== "ASTEROIDSYEAH") {
                 addParticles(this.bullets[i].pos);
                 this.dying.push(murdered); // key space
                 this.bullets.splice(i, 1);
@@ -579,7 +587,7 @@ function Asteroids() {
                 continue;
             }
         }
-        if (forceChange || this.bullets.length !== 0 || this.particles.length !== 0 || !this.pos.is(this.lastPos) || this.vel.distance() > 0) {
+        if (forceChange || this.bullets.length !== 0 || this.particles.length !== 0 || !this.pos.equals(this.lastPos) || this.vel.distance() > 0) {
             this.ctx.clear();
             this.ctx.drawPlayer();
             if (drawFlame)
@@ -592,10 +600,9 @@ function Asteroids() {
             }
         }
         this.lastPos = this.pos;
-        return requestAnimationFrame(updateFunc);
+        next();
     };
-    updateFunc = this.update.bind(this);
-    requestAnimationFrame(updateFunc);
+    refreshMainloop(this.update.bind(this), FPS)();
     function destroy() {
         for (var _i = 0, eventCancellers_1 = eventCancellers; _i < eventCancellers_1.length; _i++) {
             var op = eventCancellers_1[_i];
