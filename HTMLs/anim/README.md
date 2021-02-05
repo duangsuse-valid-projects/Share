@@ -7,7 +7,7 @@
 <a id="edit-selected"></a><b>修改选定内容</b>：<input id="number" onclick="event.target.value=editor.getSelectedText()" type="number"/>，<button onclick="selectPos()">选择座标</button>：<span></span>,<span></span> <a onclick="insert(pos.join())">[^]</a><a onclick="pos=editor.getSelectedText().split(',')">[v]</a> <span onclick="timeoutPairdClick(...takeNextSiblingN(2,event.target), 3000)" style="color:green">marker: </span><a onclick="posMarkers.push(Object.assign(document.body.appendChild(posited('span', pos)), {textContent:''+(posMarkers.length+1), className:'pos-marker'}))">[+]</a> <a onclick="posMarkers.pop().remove()">[-]</a>
 <style>.pos-marker { text-decoration-line: underline overline; }</style>
 
-脚本们依次是实现 `number.onchange`、 `selectPos` (clientXY)、 `insert`(替换选区)&`appendTag`(合并需要特殊处理以执行 `<script>` 等)，最后是 `takeNextSiblingN`(刻意秀下都没写对)、`timeoutPairdClick`、`posited`、
+（你大概看不到的）脚本们依次是实现 `number.onchange`、 `selectPos` (clientXY)、 `insert`(替换选区)&`appendTag`(合并需要特殊处理以执行 `<script>` 等)，最后是 `takeNextSiblingN`(刻意秀下都没写对)、`timeoutPairdClick`、`posited`、
 
 <script>document.getElementById("number").onchange=function(ev){ insert(ev.target.value); };</script>
 <script>var pos=[0,0]; function selectPos() { var e=document.body, evn="mouseup"; e.style.filter="blur(1.5px)", eXY=takeNextSiblingN(2, event.target); var clk=function(ev){ pos[0]=ev.clientX; pos[1]=ev.clientY; e.style.filter=""; e.removeEventListener(evn,clk); pos_updated(); }; e.addEventListener(evn,clk); eXY[0].onclick=eXY[1].onclick=function(ev) { insert(ev.target.textContent); }; }; posMarkers=[]; function pos_updated() {for (var i=0;i<2;i++) eXY[i].textContent=pos[i];}</script>
@@ -37,13 +37,28 @@
 
 原项目的 1~4.svg 和 .png 都是预览啦，其实就只 [ballons.js](https://github.com/stevenjoezhang/balloon.js/blob/master/balloon.js) 是实际逻辑，含数据。
 
-各项系数指源、至点盒的随机大小增量比率，仅在 from/to 是 `x,y` 点时启用，默认 `0.1 1 0.1 -1`。
+- `各项系数` 指源、至点盒的随机大小增量比率，仅在 from/to 是 `x,y` 点时启用，默认 `0.1 1 0.1 -1`。
+- `SVG文档` 是关于 `.st0` 颜色的矢量图
 
 ```html
 <script src="ballon1.js" 秒数="15" 大小="88px" 透明度="50%" 数目="20" 源点="l" 至点="r"></script>
 ```
 
-## 脚本们
+```html
+<script src="ballon1.js" 秒数="25" 大小="77px" 透明度="100%" 数目="20" 源点="r" 至点="l"></script>
+```
+
+```html
+<script src="ballon1.js" 秒数="9" 大小="91px" 透明度="20%" 数目="40" 源点="5,442" 至点="1903,447" 各项系数="-4 0.8 0.9 -1"></script>
+```
+
+执行下面的脚本可以看到彩虹呦！
+
+```javascript
+{let f=()=>{animateBallon(); setTimeout(f, 2000)};f()} 
+```
+
+## 另外的脚本们
 
 请保证它们在最末尾！没用 `DOMContentLoaded`，关键在于 `queryParent`(写得好懒)
 

@@ -29,11 +29,11 @@ function ballonAnimateOp(c) {
 <path class="st0" d="m163.1 117c3.4-13.3 4-27 1.6-41-1.8-10.5-5.1-20.4-9.8-29.5-1.4-2.7-2.9-5.4-4.6-8-7.5-11.7-16.7-20.9-27.8-27.6-11.8-7.1-24.6-10.8-38.4-10.9-13.1-0.1-25.6 3.2-37.5 9.9-11.4 6.5-21.1 15.4-29 26.6-2.3 3.2-4.3 6.5-6.1 9.9-0.6 1-1.1 2-1.6 3-0.2 0.3-0.3 0.7-0.5 1-3.6 7.6-6.2 15.5-7.8 23.8-2.7 14.5-2.1 28.7 1.9 42.8 4.1 14.3 10 28.6 18 42.7 3.4 6 7.1 12 11.2 17.9 10.6 15.6 23.9 31.4 39.8 47.3 2.3 2.3 4.7 4.6 7.1 6.9l-8 8.1h22l-7-8.2c20.4-20.6 36.5-39.4 48.4-56.5 13.9-20 23.2-39.4 28.1-58.2z"/>
 <path class="st1" d="m81.1 237.7c-4 11.3-7.1 21.6-9.4 30.8-4.5 18.3-6.9 36.3-7.2 54-0.2 17.7 1.6 34.5 5.4 50.4 1.6 6.7 4 14.5 7.2 23.5 1.7 4.9 3.7 10.1 5.9 15.7 6.8 17.2 11.2 29.8 13.4 37.6 4.2 14.9 6.4 30.1 6.7 45.6 0.1 6-0.2 12-0.9 18.1-1 7.9-2.8 16-5.2 24-2.3 7.5-6.8 19.2-13.7 35.3"/>
 </svg>`;
-    c = c||getScriptParams({ 秒数:15, 大小:"88px", 透明度:"90%", 数目:10, 源点:"l", 至点:"r", 颜色们:"#DB3236 #3CBA54 #4885ED #F4C20D", 各项系数: "0.1 1 0.1 -1" });
+    c = c||getScriptParams({ 秒数:15, 大小:"88px", 透明度:"90%", 数目:10, 源点:"l", 至点:"r", 颜色们:"#DB3236 #3CBA54 #4885ED #F4C20D", 各项系数: "0.1 1 0.1 -1", 移除缓冲: 25, SVG文档: data });
 
 	var colors = c.颜色们.split(" ").sort(() => Math.random() - 0.5), coeffs = c.各项系数.split(" ").map(sn => parseInt(sn));
     var domP = new DOMParser;
-	var doc = domP.parseFromString(data, "image/svg+xml");
+	var doc = domP.parseFromString(c.SVG文档, "image/svg+xml");
 	function imgBallon(color) {
 		var sid = `ballon_${color}`, e = document.getElementById(sid);
 		if (!!e) return e;
@@ -42,10 +42,15 @@ function ballonAnimateOp(c) {
 		e.id = sid; // cached
 		return e;
 	}
+	var size = applyCSSUnit("height", doc.documentElement, c.大小), from = c.源点=="l", to = c.至点=="r";
+    var n0Stylesheet = document.styleSheets.length;
+	var locked = 0; // joke. to synchronize total ballon count
+	var styles = [];
 return function() {
+    if (locked!=0) { setTimeout(arguments.callee, 100); return; }
     var style = document.createElement("style");
 	document.head.appendChild(style);
-
+    style.sheet.addRule(".st1", "fill: none; stroke: #AEAEAE; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round;");
 	function addBalloon(ppair, index) {
 		var p = ppair;
 		var rule = `
@@ -58,7 +63,6 @@ to { left: ${p[2]}px; top: ${p[3]}px;  transform: scale(1.2); }`;
 		return document.body.appendChild(img.cloneNode(true)); // 微小的时差 (index * c.数目) 就免了，此外不知道为什么 0~3 显示不出
 	}
 
-	var size = applyCSSUnit("height", doc.documentElement, c.大小), from = c.源点=="l", to = c.至点=="r";
 	function randomPos(flag) {
 		if (from == false && to == true) {
 			return window.innerWidth - size * (1 + Math.random()); // 这是什么玩意... 改不了了，不写了睡大觉
@@ -71,9 +75,9 @@ to { left: ${p[2]}px; top: ${p[3]}px;  transform: scale(1.2); }`;
 	}
 
 	var eLast;
-	style.sheet.addRule(".st1", "fill: none; stroke: #AEAEAE; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round;");
     var sizer = size * 577 / 166;
-	for (var i = 0; i < c.数目; i++) {
+    var i0 = document.querySelectorAll('.ballon').length+(document.styleSheets.length-n0Stylesheet)*c.数目;
+	for (var i = i0; i < i0+c.数目; i++) {
 		if (c.源点.length == 1) {
             eLast = addBalloon([randomPos(true), window.innerHeight + sizer * Math.random(), randomPos(),  sizer * -(1 + Math.random())], i);
         } else {
@@ -81,9 +85,10 @@ to { left: ${p[2]}px; top: ${p[3]}px;  transform: scale(1.2); }`;
         }
 	}
 	eLast.onanimationend = function() { // 用完当然要即销啦
-		style.remove();
 		var es = document.querySelectorAll(".ballon");
         for (var i=0; i<c.数目; i++) es[i].remove();
+        if (styles.push(style) == c.移除缓冲) { styles.forEach(function(e){e.remove()}); styles.splice(0,styles.length); }
+        //style.remove(); // 最终发现是误会了，是因为移除 style 导致覆盖，不是因为 index 不对
 	};
 };
 }

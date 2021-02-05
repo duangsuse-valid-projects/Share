@@ -169,4 +169,23 @@ https://www.zhihu.com/question/366698484/answer/977959047
 + [文字模板图](HTMLs/文字图片模板化生成.html)
 + [Tokenizer](HTMLs/Tokenizer/?simple=a_dict.txt+a_dict.txt%3Ea_dict.txt&reverse=~a_dict.txt&text=Hello%20Rolld)
 + [Tokenizer(日语配置)](HTMLs/Tokenizer/?conf=japan.ini)
++ [Tokenizer(示例们，当然都不是最新)](HTMLs/Tokenizer_examples.html)
 + [~~ulang~~ uilang 重写](HTMLs/uilang)
++ [~~PlaceImg~~ 往一图贴一图式缩放](HTMLs/PlaceImg.html)
++ [qndxx即多字模板图 ~~烂尾版~~](HTMLs/YounthLearn.html)
++ [高级计算器](HTMLs/calc.html)
++ [Parse Deep-nested text](HTMLs/deep.html)
++ [五子连珠与spaceship](HTMLs/renju_spaceship)
++ [CSS? Animation](HTMLs/anim)
+
+## Building Locally
+
+Jekyll 默认不渲染所有 .md 文件，只渲染带 `--` header 的，要使用 `github-pages` 插件。
+
+必须用 `bundler exec` 才行。如果缺失依赖的 `libruby.so` 版本不对，可能需要对其运行 `gem pristine`。
+
+```bash
+echo 'gem "github-pages", "~> 211", group: :jekyll_plugins'>Gemfile
+```
+
+插件自动加载，每次使用 `bundle exec jekyll s` 即可，无需更多配置。
