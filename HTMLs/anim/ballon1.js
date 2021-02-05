@@ -64,17 +64,17 @@ to { left: ${p[2]}px; top: ${p[3]}px;  transform: scale(1.2); }`;
 	}
 	function parsePPair(...ss) {
 		let res = [];
-		for (let s of ss) res.push(...s.split(",").map(parseInt));
+		for (let s of ss) res.push(...s.split(",").map(sn => parseInt(sn)));
 		return res;
 	}
 
 	var eLast;
 	style.sheet.addRule(".st1", "fill: none; stroke: #AEAEAE; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round;");
 	for (var i = 0; i < c.数目; i++) {
-		if (c.源点.length != 1)
+		if (c.源点.length == 1)
 		eLast = addBalloon([randomPos(true), window.innerHeight + size * 577 / 166 * Math.random(), randomPos(), -size * 577 / 166 * (1 + Math.random())], i);
 		else
-		eLast = addBalloon(parsePPair(c.源点, c.至点), i);
+		eLast = addBalloon(parsePPair(c.源点, c.至点), i); // FIXME use rand
 	}
 	eLast.onanimationend = function() { // 用完当然要即销啦
 		style.remove();

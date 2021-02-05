@@ -4,7 +4,9 @@
 
 <pre id="code" class="ace_editor" style="min-height:60px"><textarea class="ace_text-input"></textarea></pre>
 
-修改选定内容：<input id="number" class="noblur" onclick="event.target.value=editor.getSelectedText()" type="number"/>，<button class="noblur" onclick="selectPos()">选择座标</button>：<span class="noblur"></span>,<span class="noblur"></span> <a class="noblur" onclick="insert([...document.querySelectorAll('span.noblur')].map(e=>e.textContent).join())">[+]</a>
+<b class="noblur">修改选定内容</b>：<input id="number" class="noblur" onclick="event.target.value=editor.getSelectedText()" type="number"/>，<button class="noblur" onclick="selectPos()">选择座标</button>：<span class="noblur"></span>,<span class="noblur"></span> <a class="noblur" onclick="insert([...document.querySelectorAll('span.noblur')].map(e=>e.textContent).join())">[+]</a>
+
+脚本们依次是实现 `number.onchange`、 `selectPos` (clientXY)、 `insert`(替换选区)&`appendTag`(合并需要特殊处理以执行 `<script>` 等)、
 
 <script>document.getElementById("number").onchange=function(ev){ insert(ev.target.value); };</script>
 <script>function selectPos() { var e=document.body, evn="mouseup"; e.style.filter="blur(1.5px)", eX=event.target.nextElementSibling, eY=eX.nextElementSibling; var clk=function(ev){ eX.textContent=ev.clientX; eY.textContent=ev.clientY; e.style.filter=""; e.removeEventListener(evn,clk); }; e.addEventListener(evn,clk); eX.onclick=eY.onclick=function(ev) { insert(ev.target.textContent); }; }</script>
@@ -38,10 +40,11 @@
 
 ## 脚本们
 
-请保证它们在最末尾！没用 `DOMContentLoaded`
+请保证它们在最末尾！没用 `DOMContentLoaded`，关键在于 `queryParent`(写得好懒)
 
 <noscript><i>悲伤下无法重生的灵魂啊，安宁于浮生天命的漩涡吧！</i></noscript>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.6/ace.js" type="text/javascript" charset="utf-8"></script>
-<script>editor=ace.edit("code"); editor.setOptions({theme:"ace/theme/twilight", mode:"ace/mode/javascript", highlightActiveLine:true, wrap: "free"});</script>
-<script>[].slice.call(document.getElementsByTagName("code")).forEach(function(e) { e.onclick=function(){editor.session.setValue(e.textContent);}; }); document.querySelector("#code textarea").addEventListener("blur", function(ev){if(!ev.relatedTarget||!ev.relatedTarget.classList.contains("noblur"))appendTag(editor.getValue());});</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js" type="text/javascript" charset="utf-8"></script>
+<script>editor=ace.edit("code"); editor.setOptions({theme:"ace/theme/tomorrow", mode:"ace/mode/html", highlightActiveLine:true, wrap: "free"}); ace.config.set("basePath", "https://unpkg.com/ace-builds@1.4.12/src-noconflict");</script>
+<script>function queryParent(selector,e) { if(!e) return null; var key=arguments[2]||"parentElement"; for (var e0=e[key]; e0[key]!=null; e0=e0[key]) { var found=e0[key].querySelector(selector); if (found==e0) return found; } }</script>
+<script>var RE_LANG_CSS=/language-(.*)\s/; var codeLang; [].slice.call(document.getElementsByTagName("code")).forEach(function(e) { var eH=queryParent("div.highlight", e); var lang = (!!eH)? RE_LANG_CSS.exec(eH.parentElement.classList.value)[1] : "text"; e.onclick=function(){editor.session.setValue(e.textContent);editor.session.setMode("ace/mode/"+lang);codeLang=lang;}; e.classList.add("noblur"); }); document.querySelector("#code textarea").addEventListener("blur", function(ev){if((ev.relatedTarget||queryParent("code,b",ev.rangeParent)||ev.target).classList.contains("noblur"));else ((codeLang=="html")? appendTag:eval)(editor.getValue());});</script>
