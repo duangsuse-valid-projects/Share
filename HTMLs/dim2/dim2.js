@@ -1,0 +1,499 @@
+var __values = (this && this.__values) || function(o) {
+    var s = typeof Symbol === "function" && Symbol.iterator, m = s && o[s], i = 0;
+    if (m) return m.call(o);
+    if (o && typeof o.length === "number") return {
+        next: function () {
+            if (o && i >= o.length) o = void 0;
+            return { value: o && o[i++], done: !o };
+        }
+    };
+    throw new TypeError(s ? "Object is not iterable." : "Symbol.iterator is not defined.");
+};
+var __read = (this && this.__read) || function (o, n) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator];
+    if (!m) return o;
+    var i = m.call(o), r, ar = [], e;
+    try {
+        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    }
+    catch (error) { e = { error: error }; }
+    finally {
+        try {
+            if (r && !r.done && (m = i["return"])) m.call(i);
+        }
+        finally { if (e) throw e.error; }
+    }
+    return ar;
+};
+var __spread = (this && this.__spread) || function () {
+    for (var ar = [], i = 0; i < arguments.length; i++) ar = ar.concat(__read(arguments[i]));
+    return ar;
+};
+var withNone = null;
+function configured() {
+    var conf = [];
+    for (var _i = 0; _i < arguments.length; _i++) {
+        conf[_i] = arguments[_i];
+    }
+    return function (e) {
+        var e_1, _a;
+        try {
+            for (var conf_1 = __values(conf), conf_1_1 = conf_1.next(); !conf_1_1.done; conf_1_1 = conf_1.next()) {
+                var op = conf_1_1.value;
+                op(e);
+            }
+        }
+        catch (e_1_1) { e_1 = { error: e_1_1 }; }
+        finally {
+            try {
+                if (conf_1_1 && !conf_1_1.done && (_a = conf_1["return"])) _a.call(conf_1);
+            }
+            finally { if (e_1) throw e_1.error; }
+        }
+    };
+}
+function withClass() {
+    var css = [];
+    for (var _i = 0; _i < arguments.length; _i++) {
+        css[_i] = arguments[_i];
+    }
+    return function (e) {
+        var e_2, _a;
+        try {
+            for (var css_1 = __values(css), css_1_1 = css_1.next(); !css_1_1.done; css_1_1 = css_1.next()) {
+                var s = css_1_1.value;
+                e.classList.add(s);
+            }
+        }
+        catch (e_2_1) { e_2 = { error: e_2_1 }; }
+        finally {
+            try {
+                if (css_1_1 && !css_1_1.done && (_a = css_1["return"])) _a.call(css_1);
+            }
+            finally { if (e_2) throw e_2.error; }
+        }
+    };
+}
+function withText(s) { return function (e) { e.textContent = s; }; }
+function withAttrs(kvs, key) {
+    if (key === void 0) { key = null; }
+    return function (e) { if (key !== null)
+        Object.assign(e[key], kvs);
+    else
+        for (var k in kvs)
+            e.setAttribute(k, kvs[k]); };
+}
+function el(tag, conf, childs) {
+    var e_3, _a;
+    if (childs === void 0) { childs = null; }
+    var e = document.createElement(tag);
+    if (conf !== null)
+        conf(e);
+    if (childs !== null)
+        try {
+            for (var childs_1 = __values(childs), childs_1_1 = childs_1.next(); !childs_1_1.done; childs_1_1 = childs_1.next()) {
+                var ee = childs_1_1.value;
+                e.appendChild(ee);
+            }
+        }
+        catch (e_3_1) { e_3 = { error: e_3_1 }; }
+        finally {
+            try {
+                if (childs_1_1 && !childs_1_1.done && (_a = childs_1["return"])) _a.call(childs_1);
+            }
+            finally { if (e_3) throw e_3.error; }
+        }
+    return e;
+}
+function expandSameValues(d, v) {
+    var e_4, _a;
+    var ks = [];
+    for (var _i = 2; _i < arguments.length; _i++) {
+        ks[_i - 2] = arguments[_i];
+    }
+    try {
+        for (var ks_1 = __values(ks), ks_1_1 = ks_1.next(); !ks_1_1.done; ks_1_1 = ks_1.next()) {
+            var k = ks_1_1.value;
+            d.set(k, v);
+        }
+    }
+    catch (e_4_1) { e_4 = { error: e_4_1 }; }
+    finally {
+        try {
+            if (ks_1_1 && !ks_1_1.done && (_a = ks_1["return"])) _a.call(ks_1);
+        }
+        finally { if (e_4) throw e_4.error; }
+    }
+    return d;
+}
+var htmlEvent = function () {
+    var d = new Map();
+    expandSameValues(d, expandSameValues(new Map, "window.:resize", "height", "width"), "HTML", "BODY");
+    return d;
+}();
+function solveShadowSet(kv, k, vs) {
+    var e_5, _a;
+    var item = kv.get(k);
+    var res = new Set();
+    try {
+        for (var item_1 = __values(item), item_1_1 = item_1.next(); !item_1_1.done; item_1_1 = item_1.next()) {
+            var _b = __read(item_1_1.value, 2), k1 = _b[0], v1 = _b[1];
+            vs["delete"](k1);
+            res.add(v1);
+        }
+    }
+    catch (e_5_1) { e_5 = { error: e_5_1 }; }
+    finally {
+        try {
+            if (item_1_1 && !item_1_1.done && (_a = item_1["return"])) _a.call(item_1);
+        }
+        finally { if (e_5) throw e_5.error; }
+    }
+    if (vs.size != 0)
+        throw new Error("cannot solve " + stringify(vs) + " from " + k + " of " + stringify(kv) + " after " + stringify(res));
+    return res;
+}
+function stringify(o) {
+    return JSON.stringify(flattenMapOrSet(o));
+}
+function flattenMapOrSet(o) {
+    var rec = arguments.callee;
+    return (typeof o == "object") ?
+        ((o instanceof Map) ? (function () {
+            var e_6, _a;
+            var oo = {};
+            try {
+                for (var o_1 = __values(o), o_1_1 = o_1.next(); !o_1_1.done; o_1_1 = o_1.next()) {
+                    var _b = __read(o_1_1.value, 2), k = _b[0], v = _b[1];
+                    oo[k] = rec(v);
+                }
+            }
+            catch (e_6_1) { e_6 = { error: e_6_1 }; }
+            finally {
+                try {
+                    if (o_1_1 && !o_1_1.done && (_a = o_1["return"])) _a.call(o_1);
+                }
+                finally { if (e_6) throw e_6.error; }
+            }
+            return oo;
+        })() :
+            (o instanceof Set) ? __spread(o).map(flattenMapOrSet)
+                : (function () { var oo = {}; for (var k in o)
+                    oo[k] = rec(o[k]); return oo; })())
+        : o;
+}
+function addBindOp(e, e_rel, rel_attrs, update) {
+    var listeners = [];
+    solveShadowSet(htmlEvent, e_rel.tagName, new Set(rel_attrs)).forEach(function (s_evn) {
+        var sp = s_evn.split(".:");
+        var _a = __read((sp.length == 1) ? [e_rel, sp[0]] : [sp[0] == "window" ? window : document.querySelector(sp[0]), sp[1]], 2), e_listen = _a[0], evn = _a[1];
+        var op = function () { update(e, e_rel); };
+        e_listen.addEventListener(evn, op, false);
+        listeners.push([e_listen, evn, op]);
+    });
+    update(e, e_rel);
+    return listeners;
+}
+var px = function (n) { return n + "px"; };
+var dim2 = el("canvas", configured(withClass("dim2"), withAttrs({
+    position: "fixed",
+    left: px(0), top: px(0),
+    bottom: px(0), right: px(0),
+    zIndex: "10000"
+}, "style")));
+function makeDraggable(e, evn_down, evn_up, evn_move, mk_op_move) {
+    if (evn_down === void 0) { evn_down = "mousedown"; }
+    if (evn_up === void 0) { evn_up = "mouseup"; }
+    if (evn_move === void 0) { evn_move = "mousemove"; }
+    if (mk_op_move === void 0) { mk_op_move = function (xy) { return function (ev) {
+        var evt = ev.target;
+        evt.style.left = px(evt.offsetLeft + ev.clientX - xy[0]);
+        evt.style.top = px(evt.offsetTop + ev.clientY - xy[1]);
+        xy[0] = ev.clientX;
+        xy[1] = ev.clientY; // new anchor.
+    }; }; }
+    var xy = [0, 0];
+    var opMove = mk_op_move(xy);
+    e.addEventListener(evn_down, function (ev) {
+        xy[0] = ev.clientX;
+        xy[1] = ev.clientY;
+        var e1 = ev.target;
+        e1.addEventListener(evn_move, opMove);
+        e1.addEventListener(evn_up, function () {
+            e1.removeEventListener(evn_move, opMove);
+            e.removeEventListener(evn_up, arguments.callee);
+        });
+    });
+}
+function dispatchMovingEventsTo(e, e_rel, mod) {
+    var e_7, _a;
+    if (mod === void 0) { mod = { move: "Shift", scale: "Control", flags: "m" }; }
+    var pressed = { mouse: null };
+    if (mod.flags == "m") {
+        e.addEventListener("mousedown", function (ev) { pressed.mouse = [ev.clientX, ev.clientY]; });
+        e.addEventListener("mouseup", function () { pressed.mouse = null; });
+        e.addEventListener("mousemove", function (ev) {
+            var old = pressed.mouse;
+            if (old === null)
+                return;
+            e.dispatchEvent(new WheelEvent("move", { deltaX: (old[0] - ev.clientX) / wh[0], deltaY: (old[1] - ev.clientY) / wh[1] }));
+        });
+    }
+    delete mod.flags;
+    try {
+        for (var _b = __values(Object.values(mod)), _c = _b.next(); !_c.done; _c = _b.next()) {
+            var v = _c.value;
+            pressed[v] = false;
+        }
+    }
+    catch (e_7_1) { e_7 = { error: e_7_1 }; }
+    finally {
+        try {
+            if (_c && !_c.done && (_a = _b["return"])) _a.call(_b);
+        }
+        finally { if (e_7) throw e_7.error; }
+    }
+    var setsKey = function (v) { return function (ev) {
+        if (ev.key in pressed) {
+            pressed[ev.key] = v;
+        }
+        if (pressed["Shift"])
+            pressed["Shift"] = ev.shiftKey;
+    }; };
+    e_rel.addEventListener("keydown", setsKey(true));
+    e_rel.addEventListener("keyup", setsKey(false));
+    window.addEventListener("wheel", function (ev) {
+        if (ev.target != e)
+            return;
+        ev.stopPropagation();
+        ev.preventDefault(); // Ctrl+wheel means "Zoom" in Firefox ;)
+        var ev1;
+        var vp = ev.deltaY; // delta: shift of [x, y]
+        if (pressed[mod.move])
+            ev1 = new WheelEvent("move", { deltaX: -vp });
+        else if (pressed[mod.scale])
+            ev1 = new WheelEvent("scale", { deltaX: -vp, deltaY: 0 });
+        else
+            ev1 = new WheelEvent("move", { deltaY: vp });
+        e.dispatchEvent(ev1);
+    }); // for (let evn of ["move","scale"])dim2.addEventListener(evn,(ev)=>console.log(ev.type,ev.deltaX,ev.deltaY))
+}
+var dim2Cfg = {
+    hasXAxis: true, hasYAxis: true, hasLegend: true, hasGrid: false, hasDots: false,
+    hasRelativeScroll: true, scrollStep: 50, deltaX_MaxWDiv: 2, lineWidth: 2,
+    axisColor: "gray", axisMul: 2, axisFont: "12pt Calibri", axisMarkerW: 6,
+    vpInit: [0, 0], scaleInit: [1, 1], scaleStepInit: [1, 1],
+    numPrec: 5, showNum: null, expr: function (s) { try {
+        return eval(s);
+    }
+    catch (e) {
+        alert(e);
+    } return parseFloat(s); }, numToStr: function (n) { return n.toString(); }
+};
+var wh = [0, 0], vp_xy = __spread(dim2Cfg.vpInit), scale_xy = __spread(dim2Cfg.scaleInit), scaleStep_xy = __spread(dim2Cfg.scaleStepInit), step_view = 1, step_x = 1;
+var y_func = function (i) { return (i > wh[0] / 2) ? i : -i; }, ys = [], yfloor = 0, yceil = 0, yzero = 0;
+dim2.redraw = function () {
+    var g = dim2.getContext("2d");
+    var _a = __read(wh, 2), w = _a[0], h = _a[1];
+    g.clearRect(0, 0, w, h);
+    var _b = __read(vp_xy, 2), vx = _b[0], vy = _b[1];
+    vx *= step_view;
+    vy *= step_view;
+    var _c = __read(scale_xy, 2), kx = _c[0], ky = _c[1];
+    var _d = __read(scaleStep_xy, 2), kkx = _d[0], kky = _d[1];
+    kx *= kkx;
+    ky *= kky;
+    ys.splice(0, ys.length);
+    yfloor = Infinity;
+    yceil = -Infinity, yzero = 0;
+    for (var ix = 0, x = vx; ix < w; ix++, x += step_x) {
+        var y = (y_func(x / kx) + vy) * ky; // MAIN formula. ky looks unused in graph :(, but used in value
+        if (y == 0)
+            yzero = (x / kx);
+        if (y < yfloor)
+            yfloor = y;
+        if (y > yceil)
+            yceil = y;
+        ys.push(y);
+    }
+    if (dim2Cfg.hasRelativeScroll)
+        step_view = Math.max(yfloor, yceil) / dim2Cfg.scrollStep;
+    // draw x axis
+    g.strokeStyle = dim2Cfg.axisColor;
+    g.lineWidth = dim2Cfg.lineWidth * dim2Cfg.axisMul;
+    g.font = dim2Cfg.axisFont;
+    var markerW = dim2Cfg.axisMarkerW, sn = dim2Cfg.showNum;
+    var yBounds = (yceil - yfloor);
+    var drawPt = function (y) { return h - h * y / yBounds; }; // view y-bounds, y-flip
+    if (dim2Cfg.hasXAxis) {
+        var hasL = dim2Cfg.hasLegend;
+        var py = drawPt(vy + yzero);
+        g.beginPath();
+        g.moveTo(0, py);
+        g.lineTo(w, py);
+        g.textAlign = "center";
+        g.textBaseline = "top";
+        for (var x = 0; x < w; x += step_x) {
+            g.moveTo(x, py);
+            g.lineTo(x, py - markerW);
+            if (hasL)
+                g.fillText(dim2Cfg.numToStr(x), x, py + markerW); // TODO
+        }
+        g.stroke();
+        g.closePath();
+    }
+    // draw func plot.
+    g.strokeStyle = "black";
+    g.lineWidth = dim2Cfg.lineWidth;
+    g.beginPath();
+    g.moveTo(0, 0);
+    ys.forEach(function (y, x) { g.lineTo(x, drawPt(y)); });
+    g.stroke();
+    g.closePath();
+    dim2.dispatchEvent(new Event("drawn"));
+};
+document.addEventListener("DOMContentLoaded", function () {
+    document.body.appendChild(dim2);
+    dim2Cfg.showNum = function (n) { return (dim2Cfg.numToStr(n)).length < dim2Cfg.numPrec ? dim2Cfg.numToStr(n) : n.toPrecision(dim2Cfg.numPrec); };
+    dispatchMovingEventsTo(dim2, document.documentElement);
+    var storeDelta = function (evn, dst) { return dim2.addEventListener(evn, function (ev) { dst[0] += ev.deltaX; dst[1] += ev.deltaY; dim2.redraw(); }); };
+    storeDelta("move", vp_xy);
+    storeDelta("scale", scale_xy);
+    var capitalize = function (s) { return s[0].toUpperCase() + s.slice(1); };
+    var substrAfter = function (ss, s) { return s.substr(s.lastIndexOf(ss) + 1); };
+    var check = function (id, s) { return el("div", withNone, [el("input", withAttrs({ type: "checkbox", id: id })), el("label", configured(withAttrs({ "for": id }), withText(s)))]); }, span = function (s) { return el("span", withText(s)); }, varib = function (s) { return el("var", configured(withAttrs({ id: "dim2-info-" + s }), withClass("dim2-const"), withText(s))); }, bold = function (s) { return el("b", withText(s)); };
+    var show = function (s) { return ["dim2-show-" + s, capitalize(s)]; };
+    function arrcopy(a_dst, a) { for (var i = 0; i < a.length; i++)
+        a_dst[i] = a[i]; }
+    function pairEditor(prefix, a_dst, a_deft, sep) {
+        if (sep === void 0) { sep = ","; }
+        var e = el("div", withNone, [el("mark", withText(prefix)), bold("("), el("span", withNone), el("span", withNone), bold(")")]);
+        var ees = e.children, i0 = 2, i1 = i0 + 2;
+        var ee0 = ees[0];
+        ee0.addEventListener("click", function () {
+            var s = prompt("a,b value? or leave blank to reset");
+            if (s === "") {
+                arrcopy(a_dst, a_deft);
+            }
+            else if (!!s) {
+                arrcopy(a_dst, s.split(sep).map(function (sn) { return dim2Cfg.expr(sn); }));
+            }
+            dim2.redraw();
+        });
+        var _loop_1 = function (i) {
+            var ee = ees[i];
+            ee.addEventListener("click", function () { var s = prompt("new value?"); if (!s)
+                return; a_dst[(i - i0)] = dim2Cfg.expr(s); dim2.redraw(); });
+        };
+        for (var i = i0; i < i1; i++) {
+            _loop_1(i);
+        }
+        var update = function () {
+            for (var i = i0; i < i1; i++) {
+                ees[i].textContent = dim2Cfg.showNum(a_dst[(i - i0)]) + ((i != i1 - 1) ? sep : "");
+            }
+        };
+        dim2.addEventListener("drawn", update);
+        update();
+        return e;
+    }
+    var status = el("div", configured(withClass("dim2-navi", "draggable"), withAttrs({
+        fontFamily: "Arial,sans-serif",
+        position: "absolute",
+        zIndex: "10001",
+        textAlign: "right"
+    }, "style")), [
+        check.apply(void 0, __spread(show("xAxis"))),
+        check.apply(void 0, __spread(show("yAxis"))),
+        check.apply(void 0, __spread(show("legend"))),
+        check.apply(void 0, __spread(show("grid"))),
+        check.apply(void 0, __spread(show("dots"))),
+        check("dim2-use-relativeScroll", "Y-Relative Move"),
+        el("hr", withNone),
+        el("mark", withText("Δx=")), el("i", withNone), el("input", withAttrs({ type: "range", min: "1" })),
+        pairEditor("P", vp_xy, dim2Cfg.vpInit),
+        pairEditor("%", scale_xy, dim2Cfg.scaleInit),
+        pairEditor("Δ%", scaleStep_xy, dim2Cfg.scaleStepInit),
+        el("hr", withNone),
+        el("div", withNone, [
+            span("View: "), varib("dim"),
+            span(" [x]: "), varib("xrange"),
+            span(" [y]: "), varib("yrange")
+        ])
+    ]);
+    document.body.appendChild(status);
+    document.head.appendChild(el("style", withText(".dim2-navi div {display: inline;user-select: none;} .draggable {cursor: move;}")));
+    var deltaX = status.querySelector("input[type=\"range\"]");
+    deltaX.valueAsNumber = 1;
+    deltaX.addEventListener("change", function (ev) {
+        step_x = ev.target.valueAsNumber;
+        dim2.redraw();
+        deltaX.previousElementSibling.textContent = deltaX.value;
+    });
+    status.querySelectorAll("input[type=\"checkbox\"]").forEach(function (oe) {
+        var e = oe;
+        var attr = "has" + capitalize(substrAfter("-", e.id));
+        e.checked = dim2Cfg[attr];
+        e.onchange = function () { dim2Cfg[attr] = e.checked; dim2.redraw(); };
+    });
+    var infoOps = [];
+    document.querySelectorAll("var.dim2-const").forEach(function (e) {
+        var id = substrAfter("-", e.id);
+        var op;
+        var sn = function (n) { return dim2Cfg.showNum(n); };
+        switch (id) {
+            case "dim":
+                op = function () {
+                    var _a = __read(vp_xy, 2), x = _a[0], y = _a[1];
+                    x = -x;
+                    y = -y; // from shift-offset
+                    if (x == 0)
+                        return "(x=0)";
+                    if (y == 0)
+                        return "(y=0)";
+                    return "(" + sn(x) + "," + sn(y) + ")\u220A" + ((x > 0) ?
+                        ((y > 0) ? "I" : "IV") :
+                        (y > 0) ? "II" : "III");
+                };
+                break;
+            case "xrange":
+                op = function () { return sn(vp_xy[0]) + ".." + sn(vp_xy[0] + wh[0] * step_x); };
+                break;
+            case "yrange":
+                op = function () { return sn(yfloor) + ".." + sn(yceil); };
+                break;
+        }
+        infoOps.push([e, op]);
+    });
+    dim2.addEventListener("drawn", function () {
+        var e_8, _a;
+        try {
+            for (var infoOps_1 = __values(infoOps), infoOps_1_1 = infoOps_1.next(); !infoOps_1_1.done; infoOps_1_1 = infoOps_1.next()) {
+                var _b = __read(infoOps_1_1.value, 2), e = _b[0], op = _b[1];
+                e.textContent = op();
+            }
+        }
+        catch (e_8_1) { e_8 = { error: e_8_1 }; }
+        finally {
+            try {
+                if (infoOps_1_1 && !infoOps_1_1.done && (_a = infoOps_1["return"])) _a.call(infoOps_1);
+            }
+            finally { if (e_8) throw e_8.error; }
+        }
+    });
+    addBindOp(dim2, document.documentElement, ["width", "height"], function (e, e1) {
+        wh[0] = e1.clientWidth;
+        wh[1] = e1.clientHeight;
+        var _a = __read(wh, 2), w = _a[0], h = _a[1];
+        step_view = Math.max(w, h) / dim2Cfg.scrollStep;
+        withAttrs({ display: "block", width: px(w), height: px(h) })(e);
+        deltaX.setAttribute("max", "" + w / dim2Cfg.deltaX_MaxWDiv);
+        e.redraw();
+    });
+    var movePadRight = function (e, vp) {
+        e.style.left = px(wh[0] - e.offsetWidth + vp[0]);
+        e.style.top = px(wh[1] - e.offsetHeight + vp[1]);
+    };
+    movePadRight(status, [-10, -20]);
+    document.querySelectorAll(".draggable").forEach(function (e) { return makeDraggable(e); });
+});
