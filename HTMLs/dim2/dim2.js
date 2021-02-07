@@ -201,43 +201,60 @@ var dim2 = el("canvas", configured(withClass("dim2"), withAttrs({
     bottom: px(0), right: px(0),
     zIndex: "10000"
 }, "style")));
-function makeDraggable(e, evn_down, evn_up, evn_move, mk_op_move) {
-    if (evn_down === void 0) { evn_down = "mousedown"; }
-    if (evn_up === void 0) { evn_up = "mouseup"; }
-    if (evn_move === void 0) { evn_move = "mousemove"; }
-    if (mk_op_move === void 0) { mk_op_move = function (xy) { return function (ev) {
-        var evt = ev.target;
-        evt.style.left = px(evt.offsetLeft + ev.clientX - xy[0]);
-        evt.style.top = px(evt.offsetTop + ev.clientY - xy[1]);
+function makeDraggable(e, key, evn_down, evn_up, evn_move, mk_op_move) {
+    if (key === void 0) { key = null; }
+    if (evn_down === void 0) { evn_down = "pointerdown"; }
+    if (evn_up === void 0) { evn_up = "pointerup"; }
+    if (evn_move === void 0) { evn_move = "pointermove"; }
+    if (mk_op_move === void 0) { mk_op_move = function (xy, e) { return function (ev) {
+        e.style.left = px(e.offsetLeft + ev.clientX - xy[0]);
+        e.style.top = px(e.offsetTop + ev.clientY - xy[1]);
         xy[0] = ev.clientX;
         xy[1] = ev.clientY; // new anchor.
     }; }; }
     var xy = [0, 0];
-    var opMove = mk_op_move(xy);
+    var opMove = mk_op_move(xy, (key === null) ? e : key(e));
     e.addEventListener(evn_down, function (ev) {
         xy[0] = ev.clientX;
         xy[1] = ev.clientY;
         var e1 = ev.target;
-        e1.addEventListener(evn_move, opMove);
+        window.addEventListener(evn_move, opMove);
         e1.addEventListener(evn_up, function () {
-            e1.removeEventListener(evn_move, opMove);
+            window.removeEventListener(evn_move, opMove);
             e.removeEventListener(evn_up, arguments.callee);
         });
     });
 }
 function dispatchMovingEventsTo(e, e_rel, mod) {
     var e_7, _a;
-    if (mod === void 0) { mod = { move: "Shift", scale: "Control", flags: "m" }; }
-    var pressed = { mouse: null };
-    if (mod.flags == "m") {
-        e.addEventListener("mousedown", function (ev) { pressed.mouse = [ev.clientX, ev.clientY]; });
-        e.addEventListener("mouseup", function () { pressed.mouse = null; });
-        e.addEventListener("mousemove", function (ev) {
-            var old = pressed.mouse;
-            if (old === null)
+    if (mod === void 0) { mod = { move: "Shift", scale: "Control", flags: "mg" }; }
+    function polyfillGestures(e) {
+        var dist = function (txs) { return Math.hypot(txs[0].pageX - txs[1].pageX, txs[0].pageY - txs[1].pageY); };
+        var scaling = false;
+        e.addEventListener("ontouchstart", function (ev) { if (ev.touches.length != 2)
+            return; scaling = true; });
+        e.addEventListener("ontouchend", function (ev) {
+            if (!scaling)
                 return;
-            e.dispatchEvent(new WheelEvent("move", { deltaX: (old[0] - ev.clientX) / wh[0], deltaY: (old[1] - ev.clientY) / wh[1] }));
+            ev.preventDefault();
+            var d = dist(ev.touches);
+            e.dispatchEvent(new WheelEvent("scale", { deltaY: d, deltaX: d }));
+            scaling = false;
         });
+    }
+    var pressed = { mouse: null };
+    switch (mod.flags) {
+        case "mg":
+            polyfillGestures(e);
+        case "m":
+            e.addEventListener("pointerdown", function (ev) { pressed.mouse = [ev.clientX, ev.clientY]; });
+            e.addEventListener("pointerup", function () { pressed.mouse = null; });
+            e.addEventListener("pointermove", function (ev) {
+                var old = pressed.mouse;
+                if (old === null)
+                    return;
+                e.dispatchEvent(new WheelEvent("move", { deltaX: (old[0] - ev.clientX) / wh[0], deltaY: (old[1] - ev.clientY) / wh[1] }));
+            });
     }
     delete mod.flags;
     try {
@@ -278,53 +295,91 @@ function dispatchMovingEventsTo(e, e_rel, mod) {
         e.dispatchEvent(ev1);
     }); // for (let evn of ["move","scale"])dim2.addEventListener(evn,(ev)=>console.log(ev.type,ev.deltaX,ev.deltaY))
 }
+function bindListEditor(e, a_dst, from, into) {
+    var editor = function () { return el("textarea", withNone); };
+    var bind = function (ed, i) { ed.value = into(a_dst[i]); ed.onchange = function () { a_dst[i] = from(ed.value, ed); }; };
+    for (var i = 0; i < a_dst.length; i++) {
+        var ed = editor();
+        e.appendChild(ed);
+        bind(ed, i);
+    }
+    var eAdd = editor();
+    eAdd.classList.add("new-fade");
+    eAdd.readOnly = true;
+    eAdd.onclick = function () { var ed = editor(), v = from(ed.value, ed); eAdd.parentElement.insertBefore(ed, eAdd); bind(ed, a_dst.push(v) - 1); };
+    e.appendChild(eAdd);
+}
+var RE_MATH_MEMBER = new RegExp("abs acos asin atan atan2 ceil clz32 cos exp floor imul fround log max min pow random round sin sqrt tan log10 log2 log1p expm1 cosh sinh tanh acosh asinh atanh hypot trunc sign cbrt E LOG2E LOG10E LN2 LN10 PI SQRT2 SQRT1_2".
+    split(" ").map(function (ss) { return "(" + ss + "\\()"; }).join("|"), "g");
 var dim2Cfg = {
-    hasXAxis: true, hasYAxis: true, hasLegend: true, hasGrid: false, hasDots: false,
-    hasRelativeScroll: true, scrollStep: 50, deltaX_MaxWDiv: 2, lineWidth: 2,
+    hasXAxis: true, hasYAxis: true, hasLegend: false, hasGrid: false, hasDots: false,
+    hasRelativeScroll: true, hasNegativeScroll: false, scrollStep: 50, deltaX_MaxWDiv: 2, lineWidth: 2,
     axisColor: "gray", axisMul: 2, axisFont: "12pt Calibri", axisMarkerW: 6,
+    equationColors: "red green blue black cyan magenta gray yellow orange pink rgb(145,30,180) rgb(210,245,60) rgb(0,128,128) rgb(128,128,0)".split(" "),
     vpInit: [0, 0], scaleInit: [1, 1], scaleStepInit: [1, 1],
     numPrec: 5, showNum: null, expr: function (s) { try {
         return eval(s);
     }
     catch (e) {
         alert(e);
-    } return parseFloat(s); }, numToStr: function (n) { return n.toString(); }
+    } return parseFloat(s); }, numToStr: function (n) { return n.toString(); },
+    newFunction: function (code) { var translated = code.replace(RE_MATH_MEMBER, function (m) { return "Math." + m; }); return eval("x=>{ const r=Math.random(), t=Date.now(); return " + translated + "; }"); }
 };
 var wh = [0, 0], vp_xy = __spread(dim2Cfg.vpInit), scale_xy = __spread(dim2Cfg.scaleInit), scaleStep_xy = __spread(dim2Cfg.scaleStepInit), step_view = 1, step_x = 1;
-var y_func = function (i) { return (i > wh[0] / 2) ? i : -i; }, ys = [], yfloor = 0, yceil = 0, yzero = 0;
+var y_funcs = [["(x>wh[0]/2)?x:-x", "red", function (x) { return (x > wh[0] / 2) ? x : -x; }]], ys = [0], yfloor = 0, yceil = 0, yzero = 0;
 dim2.redraw = function () {
+    var e_8, _a;
     var g = dim2.getContext("2d");
-    var _a = __read(wh, 2), w = _a[0], h = _a[1];
+    var _b = __read(wh, 2), w = _b[0], h = _b[1];
     g.clearRect(0, 0, w, h);
-    var _b = __read(vp_xy, 2), vx = _b[0], vy = _b[1];
+    var _c = __read(vp_xy, 2), vx = _c[0], vy = _c[1];
     vx *= step_view;
     vy *= step_view;
-    var _c = __read(scale_xy, 2), kx = _c[0], ky = _c[1];
-    var _d = __read(scaleStep_xy, 2), kkx = _d[0], kky = _d[1];
+    var _d = __read(scale_xy, 2), kx = _d[0], ky = _d[1];
+    var _e = __read(scaleStep_xy, 2), kkx = _e[0], kky = _e[1];
     kx *= kkx;
     ky *= kky;
-    ys.splice(0, ys.length);
+    var yBounds = 0;
+    var drawPt = function (y) { return h - h * y / yBounds; }; // view y-bounds, y-flip
+    g.lineWidth = dim2Cfg.lineWidth;
+    g.beginPath();
     yfloor = Infinity;
     yceil = -Infinity, yzero = 0;
-    for (var ix = 0, x = vx; ix < w; ix++, x += step_x) {
-        var y = (y_func(x / kx) + vy) * ky; // MAIN formula. ky looks unused in graph :(, but used in value
-        if (y == 0)
-            yzero = (x / kx);
-        if (y < yfloor)
-            yfloor = y;
-        if (y > yceil)
-            yceil = y;
-        ys.push(y);
+    try {
+        for (var y_funcs_1 = __values(y_funcs), y_funcs_1_1 = y_funcs_1.next(); !y_funcs_1_1.done; y_funcs_1_1 = y_funcs_1.next()) {
+            var _f = __read(y_funcs_1_1.value, 3), _s = _f[0], color = _f[1], y_func = _f[2];
+            for (var ix = 0, x = vx; ix < w; ix++, x += step_x) {
+                var y = (y_func(x / kx) + vy) * ky; // MAIN formula. ky looks unused in graph :(, but used in value
+                if (y == 0)
+                    yzero = (x / kx); // this algorithm is buggy, but I don't have the correct knowledge to fix it. Sorry.
+                if (y < yfloor)
+                    yfloor = y;
+                if (y > yceil)
+                    yceil = y;
+                ys[ix] = y;
+            }
+            yBounds = (yceil - yfloor);
+            // draw func plot.
+            g.strokeStyle = color;
+            g.beginPath();
+            g.moveTo(0, 0);
+            ys.forEach(function (y, x) { g.lineTo(x, drawPt(y)); });
+            g.stroke();
+        }
     }
-    if (dim2Cfg.hasRelativeScroll)
-        step_view = Math.max(yfloor, yceil) / dim2Cfg.scrollStep;
+    catch (e_8_1) { e_8 = { error: e_8_1 }; }
+    finally {
+        try {
+            if (y_funcs_1_1 && !y_funcs_1_1.done && (_a = y_funcs_1["return"])) _a.call(y_funcs_1);
+        }
+        finally { if (e_8) throw e_8.error; }
+    }
+    g.closePath();
     // draw x axis
     g.strokeStyle = dim2Cfg.axisColor;
     g.lineWidth = dim2Cfg.lineWidth * dim2Cfg.axisMul;
     g.font = dim2Cfg.axisFont;
     var markerW = dim2Cfg.axisMarkerW, sn = dim2Cfg.showNum;
-    var yBounds = (yceil - yfloor);
-    var drawPt = function (y) { return h - h * y / yBounds; }; // view y-bounds, y-flip
     if (dim2Cfg.hasXAxis) {
         var hasL = dim2Cfg.hasLegend;
         var py = drawPt(vy + yzero);
@@ -333,7 +388,8 @@ dim2.redraw = function () {
         g.lineTo(w, py);
         g.textAlign = "center";
         g.textBaseline = "top";
-        for (var x = 0; x < w; x += step_x) {
+        for (var ix = 0; ix < w; ix += step_x) {
+            var x = ix;
             g.moveTo(x, py);
             g.lineTo(x, py - markerW);
             if (hasL)
@@ -342,21 +398,27 @@ dim2.redraw = function () {
         g.stroke();
         g.closePath();
     }
-    // draw func plot.
-    g.strokeStyle = "black";
-    g.lineWidth = dim2Cfg.lineWidth;
-    g.beginPath();
-    g.moveTo(0, 0);
-    ys.forEach(function (y, x) { g.lineTo(x, drawPt(y)); });
-    g.stroke();
-    g.closePath();
+    if (dim2Cfg.hasRelativeScroll)
+        step_view = Math.max(yfloor, yceil) / dim2Cfg.scrollStep;
     dim2.dispatchEvent(new Event("drawn"));
 };
 document.addEventListener("DOMContentLoaded", function () {
     document.body.appendChild(dim2);
     dim2Cfg.showNum = function (n) { return (dim2Cfg.numToStr(n)).length < dim2Cfg.numPrec ? dim2Cfg.numToStr(n) : n.toPrecision(dim2Cfg.numPrec); };
     dispatchMovingEventsTo(dim2, document.documentElement);
-    var storeDelta = function (evn, dst) { return dim2.addEventListener(evn, function (ev) { dst[0] += ev.deltaX; dst[1] += ev.deltaY; dim2.redraw(); }); };
+    var storeDelta = function (evn, dst) { return dim2.addEventListener(evn, function (ev) {
+        if (dim2Cfg.hasNegativeScroll || evn == "move") {
+            dst[0] += ev.deltaX;
+            dst[1] += ev.deltaY;
+        }
+        else {
+            if (ev.deltaX != 0)
+                dst[0] /= ev.deltaX;
+            if (ev.deltaY != 0)
+                dst[1] /= ev.deltaY;
+        }
+        dim2.redraw();
+    }); };
     storeDelta("move", vp_xy);
     storeDelta("scale", scale_xy);
     var capitalize = function (s) { return s[0].toUpperCase() + s.slice(1); };
@@ -397,7 +459,7 @@ document.addEventListener("DOMContentLoaded", function () {
         update();
         return e;
     }
-    var status = el("div", configured(withClass("dim2-navi", "draggable"), withAttrs({
+    var status = el("div", configured(withClass("dim2-navi"), withAttrs({
         fontFamily: "Arial,sans-serif",
         position: "absolute",
         zIndex: "10001",
@@ -409,20 +471,25 @@ document.addEventListener("DOMContentLoaded", function () {
         check.apply(void 0, __spread(show("grid"))),
         check.apply(void 0, __spread(show("dots"))),
         check("dim2-use-relativeScroll", "Y-Relative Move"),
+        check("dim2-use-negativeScroll", "Neg Scale"),
         el("hr", withNone),
         el("mark", withText("Δx=")), el("i", withNone), el("input", withAttrs({ type: "range", min: "1" })),
         pairEditor("P", vp_xy, dim2Cfg.vpInit),
         pairEditor("%", scale_xy, dim2Cfg.scaleInit),
         pairEditor("Δ%", scaleStep_xy, dim2Cfg.scaleStepInit),
         el("hr", withNone),
-        el("div", withNone, [
+        el("details", withClass("dim2-equ-list"), [
+            el("summary", withText("Equations"))
+        ]),
+        el("div", withClass("draggable"), [
             span("View: "), varib("dim"),
             span(" [x]: "), varib("xrange"),
             span(" [y]: "), varib("yrange")
         ])
     ]);
     document.body.appendChild(status);
-    document.head.appendChild(el("style", withText(".dim2-navi div {display: inline;user-select: none;} .draggable {cursor: move;}")));
+    var styleNewFade = ".new-fade {background: linear-gradient(to top, #393939, rgba(255,255,255,0) 50%); height: 44px;}";
+    document.head.appendChild(el("style", withText(".dim2-navi div {display: inline;user-select: none;} .draggable {cursor: move;} .dim2-equ-list{display:flex;}" + styleNewFade)));
     var deltaX = status.querySelector("input[type=\"range\"]");
     deltaX.valueAsNumber = 1;
     deltaX.addEventListener("change", function (ev) {
@@ -466,26 +533,29 @@ document.addEventListener("DOMContentLoaded", function () {
         infoOps.push([e, op]);
     });
     dim2.addEventListener("drawn", function () {
-        var e_8, _a;
+        var e_9, _a;
         try {
             for (var infoOps_1 = __values(infoOps), infoOps_1_1 = infoOps_1.next(); !infoOps_1_1.done; infoOps_1_1 = infoOps_1.next()) {
                 var _b = __read(infoOps_1_1.value, 2), e = _b[0], op = _b[1];
                 e.textContent = op();
             }
         }
-        catch (e_8_1) { e_8 = { error: e_8_1 }; }
+        catch (e_9_1) { e_9 = { error: e_9_1 }; }
         finally {
             try {
                 if (infoOps_1_1 && !infoOps_1_1.done && (_a = infoOps_1["return"])) _a.call(infoOps_1);
             }
-            finally { if (e_8) throw e_8.error; }
+            finally { if (e_9) throw e_9.error; }
         }
     });
+    var colors = dim2Cfg.equationColors;
+    bindListEditor(status.querySelector(".dim2-equ-list"), y_funcs, function (s, e) { var c = colors[(y_funcs.length - 1) % colors.length]; e.style.borderColor = e.style.borderColor || c; return [s, c, dim2Cfg.newFunction(s)]; }, function (a) { return a[0]; });
     addBindOp(dim2, document.documentElement, ["width", "height"], function (e, e1) {
         wh[0] = e1.clientWidth;
         wh[1] = e1.clientHeight;
         var _a = __read(wh, 2), w = _a[0], h = _a[1];
         step_view = Math.max(w, h) / dim2Cfg.scrollStep;
+        ys = Array(w);
         withAttrs({ display: "block", width: px(w), height: px(h) })(e);
         deltaX.setAttribute("max", "" + w / dim2Cfg.deltaX_MaxWDiv);
         e.redraw();
@@ -495,5 +565,5 @@ document.addEventListener("DOMContentLoaded", function () {
         e.style.top = px(wh[1] - e.offsetHeight + vp[1]);
     };
     movePadRight(status, [-10, -20]);
-    document.querySelectorAll(".draggable").forEach(function (e) { return makeDraggable(e); });
+    document.querySelectorAll(".draggable").forEach(function (e) { return makeDraggable(e, function (e) { return e.parentElement; }); });
 });
