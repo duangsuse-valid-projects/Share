@@ -15,6 +15,7 @@
 它是更激进的重构，预期会支持触摸屏，能重显隐藏的元素（不止能用于打掉广告）
 
 Refactor Notes[0]:
+
 - Use physics-style naming
 - Remove unnecessary newlines
 - Rename Vector to Vec2
@@ -27,3 +28,7 @@ Refactor Notes[0]:
 - Move this.firedAt into updated.time
 - Replace (w,h) related double-init with check event-arg in canvasResize
 - Extract ALL "ASTEROIDS" const-string prefix
+- Remove unused L142 totalEnemies and its update code in updateEnemyIndex()
+- Remove buggy mokey-patch case " ": fireAt=1 at L247
+- Remove unnecessary if()for() at L556
+- Make ALL element tree creation using `el(tagName,confs,childs)` at L285

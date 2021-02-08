@@ -1,87 +1,116 @@
+var __read = (this && this.__read) || function (o, n) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator];
+    if (!m) return o;
+    var i = m.call(o), r, ar = [], e;
+    try {
+        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    }
+    catch (error) { e = { error: error }; }
+    finally {
+        try {
+            if (r && !r.done && (m = i["return"])) m.call(i);
+        }
+        finally { if (e) throw e.error; }
+    }
+    return ar;
+};
+var __values = (this && this.__values) || function(o) {
+    var s = typeof Symbol === "function" && Symbol.iterator, m = s && o[s], i = 0;
+    if (m) return m.call(o);
+    if (o && typeof o.length === "number") return {
+        next: function () {
+            if (o && i >= o.length) o = void 0;
+            return { value: o && o[i++], done: !o };
+        }
+    };
+    throw new TypeError(s ? "Object is not iterable." : "Symbol.iterator is not defined.");
+};
 // Rewrite of http://www.websiteasteroids.com
 var ASTEROIDS = ASTEROIDS || { nKill: 0, players: [] };
-function Asteroids() {
-    var maths = {
-        radians: function (deg) { return deg * Math.PI / 180; },
-        random: function (first, last) { return Math.floor(Math.random() * (last + 1) + first); },
-        pick: function (a) { return a[maths.random(0, a.length - 1)]; }
+var Vec2 = /** @class */ (function () {
+    function Vec2(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+    Vec2.prototype.copy = function () { return new Vec2(this.x, this.y); };
+    Vec2.prototype.add = function (vec) { this.x += vec.x; this.y += vec.y; return this; };
+    Vec2.prototype.mul = function (factor) { this.x *= factor; this.y *= factor; return this; };
+    Vec2.prototype.angle = function () { return Math.atan2(this.y, this.x); };
+    Vec2.prototype.rotate = function (angle) {
+        var x = this.x, y = this.y;
+        var sin = Math.sin, cos = Math.cos;
+        this.x = x * cos(angle) - sin(angle) * y;
+        this.y = x * sin(angle) + cos(angle) * y;
     };
-    function addStylesheet(selector, rules) {
-        var style = document.createElement("style");
-        style.id = "ASTEROIDSYEAHSTYLES";
-        try {
-            style.innerHTML = selector + "{" + rules + "}";
-        }
-        catch (e) { // https://developer.mozilla.org/en-US/docs/Web/API/CSSStyleSheet#notes
-            style.sheet.addRule(selector, rules);
-        }
-        document.head.appendChild(style);
-    }
-    function removeElement(id) { document.getElementById(id).remove(); }
-    var Vec2 = /** @class */ (function () {
-        function Vec2(x, y) {
-            this.x = x;
-            this.y = y;
-        }
-        Vec2.prototype.copy = function () { return new Vec2(this.x, this.y); };
-        Vec2.prototype.add = function (vec) { this.x += vec.x; this.y += vec.y; return this; };
-        Vec2.prototype.mul = function (factor) { this.x *= factor; this.y *= factor; return this; };
-        Vec2.prototype.angle = function () { return Math.atan2(this.y, this.x); };
-        Vec2.prototype.rotate = function (angle) {
-            var x = this.x, y = this.y;
-            var sin = Math.sin, cos = Math.cos;
-            this.x = x * cos(angle) - sin(angle) * y;
-            this.y = x * sin(angle) + cos(angle) * y;
-        };
-        Vec2.prototype.rotateTo = function (v) {
-            var l = this.distance();
-            this.x = Math.cos(v) * l;
-            this.y = Math.sin(v) * l;
-        };
-        Vec2.prototype.distance = function () {
-            var l = Math.sqrt(this.x * this.x + this.y * this.y);
-            return this.discardMinor(l);
-        };
-        Vec2.prototype.discardMinor = function (n) { return (-0.005 < n && n < 0.005) ? 0 : n; };
-        Vec2.prototype.setDistance = function (v) {
-            var l = this.distance();
-            if (l)
-                this.mul(v / l);
-            else
-                this.x = this.y = v;
-        };
-        Vec2.prototype.normalize = function () {
-            var l = this.distance();
-            this.x /= l;
-            this.y /= l;
-            return this;
-        };
-        Vec2.prototype.cycleInBounds = function (vec) {
-            var w = vec.x, h = vec.y; // reassign if outbounds
-            if (this.x > w)
-                this.x = 0;
-            else if (this.x < 0)
-                this.x = w;
-            if (this.y > h)
-                this.y = 0;
-            else if (this.y < 0)
-                this.y = h;
-        };
-        Vec2.prototype.equals = function (vec) {
-            return typeof vec === "object" && (this.x === vec.x && this.y === vec.y);
-        };
-        Vec2.prototype.toString = function () {
-            return "[Vector(" + this.x + ", " + this.y + ") rad=" + this.angle() + ", l=" + this.distance() + "]";
-        };
-        return Vec2;
-    }());
-    var SEC_MS = 1000;
-    var isIE = window.ActiveXObject;
-    function textSet(s, sep) {
-        if (sep === void 0) { sep = " "; }
-        return new Set(s.split(sep));
-    }
+    Vec2.prototype.rotateTo = function (v) {
+        var l = this.distance();
+        this.x = Math.cos(v) * l;
+        this.y = Math.sin(v) * l;
+    };
+    Vec2.prototype.distance = function () {
+        var l = Math.sqrt(this.x * this.x + this.y * this.y);
+        return this.discardMinor(l);
+    };
+    Vec2.prototype.discardMinor = function (n) { return (-0.005 < n && n < 0.005) ? 0 : n; };
+    Vec2.prototype.setDistance = function (v) {
+        var l = this.distance();
+        if (l)
+            this.mul(v / l);
+        else
+            this.x = this.y = v;
+    };
+    Vec2.prototype.normalize = function () {
+        var l = this.distance();
+        this.x /= l;
+        this.y /= l;
+        return this;
+    };
+    Vec2.prototype.cycleInBounds = function (vec) {
+        var w = vec.x, h = vec.y; // reassign if outbounds
+        if (this.x > w)
+            this.x = 0;
+        else if (this.x < 0)
+            this.x = w;
+        if (this.y > h)
+            this.y = 0;
+        else if (this.y < 0)
+            this.y = h;
+    };
+    Vec2.prototype.equals = function (vec) {
+        return typeof vec === "object" && (this.x === vec.x && this.y === vec.y);
+    };
+    Vec2.prototype.toString = function () {
+        return "[Vector(" + this.x + ", " + this.y + ") rad=" + this.angle() + ", l=" + this.distance() + "]";
+    };
+    return Vec2;
+}());
+var SEC_MS = 1000;
+function textSet(s, sep) {
+    if (sep === void 0) { sep = " "; }
+    return new Set(s.split(sep));
+}
+var maths = {
+    radians: function (deg) { return deg * Math.PI / 180; },
+    random: function (first, last) { return Math.floor(Math.random() * (last + 1) + first); },
+    pick: function (a) { return a[maths.random(0, a.length - 1)]; }
+};
+function Asteroids() {
+    var doms = {
+        addStylesheet: function (selector, rules) {
+            var style = document.createElement("style");
+            try {
+                style.innerHTML = selector + "{" + rules + "}";
+            }
+            catch (e) { // https://developer.mozilla.org/en-US/docs/Web/API/CSSStyleSheet#notes
+                style.sheet.addRule(selector, rules);
+            }
+            return document.head.appendChild(style);
+        },
+        removeElement: function (id) { document.getElementById(id).remove(); },
+        px: function (s) { return s + "px"; }
+    };
     var ASTER = "ASTEROIDS";
+    var isIE = window.ActiveXObject;
     var cfg = {
         ignoredTypes: textSet("HTML HEAD TITLE META BODY SCRIPT STYLE LINK SHAPE LINE GROUP IMAGE STROKE FILL SKEW PATH TEXTPATH"),
         hiddenTypes: textSet("BR HR"),
@@ -90,6 +119,8 @@ function Asteroids() {
         cssBlink: ASTER + "BLINK",
         eidNavi: ASTER + "-NAVIGATION",
         eidPoints: ASTER + "-POINTS",
+        eidStyles: ASTER + "YEAHSTYLES",
+        whPlayer: [20, 30],
         speeds: {
             ship: [300, 600],
             bullet: 700,
@@ -102,9 +133,16 @@ function Asteroids() {
             fire: 150,
             blink: 250
         },
+        keyBind: {
+            fire: " ",
+            blink: "b"
+        },
         countLimit: {
             particle: isIE ? 20 : 40,
             maxBullets: isIE ? 10 : 20
+        },
+        timeLimit: {
+            particle: 1000 // and bullet, in NEW refactor
         },
         acc: 300,
         maxSpeed: 600,
@@ -114,26 +152,27 @@ function Asteroids() {
         timeBetweenFire: 150,
         timeBetweenBlink: 250,
         bulletRadius: 2,
+        bulletAlive: 2000,
         maxParticles: isIE ? 20 : 40,
         maxBullets: isIE ? 10 : 20
     };
     var my = this;
-    var w, h, wh;
-    var wPlayer = 20, hPlayer = 30;
+    var w, h, wh; // init in canvasResize
+    var _a = __read(cfg.whPlayer, 2), wPlayer = _a[0], hPlayer = _a[1];
     var playerVerts = [
         [-1 * hPlayer / 2, -1 * wPlayer / 2],
         [-1 * hPlayer / 2, wPlayer / 2],
         [hPlayer / 2, 0]
     ];
     this.flame = { r: [], y: [] };
-    addStylesheet("." + cfg.cssBlink + " ." + cfg.cssEnemy, "outline: 2px dotted red;"); // key B
+    doms.addStylesheet("." + cfg.cssBlink + " ." + cfg.cssEnemy, "outline: 2px dotted red;").id = cfg.eidStyles; // for key B
     this.pos = new Vec2(100, 100);
     this.dir = new Vec2(0, 1);
     this.vel = new Vec2(0, 0);
     this.lastPos = this.pos;
     this.keysPressed = {};
     this.updated = {
-        enemies: false,
+        ids: [],
         flame: 0,
         time: { blink: 0, fire: 0 }
     };
@@ -141,7 +180,6 @@ function Asteroids() {
     this.bullets = [];
     this.enemies = [];
     this.dying = [];
-    this.totalEnemies = 0;
     this.particles = [];
     var canvasResize = function (ev) {
         var hasInit = ev !== null;
@@ -155,27 +193,43 @@ function Asteroids() {
         if (hasInit)
             Object.assign(my.canvas.style, {
                 display: "block",
-                width: w + "px",
-                height: h + "px"
+                width: doms.px(w),
+                height: doms.px(h)
             });
     };
     function updateEnemyIndex() {
-        for (var _i = 0, _a = my.enemies; _i < _a.length; _i++) {
-            var enemy = _a[_i];
-            enemy.classList.remove(cfg.cssEnemy);
+        var e_1, _a, e_2, _b;
+        try {
+            for (var _c = __values(my.enemies), _d = _c.next(); !_d.done; _d = _c.next()) {
+                var enemy = _d.value;
+                enemy.classList.remove(cfg.cssEnemy);
+            }
         }
-        var all = document.body.getElementsByTagName("*");
+        catch (e_1_1) { e_1 = { error: e_1_1 }; }
+        finally {
+            try {
+                if (_d && !_d.done && (_a = _c["return"])) _a.call(_c);
+            }
+            finally { if (e_1) throw e_1.error; }
+        }
         my.enemies = [];
-        for (var i = 0, el = void 0; el = all[i]; i++) {
-            if (!(cfg.ignoredTypes.has(el.tagName.toUpperCase())) && el.prefix !== "g_vml_" && hasOnlyTextualChildren(el) && el.className !== cfg.cssYeah && el.offsetHeight > 0) {
-                //el.aSize = size(el); //unused
-                my.enemies.push(el);
-                el.classList.add(cfg.cssEnemy);
-                if (!el.aAdded) {
-                    el.aAdded = true;
-                    my.totalEnemies++;
+        try {
+            for (var _e = __values(Array.from(document.body.getElementsByTagName("*"))), _f = _e.next(); !_f.done; _f = _e.next()) {
+                var el_1 = _f.value;
+                if (!(el_1 instanceof HTMLElement))
+                    continue;
+                if (!cfg.ignoredTypes.has(el_1.tagName.toUpperCase()) && el_1.prefix !== "g_vml_" && hasOnlyTextualChildren(el_1) && (el_1.className !== cfg.cssYeah) && el_1.offsetHeight > 0) {
+                    my.enemies.push(el_1);
+                    el_1.classList.add(cfg.cssEnemy);
                 }
             }
+        }
+        catch (e_2_1) { e_2 = { error: e_2_1 }; }
+        finally {
+            try {
+                if (_f && !_f.done && (_b = _e["return"])) _b.call(_e);
+            }
+            finally { if (e_2) throw e_2.error; }
         }
     }
     updateEnemyIndex();
@@ -200,12 +254,6 @@ function Asteroids() {
         };
     })();
     createFlames();
-    function applyVisibility(vis) {
-        for (var _i = 0, _a = ASTEROIDS.players; _i < _a.length; _i++) {
-            var p = _a[_i];
-            p.gameContainer.style.visibility = vis;
-        }
-    }
     function cancelEvent(ev) {
         if (ev.preventDefault)
             ev.preventDefault();
@@ -225,11 +273,6 @@ function Asteroids() {
         var a = eventCancellers;
         a[0] = eventListener(document, "keydown", function (ev) {
             my.keysPressed[ev.key] = true;
-            switch (ev.key) {
-                case " ":
-                    my.updated.time.fire = 1;
-                    break;
-            }
             if (keys.has(ev.key))
                 return cancelEvent(ev);
         });
@@ -242,16 +285,32 @@ function Asteroids() {
         });
     }
     function getElementFromPoint(x, y) {
-        applyVisibility("hidden");
+        makeShipsVisible(false);
         var element = document.elementFromPoint(x, y);
         if (!element) {
-            applyVisibility("visible");
+            makeShipsVisible(true);
             return false;
         }
         if (element.nodeType === 3)
             element = element.parentElement;
-        applyVisibility("visible");
+        makeShipsVisible(true);
         return element;
+    }
+    function makeShipsVisible(v) {
+        var e_3, _a;
+        try {
+            for (var _b = __values(ASTEROIDS.players), _c = _b.next(); !_c.done; _c = _b.next()) {
+                var p = _c.value;
+                p.gameContainer.style.visibility = v ? "visible" : "hidden";
+            }
+        }
+        catch (e_3_1) { e_3 = { error: e_3_1 }; }
+        finally {
+            try {
+                if (_c && !_c.done && (_a = _b["return"])) _a.call(_b);
+            }
+            finally { if (e_3) throw e_3.error; }
+        }
     }
     function addParticles(startPos) {
         var time = performance.now();
@@ -280,30 +339,66 @@ function Asteroids() {
         }
         return true;
     }
-    this.gameContainer = document.createElement("div");
-    this.gameContainer.className = cfg.cssYeah;
+    function el(tagName, confs) {
+        var e_4, _a, e_5, _b;
+        var childs = [];
+        for (var _i = 2; _i < arguments.length; _i++) {
+            childs[_i - 2] = arguments[_i];
+        }
+        var e = document.createElement(tagName);
+        if (typeof confs == "function")
+            confs(e);
+        else
+            try {
+                for (var confs_1 = __values(confs), confs_1_1 = confs_1.next(); !confs_1_1.done; confs_1_1 = confs_1.next()) {
+                    var conf = confs_1_1.value;
+                    conf(e);
+                }
+            }
+            catch (e_4_1) { e_4 = { error: e_4_1 }; }
+            finally {
+                try {
+                    if (confs_1_1 && !confs_1_1.done && (_a = confs_1["return"])) _a.call(confs_1);
+                }
+                finally { if (e_4) throw e_4.error; }
+            }
+        try {
+            for (var childs_1 = __values(childs), childs_1_1 = childs_1.next(); !childs_1_1.done; childs_1_1 = childs_1.next()) {
+                var e1 = childs_1_1.value;
+                e.appendChild(e1);
+            }
+        }
+        catch (e_5_1) { e_5 = { error: e_5_1 }; }
+        finally {
+            try {
+                if (childs_1_1 && !childs_1_1.done && (_b = childs_1["return"])) _b.call(childs_1);
+            }
+            finally { if (e_5) throw e_5.error; }
+        }
+        return e;
+    }
+    var sets = function (k) { return function (v) { return function (e) { e[k] = v; }; }; }, withClass = sets("className"), withText = sets("innerText"), withID = sets("id"), withStyle = function (o) { return function (e) { Object.assign(e.style, o); }; };
+    this.gameContainer = el("div", withClass(cfg.cssYeah), this.canvas = el("canvas", [withClass(cfg.cssYeah), withStyle({
+            position: "fixed",
+            top: "0px",
+            left: "0px",
+            bottom: "0px",
+            right: "0px",
+            zIndex: "10000"
+        })]));
     document.body.appendChild(this.gameContainer);
-    this.canvas = document.createElement("canvas");
-    this.canvas.className = cfg.cssYeah;
     canvasResize(null);
-    Object.assign(this.canvas.style, {
-        position: "fixed",
-        top: "0px",
-        left: "0px",
-        bottom: "0px",
-        right: "0px",
-        zIndex: "10000"
-    });
     this.canvas.addEventListener("mousedown", function (ev) {
-        var message = document.createElement("span");
-        message.style.position = "absolute";
-        message.style.color = "red";
-        message.innerHTML = "Press Esc to Quit";
-        document.body.appendChild(message);
         var x = ev.pageX || (ev.clientX + document.documentElement.scrollLeft);
         var y = ev.pageY || (ev.clientY + document.documentElement.scrollTop);
-        message.style.left = x - message.offsetWidth / 2 + "px";
-        message.style.top = y - message.offsetHeight / 2 + "px";
+        var message = document.body.appendChild(el("span", [
+            withText("Press Esc to Quit"),
+            function (it) { return withStyle({
+                color: "red",
+                position: "absolute",
+                left: doms.px(x - it.offsetWidth / 2), top: doms.px(y - it.offsetHeight / 2)
+            })(it); }
+        ]));
         setTimeout(function () {
             try {
                 message.parentNode.removeChild(message);
@@ -311,33 +406,29 @@ function Asteroids() {
             catch (e) { }
         }, 1000);
     }, false);
-    this.gameContainer.appendChild(this.canvas);
     this.ctx = this.canvas.getContext("2d");
     this.ctx.fillStyle = "black";
     this.ctx.strokeStyle = "black";
     if (!document.getElementById(cfg.eidNavi)) { // game right-corner
-        this.navigation = document.createElement("div");
-        this.navigation.id = cfg.eidNavi;
-        this.navigation.className = cfg.cssYeah;
-        Object.assign(this.navigation.style, {
-            fontFamily: "Arial,sans-serif",
-            position: "fixed",
-            zIndex: "10001",
-            bottom: "20px",
-            right: "10px",
-            textAlign: "right"
-        });
-        this.navigation.innerHTML = "(Press Esc to Quit) ";
+        this.navigation = el("div", [
+            withID(cfg.eidNavi), withClass(cfg.cssYeah),
+            withStyle({
+                fontFamily: "Arial,sans-serif",
+                position: "fixed",
+                zIndex: "10001",
+                bottom: "20px",
+                right: "10px",
+                textAlign: "right"
+            }),
+            withText("(Press Esc to Quit) ")
+        ], this.points = el("span", [
+            withID(cfg.eidPoints), withClass(cfg.cssYeah),
+            withStyle({ font: "28pt Arial, sans-serif", fontWeight: "bold" })
+        ]));
         this.gameContainer.appendChild(this.navigation);
-        this.points = document.createElement("span");
-        this.points.id = cfg.eidPoints;
-        this.points.style.font = "28pt Arial, sans-serif";
-        this.points.style.fontWeight = "bold";
-        this.points.className = cfg.cssYeah;
-        this.navigation.appendChild(this.points);
     }
     else {
-        this.navigation = document.getElementById(cfg.eidNavi);
+        this.navigation = document.getElementById(cfg.eidNavi); // remove this partial-implemented feature (gameContainer&canvas is not checked), maybe?
         this.points = document.getElementById(cfg.eidPoints);
     }
     setScore();
@@ -418,7 +509,25 @@ function Asteroids() {
         next = function () { return requestAnimationFrame(handler); };
         return next;
     }
+    function roundUpdate(id, op) {
+        my.updated.ids.push(id);
+        my.updated[id] = false;
+        return function () { if (my.updated[id])
+            return; op(); my.updated[id] = true; }; // scheudled to remove
+    }
+    var updateEnemies = roundUpdate("enemies", updateEnemyIndex);
+    function calcMoveForward(phy, delta) {
+        var bv = phy.dir.copy();
+        bv.setDistance(cfg.bulletSpeed * delta);
+        bv.add(phy.startVel.copy().mul(delta));
+        phy.pos.add(bv).cycleInBounds(wh);
+    }
+    function calcExplode(phy, delta) {
+        phy.pos.add(phy.dir.copy().mul(cfg.particleSpeed * delta * Math.random()));
+    }
     this.update = function (nowTime, delta, next) {
+        var e_6, _a;
+        var _this = this;
         var forceChange = false;
         var drawFlame = false;
         if (nowTime - this.updated.flame > 50) {
@@ -442,32 +551,29 @@ function Asteroids() {
             forceChange = true;
             this.dir.rotate(maths.radians(cfg.rotSpeed * delta));
         }
-        if (this.keysPressed[" "] && nowTime - this.updated.time.fire > cfg.timeBetweenFire) {
-            this.bullets.unshift({
-                dir: this.dir.copy(),
-                pos: this.pos.copy(),
-                startVel: this.vel.copy(),
+        function keyPressedAction(id, op) {
+            if (my.keysPressed[cfg.keyBind[id]] && nowTime - my.updated.time[id] > cfg.rateLimit[id]) {
+                op();
+                my.updated.time[id] = nowTime;
+            }
+        }
+        keyPressedAction("fire", function () {
+            if (_this.bullets.length + 1 > cfg.maxBullets) {
+                return;
+            }
+            _this.bullets.unshift({
+                dir: _this.dir.copy(),
+                pos: _this.pos.copy(),
+                startVel: _this.vel.copy(),
                 cameAlive: nowTime
             });
-            this.updated.time.fire = nowTime;
-            if (this.bullets.length > cfg.maxBullets) {
-                this.bullets.pop();
-            }
-        }
-        if (this.keysPressed["b"]) {
-            if (!this.updated.enemies) {
-                updateEnemyIndex();
-                this.updated.enemies = true;
-            }
+        });
+        keyPressedAction("blink", function () {
+            updateEnemies();
             forceChange = true;
-            if (nowTime - this.updated.time.blink > cfg.timeBetweenBlink) {
-                document.body.classList.toggle(cfg.cssBlink);
-                this.updated.time.blink = nowTime;
-            }
-        }
-        else {
-            this.updated.enemies = false;
-        }
+            document.body.classList.toggle(cfg.cssBlink);
+            _this.updated.time.blink = nowTime;
+        });
         if (this.keysPressed["Escape"]) {
             destroy.apply(this);
             return;
@@ -492,38 +598,35 @@ function Asteroids() {
             window.scrollTo(this.scrollPos.x, this.scrollPos.y - h * 0.75);
             this.pos.y = h;
         }
-        for (var i = this.bullets.length - 1; i >= 0; i--) {
-            if (nowTime - this.bullets[i].cameAlive > 2000) {
-                this.bullets.splice(i, 1);
+        for (var i = this.bullets.length - 1; i != -1; i--) {
+            var bullet = this.bullets[i];
+            if (nowTime - bullet.cameAlive > cfg.bulletAlive) { // Time to live
+                this.bullets.splice(i, 1); // require idx
                 forceChange = true;
                 continue;
             }
-            var bulletVel = this.bullets[i].dir.copy();
-            bulletVel.setDistance(cfg.bulletSpeed * delta);
-            bulletVel.add(this.bullets[i].startVel.copy().mul(delta));
-            this.bullets[i].pos.add(bulletVel).cycleInBounds(wh);
-            var murdered = getElementFromPoint(this.bullets[i].pos.x, this.bullets[i].pos.y);
+            calcMoveForward(bullet, delta);
+            var murdered = getElementFromPoint(bullet.pos.x, bullet.pos.y);
             if (murdered && murdered.tagName && !(cfg.ignoredTypes.has(murdered.tagName.toUpperCase())) && hasOnlyTextualChildren(murdered) && murdered.className !== cfg.cssYeah) {
-                addParticles(this.bullets[i].pos);
+                addParticles(bullet.pos);
                 this.dying.push(murdered); // key space
                 this.bullets.splice(i, 1);
                 continue;
             }
         }
-        if (this.dying.length) {
-            for (var i = this.dying.length - 1; i >= 0; i--) {
-                try {
-                    if (this.dying[i].parentNode)
-                        ASTEROIDS.nKill++;
-                    this.dying[i].parentNode.removeChild(this.dying[i]);
-                }
-                catch (e) { }
+        for (var i = this.dying.length - 1; i != -1; i--) {
+            try {
+                if (this.dying[i].parentNode)
+                    ASTEROIDS.nKill++;
+                this.dying[i].parentNode.removeChild(this.dying[i]);
             }
-            setScore();
-            this.dying = [];
+            catch (e) { }
         }
-        for (var i = this.particles.length - 1; i >= 0; i--) {
-            this.particles[i].pos.add(this.particles[i].dir.copy().mul(cfg.particleSpeed * delta * Math.random()));
+        setScore();
+        this.dying = [];
+        for (var i = this.particles.length - 1; i != -1; i--) {
+            var particle = this.particles[i];
+            calcExplode(particle, delta);
             if (nowTime - this.particles[i].cameAlive > 1000) {
                 this.particles.splice(i, 1);
                 forceChange = true;
@@ -543,15 +646,38 @@ function Asteroids() {
             }
         }
         this.lastPos = this.pos;
+        try {
+            for (var _b = __values(this.updated.ids), _c = _b.next(); !_c.done; _c = _b.next()) {
+                var k = _c.value;
+                this.updated[k] = false;
+            }
+        }
+        catch (e_6_1) { e_6 = { error: e_6_1 }; }
+        finally {
+            try {
+                if (_c && !_c.done && (_a = _b["return"])) _a.call(_b);
+            }
+            finally { if (e_6) throw e_6.error; }
+        }
         next();
     };
     refreshMainloop(this.update.bind(this))();
     function destroy() {
-        for (var _i = 0, eventCancellers_1 = eventCancellers; _i < eventCancellers_1.length; _i++) {
-            var op = eventCancellers_1[_i];
-            op();
+        var e_7, _a;
+        try {
+            for (var eventCancellers_1 = __values(eventCancellers), eventCancellers_1_1 = eventCancellers_1.next(); !eventCancellers_1_1.done; eventCancellers_1_1 = eventCancellers_1.next()) {
+                var op = eventCancellers_1_1.value;
+                op();
+            }
         }
-        removeElement("ASTEROIDSYEAHSTYLES");
+        catch (e_7_1) { e_7 = { error: e_7_1 }; }
+        finally {
+            try {
+                if (eventCancellers_1_1 && !eventCancellers_1_1.done && (_a = eventCancellers_1["return"])) _a.call(eventCancellers_1);
+            }
+            finally { if (e_7) throw e_7.error; }
+        }
+        doms.removeElement(cfg.eidStyles);
         document.body.classList.remove(cfg.cssYeah);
         this.gameContainer.parentNode.removeChild(this.gameContainer);
     }
