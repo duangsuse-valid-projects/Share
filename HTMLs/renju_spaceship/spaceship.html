@@ -13,7 +13,6 @@
 }
 .ball { width: 40px; height: 40px; }
   </style>
-  <script defer src="asteroids.js"></script>
 </head>
 <body>
 <div class="main">
@@ -82,6 +81,8 @@ redoByPressKey('2', () => { // add rand balls
   for (let eTable of eTables)
   for (let row of eTable.children) if (row.childElementCount != 0) { randPick(row.children).appendChild(drawBall(randPick(eBallDef.children).id)); }
 });
+
+document.head.appendChild(document.createElement("script")).src = window.location.search.substr(1/*?*/)||"asteroids.js";
 </script>
 </body>
 </html>

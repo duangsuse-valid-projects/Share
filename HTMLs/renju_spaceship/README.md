@@ -10,3 +10,20 @@
 
 手机触屏估计下个版本支持吧
 
+## 大太空船 [👾👾](spaceship.html?spaceship.js)
+
+它是更激进的重构，预期会支持触摸屏，能重显隐藏的元素（不止能用于打掉广告）
+
+Refactor Notes[0]:
+- Use physics-style naming
+- Remove unnecessary newlines
+- Rename Vector to Vec2
+- Remove unused Vector methods, Remove class Line
+- Resort Vec2 methods and config HTML tagName s
+- Move radians, random(range) to object maths
+- L510: Replace toggleBlinkStyle() with DOMTokenList.toggle, Remove unused at L150, and updated.blink.isActive
+- Replace updated.blink.time with updated.time.blink
+- Replace Logic `time += delta * 1000; if(time>tDelay) {op();time=0;}` with (the same of firedAt)
+- Move this.firedAt into updated.time
+- Replace (w,h) related double-init with check event-arg in canvasResize
+- Extract ALL "ASTEROIDS" const-string prefix
