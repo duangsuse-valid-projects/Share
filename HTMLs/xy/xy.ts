@@ -5,13 +5,14 @@ const vp_xy = [0, 0], scale_xy = [1, 1];
 const wh = [0, 0], keyWH = ["width", "height"];
 const cfg = {
   moveSpeed: 60,
-  axis: 0b111, grid: "all"/*none,some,polar*/,
-  lineW: 2, markerW: 4,
+  axis: 0b1_111, grid: "all"/*none,some,polar*/,
+  lineW: 2, markerW: 4, arrowL: 10,
   gridWDiv: 5, miniorGridLDiv: 4,
   noLinecolor: "gray", axisColor: "black", miniorGridColor: "#66ccff",
-  tickStepXY: [0.5, 0.5], tickTextFont: "12pt sans",
+  tickStepXY: [0.5, 0.5], tickTextFont: "12pt sans", _fontSize: 0,
   numToStr: n=>n.toString(), numPrec: 5, showNum: null,
-  grabFocus: true, epsilon: Math.pow(2, -7) // not 2^-52
+  grabFocus: true, noDrag: false, epsilon: Math.pow(2, -7), // not 2^-52
+  kmXmove: "Shift", kmScale: "Control"
 };
 function assignAry(a, ...vs) { for (let i=0; i<a.length; i++) a[i] = vs[i]; }
 function px(v) { return v+"px"; }
@@ -38,6 +39,7 @@ addUpdated(window, "resize", () => {
   if (cfg.grabFocus) eGraph.focus();
 
   cfg.showNum = (n:number) => { let ns=cfg.numToStr(n); return (ns.length<cfg.numPrec)? ns : (n.toPrecision(cfg.numPrec) as any)/1; };
+  cfg._fontSize = parseInt(cfg.tickTextFont)*1.2/*line-height: normal;*/;
   g = eGraph.getContext("2d");
   g.lineWidth = cfg.lineW; g.font = cfg.tickTextFont;
   onDraw.begin();
@@ -52,10 +54,11 @@ function remeberKeyPressOn(e, d, prefix = "key") {
   };
   for (let k of ["down", "up"]) e.addEventListener(prefix+k, setsKey(k=="down"));
 }
-function bindkeyNavigation(e, vp, scale, km_xmove, km_scale) {
+function bindkeyNavigation(e, vp, scale, cfg) {
+  const {kmXmove, kmScale} = cfg;
   let pressed = {};
   let prefix = (!!window.PointerEvent)? "pointer":"mouse", prefixBtn = prefix+"0";
-  for (let k of [km_xmove, km_scale, prefixBtn]) pressed[k] = false;
+  for (let k of [kmXmove, kmScale, prefixBtn]) pressed[k] = false;
   remeberKeyPressOn(e, pressed);
   remeberKeyPressOn(e, pressed, prefix);
   let eId = eGraph.id;
@@ -63,8 +66,8 @@ function bindkeyNavigation(e, vp, scale, km_xmove, km_scale) {
     if ((ev.target as HTMLElement).id != eId) return;
     ev.preventDefault();
     let v = ev.deltaY; // xy offset
-    let xmove = pressed[km_xmove];
-    if (pressed[km_scale]) {
+    let xmove = pressed[kmXmove];
+    if (pressed[kmScale]) {
       if (v<0) v=1/-v; // scale down
       if (!xmove) scale[0]*=v; scale[1]*=v/*y-only*/;
     } else {
@@ -76,7 +79,7 @@ function bindkeyNavigation(e, vp, scale, km_xmove, km_scale) {
   const rememberMPos = (ev:MouseEvent) => assignAry(mousePos0, ev.offsetX, ev.offsetY);
   e.addEventListener(prefix+"down", rememberMPos);
   e.addEventListener(prefix+"move", (ev:MouseEvent) => {
-    if (!pressed[prefixBtn]) return;
+    if (!pressed[prefixBtn] || cfg.noDrag) return;
     let [x0, y0] = mousePos0;
     vp[0]+=(ev.offsetX-x0); vp[1]-=(ev.offsetY-y0);
     rememberMPos(ev);
@@ -88,12 +91,11 @@ function bindkeyNavigation(e, vp, scale, km_xmove, km_scale) {
       let delta = pinchDist - v;
       let d = delta/Math.min(wh[0], wh[1]);
       scale[0]+=d; scale[1]+=d;
-    }
-    pinchDist = v;
-    onDraw.begin();
+      onDraw.begin();
+    } else { pinchDist = v; }
   });
 }
-bindkeyNavigation(eGraph, vp_xy, scale_xy, "Shift", "Control");
+bindkeyNavigation(eGraph, vp_xy, scale_xy, cfg);
 
 function bindPinch(e:HTMLElement, op: (dist:number)=>void) {
   let scaling = false;
@@ -114,6 +116,21 @@ type Func = (x:number) => number
 const y_funcs: [string,Func,number,string][] = [["sin", Math.sin, 0.01, "red"], ["x**2", x=>x*x, 0.1, "green"]];
 const ybounds = [0, 0]; // for y axis, per session (no reset on redraw)
 
+const drawArrow = (g:CanvasRenderingContext2D, p1, p2, l) => {
+  let [x1, y1] = p1, [x2, y2] = p2;
+  let a = (x2 - x1), b = (y2 - y1);
+  let
+    ang = Math.atan2(b, a),
+    hyp = Math.sqrt(a*a + b*b); g.save();
+  g.translate(x1, y1); g.rotate(ang);
+  let x = hyp-l;
+  g.moveTo(x, 0);
+  g.lineTo(x, l);
+  g.lineTo(hyp, 0);
+  g.lineTo(x, -l);
+  g.restore();
+};
+
 onDraw.begin = () => {
   let [w, h] = wh, [vx, vy] = vp_xy; // unit: px
   let [kx, ky] = scale_xy;
@@ -132,17 +149,28 @@ onDraw.begin = () => {
     stroke = () => { g.stroke(); g.closePath(); },
     withStroke = (s, op) => { let old = g.strokeStyle; g.strokeStyle = s; op(); g.strokeStyle = old; };
 
-  const {axis, grid, axisColor, markerW, gridWDiv, miniorGridLDiv, miniorGridColor, tickStepXY: [tick_deltaX, tick_deltaY], showNum, epsilon} = cfg;
-  const strokeGrid = () => { g.lineWidth/=gridWDiv; stroke(); g.lineWidth*=gridWDiv; }, two = 2;
+  const {axis, grid, axisColor, markerW, arrowL, gridWDiv, miniorGridLDiv, miniorGridColor, tickStepXY: [tick_deltaX, tick_deltaY], showNum, epsilon} = cfg;
+  const arrowMode = (axis >> 3/*bit for x,y,text*/);
+  const
+    strokeGrid = () => { g.lineWidth/=gridWDiv; stroke(); g.lineWidth*=gridWDiv; },
+    drawsArrow = (v, n, idx) => {
+      let _1st = (idx==0);
+      let a1 = _1st? [v, n] : [0, v]; // (sx h 0) [sx,h], [sx,0]
+      let a2 = _1st? [v, 0] : [n, v]; // (sy w 1) [0,sy], [w,sy]
+      drawArrow(g, a1, a2, arrowL);
+      if (arrowMode==0b1) drawArrow(g, a2, a1, arrowL);
+      g.fill();
+    };
   g.textBaseline = "top";
   let hasL = axis & 0b1, allGrid = (grid=="all"), someGrid = (allGrid||grid=="some");
-  const drawingTicks = true; // for if(){} code readability
+  const drawingTicks = true, two = 2; // for if(){} code readability
 
   for (let [code, y_func, x_delta, color] of y_funcs) {
     g.strokeStyle = axisColor; // Draw x axis!
-    if (axis & 0b010) {
+    out:while (axis & 0b010) {
       newPath(); g.textAlign = "center";
       let sy = h-h*(x/w+kWY)/ky; //fromPy((x-0)/w/*~intoPx*/);
+      if (Number.isNaN(sy)) break out;
       let markerD = markerW;
       if (sy < 0) { sy=0; }
       else if (sy > (h-markerW)) {
@@ -150,6 +178,7 @@ onDraw.begin = () => {
         markerD = -markerW;
       }
       g.moveTo(0, sy); g.lineTo(w, sy); stroke();
+      if (arrowL!=0) drawsArrow(sy, w, 1);
       newPath();
       for (x=x0; x<ww; x+=x_delta) {
         let sx = fromPx(x);
@@ -159,10 +188,14 @@ onDraw.begin = () => {
       if (drawingTicks) {
         newPath();
         x=x0, x1=ww+tick_deltaX;
+        let lastSx1 = 0; // right-collide=remove
         for (; x<x1; x+=tick_deltaX) {
           let sx = fromPx(x);
           lineVert(sx, sy, markerD*two);
-          if (hasL) g.fillText(showNum(x), sx, sy+markerD*two);
+          if (hasL) {
+            let sn = showNum(x), {width} = g.measureText(sn);
+            if (lastSx1<=sx) { g.fillText(sn, sx, sy+markerD*two); lastSx1 = sx+width; }
+          }
           if (someGrid) lineVert(sx, 0, h);
         }
         strokeGrid();
@@ -173,6 +206,7 @@ onDraw.begin = () => {
           withStroke(miniorGridColor, strokeGrid);  
         }
       }
+      break;
     }
     newPath(); g.strokeStyle = color;
     for (x=x0, x1=ww; x<x1; x+=x_delta) {
@@ -201,13 +235,17 @@ onDraw.begin = () => {
       g.textAlign = "right";
     }
     g.moveTo(sx, 0); g.lineTo(sx, h); stroke();
+    if (arrowL!=0) drawsArrow(sx, h, 0);
     if (drawingTicks) {
       newPath();
       let y=ybounds[0], y1=ybounds[1]+tick_deltaY;
+      let lastSy1 = h;
       for (; y<y1; y+=tick_deltaY) {
         let sy = fromPy(y);
-        if (hasL&&!maths.inboundsPN(epsilon,y)) g.fillText(showNum(y), sx+markerD*two, sy+markerD);
         lineHorz(sx, sy, markerD*two);
+        if (hasL&&!maths.inboundsPN(epsilon,y)&&(lastSy1>=sy)) { // sy has negate dir
+          g.fillText(showNum(y), sx+markerD*two, sy+markerD); lastSy1 = sy-cfg._fontSize;
+        }
         if (someGrid) lineHorz(0, sy, w);
       }
       strokeGrid();
