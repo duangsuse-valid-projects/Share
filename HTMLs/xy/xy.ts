@@ -7,10 +7,10 @@ const cfg = {
   moveSpeed: 60,
   axis: 0b1_111, grid: "all"/*none,some,polar*/,
   lineW: 2, markerW: 4, arrowL: 10,
-  gridWDiv: 5, miniorGridLDiv: 4,
+  axisWDiv: 1, gridWDiv: 5, miniorGridLDiv: 4,
   noLinecolor: "gray", axisColor: "black", miniorGridColor: "#66ccff",
   tickStepXY: [0.5, 0.5], tickTextFont: "12pt sans", _fontSize: 0,
-  numToStr: n=>n.toString(), numPrec: 5, showNum: null,
+  numToStr: n=>n.toString(), numPrec: 5, showNum: null, goHome: null,
   grabFocus: true, noDrag: false, epsilon: Math.pow(2, -7), // not 2^-52
   kmXmove: "Shift", kmScale: "Control"
 };
@@ -39,6 +39,14 @@ addUpdated(window, "resize", () => {
   if (cfg.grabFocus) eGraph.focus();
 
   cfg.showNum = (n:number) => { let ns=cfg.numToStr(n); return (ns.length<cfg.numPrec)? ns : (n.toPrecision(cfg.numPrec) as any)/1; };
+  cfg.goHome = () => {
+    const kxInit = 3;
+    let [w, h] = wh;
+    let rwh = w/h;
+    assignAry(scale_xy, kxInit*rwh, kxInit);
+    assignAry(vp_xy, w/2, h);
+    onDraw.begin();
+  };
   cfg._fontSize = parseInt(cfg.tickTextFont)*1.2/*line-height: normal;*/;
   g = eGraph.getContext("2d");
   g.lineWidth = cfg.lineW; g.font = cfg.tickTextFont;
@@ -113,7 +121,7 @@ function bindPinch(e:HTMLElement, op: (dist:number)=>void) {
 
 ////
 type Func = (x:number) => number
-const y_funcs: [string,Func,number,string][] = [["sin", Math.sin, 0.01, "red"], ["x**2", x=>x*x, 0.1, "green"]];
+const y_funcs: [string,Func,number,string,string][] = [["sin", Math.sin, 0.01, "red",null], ["x**2", x=>x*x, 0.1, "green","dot"]];
 const ybounds = [0, 0]; // for y axis, per session (no reset on redraw)
 
 const drawArrow = (g:CanvasRenderingContext2D, p1, p2, l) => {
@@ -140,7 +148,7 @@ onDraw.begin = () => {
     fromPy = py => h-h*(py+kWY/*move speed*/)/ky,
     intoPy = y => (-(y-h)/h)*ky-vy/w;
   // orig func: -((py+vy/w*ky)/ky)*h +h
-  let x, x1, x0 = intoPx(0), ww  = intoPx(w), y;
+  let x, x1, x0 = intoPx(0), ww  = intoPx(w);
 
   const
     lineVert/*-ical*/ = (sx,sy, l) => { g.moveTo(sx,sy); g.lineTo(sx, sy+l); },
@@ -149,7 +157,7 @@ onDraw.begin = () => {
     stroke = () => { g.stroke(); g.closePath(); },
     withStroke = (s, op) => { let old = g.strokeStyle; g.strokeStyle = s; op(); g.strokeStyle = old; };
 
-  const {axis, grid, axisColor, markerW, arrowL, gridWDiv, miniorGridLDiv, miniorGridColor, tickStepXY: [tick_deltaX, tick_deltaY], showNum, epsilon} = cfg;
+  const {axis, grid, axisColor, markerW, arrowL, axisWDiv, gridWDiv, miniorGridLDiv, miniorGridColor, tickStepXY: [tick_deltaX, tick_deltaY], showNum, epsilon} = cfg;
   const arrowMode = (axis >> 3/*bit for x,y,text*/);
   const
     strokeGrid = () => { g.lineWidth/=gridWDiv; stroke(); g.lineWidth*=gridWDiv; },
@@ -165,8 +173,9 @@ onDraw.begin = () => {
   let hasL = axis & 0b1, allGrid = (grid=="all"), someGrid = (allGrid||grid=="some");
   const drawingTicks = true, two = 2; // for if(){} code readability
 
-  for (let [code, y_func, x_delta, color] of y_funcs) {
+  for (let [code, y_func, x_delta, color, mode] of y_funcs) {
     g.strokeStyle = axisColor; // Draw x axis!
+    g.lineWidth /= axisWDiv;
     out:while (axis & 0b010) {
       newPath(); g.textAlign = "center";
       let sy = h-h*(x/w+kWY)/ky; //fromPy((x-0)/w/*~intoPx*/);
@@ -208,24 +217,38 @@ onDraw.begin = () => {
       }
       break;
     }
-    newPath(); g.strokeStyle = color;
-    for (x=x0, x1=ww; x<x1; x+=x_delta) {
-      y = y_func(x);
+    g.lineWidth *= axisWDiv;
+    const getSy = (x:number) => {
+      let y = y_func(x);
       if (y<ybounds[0]) ybounds[0] = y;
       else if (y>ybounds[1]) ybounds[1] = y;
-      g.lineTo(fromPx(x), fromPy(y)); // Draw func!
-    }
-    stroke();
-    if (fromPx(x1 - (x-x_delta)) > 1) { // func: Render hor-end line
-      newPath(); g.strokeStyle = cfg.noLinecolor;
-      let sy = fromPy(y);
-      g.moveTo(fromPx(x-x_delta), sy);
-      g.lineTo(w, sy);
+      return fromPy(y);
+    };
+    newPath(); g.strokeStyle = color;
+    switch (mode) {
+      case null:
+      let y = 0;
+      for (x=x0, x1=ww; x<x1; x+=x_delta) { y = getSy(x); g.lineTo(fromPx(x), y); } // Draw func!
       stroke();
+      if (fromPx(x1 - (x-x_delta)) > 1) { // func: Render hor-end line
+        newPath(); g.strokeStyle = cfg.noLinecolor;
+        let sy = fromPy(y);
+        g.moveTo(fromPx(x-x_delta), sy);
+        g.lineTo(w, sy);
+        stroke();
+      }
+      break;
+      case "dot":
+      let oldFill = g.fillStyle; g.fillStyle = color;
+      let l = g.lineWidth*two;
+      for (x=x0, x1=ww; x<x1; x+=x_delta) { g.fillRect(fromPx(x), getSy(x), l, l); } // Draw dotted func!
+      g.fillStyle = oldFill;
+      break;
     }
   }
   g.strokeStyle = axisColor; // Draw y axis! slight different from above
   if (axis & 0b100) {
+    g.lineWidth /= axisWDiv;
     newPath(); g.textAlign = "left";
     let sx = fromPx(0);
     let markerD = markerW;
@@ -234,7 +257,7 @@ onDraw.begin = () => {
       sx=w; markerD=-markerW;
       g.textAlign = "right";
     }
-    g.moveTo(sx, 0); g.lineTo(sx, h); stroke();
+    g.moveTo(sx, 0); g.lineTo(sx, h); stroke(); g.lineWidth *= axisWDiv;
     if (arrowL!=0) drawsArrow(sx, h, 0);
     if (drawingTicks) {
       newPath();
