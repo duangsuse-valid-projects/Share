@@ -9,10 +9,10 @@ const cfg = {
   lineW: 2, markerW: 4, arrowL: 10,
   axisWDiv: 1, gridWDiv: 5, miniorGridLDiv: 4,
   noLinecolor: "gray", axisColor: "black", miniorGridColor: "#66ccff",
-  tickStepXY: [0.5, 0.5], tickTextFont: "12pt sans", _fontSize: 0,
+  tickStepXY: [0.5, 0.5], tickTextFont: "12pt sans", _fontSize: 0, _scaleKeep: 1,
   numToStr: n=>n.toString(), numPrec: 5, showNum: null, goHome: null,
   grabFocus: true, noDrag: false, epsilon: Math.pow(2, -7), // not 2^-52
-  kmXmove: "Shift", kmScale: "Control"
+  kmXmove: "Shift", kmScale: "Control", kmScaleKeep: "Alt"
 };
 function assignAry(a, ...vs) { for (let i=0; i<a.length; i++) a[i] = vs[i]; }
 function px(v) { return v+"px"; }
@@ -31,6 +31,7 @@ const maths = {
 };
 
 let g: CanvasRenderingContext2D;
+const ybounds = [0, 0]; // for y axis, per session (no reset on redraw)
 const onDraw = { begin: ()=>console.log(vp_xy, scale_xy), end: maths.nop };
 addUpdated(window, "resize", () => {
   let e = document.documentElement;
@@ -38,14 +39,19 @@ addUpdated(window, "resize", () => {
   for (let i in keyWH) { let k=keyWH[i], v=wh[i]; eGraph[k] = v; eGraph.style[k] = px(v); }
   if (cfg.grabFocus) eGraph.focus();
 
-  cfg.showNum = (n:number) => { let ns=cfg.numToStr(n); return (ns.length<cfg.numPrec)? ns : (n.toPrecision(cfg.numPrec) as any)/1; };
+  const {numToStr, numPrec} = cfg;
+  cfg.showNum = (n:number) => { let ns=numToStr(n); return (ns.length<numPrec)? ns : (n.toPrecision(numPrec) as any)/1; };
+  let [w, h] = wh;
+  let rwh = w/h;
   cfg.goHome = () => {
-    const kxInit = 3;
-    let [w, h] = wh;
-    let rwh = w/h;
-    assignAry(scale_xy, kxInit*rwh, kxInit);
-    assignAry(vp_xy, w/2, h);
+    const kyInit = 6; // home sweet home
+    assignAry(scale_xy, kyInit*rwh, kyInit);
+    assignAry(vp_xy, w/2, w/2); // tested using: div=(a)=>a[0]/a[1]; [wh,scale_xy,vp_xy].map(div)
+    assignAry(ybounds, 0, 0);
+    cfg._scaleKeep = 1;
+    assignAry(cfg.tickStepXY, 0.5, 0.5);
     onDraw.begin();
+    eGraph.focus();
   };
   cfg._fontSize = parseInt(cfg.tickTextFont)*1.2/*line-height: normal;*/;
   g = eGraph.getContext("2d");
@@ -56,28 +62,29 @@ observeProperty(onDraw, "begin", (v) => v());
 
 function remeberKeyPressOn(e, d, prefix = "key") {
   const setsKey = (v) => (ev) => {
-    let k = (ev instanceof MouseEvent)? `${prefix}${ev.button}` : ev.key;
+    let k = (ev instanceof MouseEvent||ev instanceof PointerEvent)? `${prefix}${ev.button}` : ev.key;
     if (k in d) { ev.preventDefault(); d[k] = v; }
     if (d["Shift"]) d["Shift"] = ev.shiftKey; // fixes? shift keyup
   };
   for (let k of ["down", "up"]) e.addEventListener(prefix+k, setsKey(k=="down"));
 }
 function bindkeyNavigation(e, vp, scale, cfg) {
-  const {kmXmove, kmScale} = cfg;
+  const {kmXmove, kmScale, kmScaleKeep} = cfg;
   let pressed = {};
   let prefix = (!!window.PointerEvent)? "pointer":"mouse", prefixBtn = prefix+"0";
-  for (let k of [kmXmove, kmScale, prefixBtn]) pressed[k] = false;
+  for (let k of [kmXmove, kmScale, kmScaleKeep, prefixBtn]) pressed[k] = false;
   remeberKeyPressOn(e, pressed);
   remeberKeyPressOn(e, pressed, prefix);
   let eId = eGraph.id;
   window.addEventListener("wheel", (ev:WheelEvent) => {
     if ((ev.target as HTMLElement).id != eId) return;
-    ev.preventDefault();
+    if (!("ontouchstart" in window)) ev.preventDefault();
     let v = ev.deltaY; // xy offset
     let xmove = pressed[kmXmove];
     if (pressed[kmScale]) {
       if (v<0) v=1/-v; // scale down
       if (!xmove) scale[0]*=v; scale[1]*=v/*y-only*/;
+      if (pressed[kmScaleKeep]) { let [dx, dy] = cfg.tickStepXY; assignAry(cfg.tickStepXY, dx*v, dy*v); cfg._scaleKeep += v; }
     } else {
       vp[xmove? 0 : 1] += v*cfg.moveSpeed*(xmove? -1 : 1);
     }
@@ -104,8 +111,9 @@ function bindkeyNavigation(e, vp, scale, cfg) {
   });
 }
 bindkeyNavigation(eGraph, vp_xy, scale_xy, cfg);
+eGraph.addEventListener("keydown", (ev) => { if (ev.key == "Home") cfg.goHome(); });
 
-function bindPinch(e:HTMLElement, op: (dist:number)=>void) {
+function bindPinch(e:HTMLElement, op: (dist:number)=>void) { // helper
   let scaling = false;
   e.addEventListener("touchstart", (ev) => { scaling = (ev.touches.length==2); });
   e.addEventListener("touchmove", (ev) => {
@@ -122,7 +130,6 @@ function bindPinch(e:HTMLElement, op: (dist:number)=>void) {
 ////
 type Func = (x:number) => number
 const y_funcs: [string,Func,number,string,string][] = [["sin", Math.sin, 0.01, "red",null], ["x**2", x=>x*x, 0.1, "green","dot"]];
-const ybounds = [0, 0]; // for y axis, per session (no reset on redraw)
 
 const drawArrow = (g:CanvasRenderingContext2D, p1, p2, l) => {
   let [x1, y1] = p1, [x2, y2] = p2;
@@ -160,7 +167,7 @@ onDraw.begin = () => {
   const {axis, grid, axisColor, markerW, arrowL, axisWDiv, gridWDiv, miniorGridLDiv, miniorGridColor, tickStepXY: [tick_deltaX, tick_deltaY], showNum, epsilon} = cfg;
   const arrowMode = (axis >> 3/*bit for x,y,text*/);
   const
-    strokeGrid = () => { g.lineWidth/=gridWDiv; stroke(); g.lineWidth*=gridWDiv; },
+    strokeGrid = () => { g.lineWidth/=gridWDiv; stroke(); g.lineWidth*=gridWDiv; }, // feature grid,arrow
     drawsArrow = (v, n, idx) => {
       let _1st = (idx==0);
       let a1 = _1st? [v, n] : [0, v]; // (sx h 0) [sx,h], [sx,0]
@@ -173,7 +180,8 @@ onDraw.begin = () => {
   let hasL = axis & 0b1, allGrid = (grid=="all"), someGrid = (allGrid||grid=="some");
   const drawingTicks = true, two = 2; // for if(){} code readability
 
-  for (let [code, y_func, x_delta, color, mode] of y_funcs) {
+  for (let [code, y_func, nx_delta, color, mode] of y_funcs) {
+    let x_delta = nx_delta*cfg._scaleKeep;
     g.strokeStyle = axisColor; // Draw x axis!
     g.lineWidth /= axisWDiv;
     out:while (axis & 0b010) {
