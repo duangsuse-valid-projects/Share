@@ -12,7 +12,7 @@ const cfg = {
   tickStepXY: [0.5, 0.5], tickTextFont: "12pt sans", _fontSize: 0, _scaleKeep: 1,
   numToStr: n=>n.toString(), numPrec: 5, showNum: null, goHome: null,
   grabFocus: true, noDrag: false, epsilon: Math.pow(2, -7), // not 2^-52
-  kmXmove: "Shift", kmScale: "Control", kmScaleKeep: "Alt"
+  kmXmove: "Shift", kmScale: "Control", kmScaleKeep: "Alt", evaluate: "mathjs"
 };
 function assignAry(a, ...vs) { for (let i=0; i<a.length; i++) a[i] = vs[i]; }
 function px(v) { return v+"px"; }
@@ -27,7 +27,20 @@ const maths = {
   inboundsPN: (k, n) => maths.inbounds(-k, k, n),
   coerceIn: (first, last, n) => (n<first)? first : (n>last)? last : n,
   idf: (into, from) => x => into(from(into(x))),
-  nop: () => null
+  nop: () => null,
+  RE_SYMSPLIT: /\s*[+\-*/\^\d()\[\]]\s*/g,
+  symbols: (code:string) => new Set(code.split(maths.RE_SYMSPLIT).filter(it => it.length!=0)),
+  evaluator: (code:string) => {
+    const variables = new Set(["T", "NV"]);
+    let syms = maths.symbols(code);
+    //let notPureFn = syms|variables; // TODO with script interpreter
+    if (cfg.evaluate=="mathjs") {
+      let node = window["math"].parse(code);
+      let insn = node.compile();
+      let scope = {};
+      return x => insn.eval(scope);
+    }
+  }
 };
 
 let g: CanvasRenderingContext2D;
@@ -180,7 +193,7 @@ onDraw.begin = () => {
   let hasL = axis & 0b1, allGrid = (grid=="all"), someGrid = (allGrid||grid=="some");
   const drawingTicks = true, two = 2; // for if(){} code readability
 
-  for (let [code, y_func, nx_delta, color, mode] of y_funcs) {
+  for (let [code, y_func, nx_delta, color, mode] of y_funcs) { // TODO xrange, 选择性重绘 ； point 跟踪，可拖拽点
     let x_delta = nx_delta*cfg._scaleKeep;
     g.strokeStyle = axisColor; // Draw x axis!
     g.lineWidth /= axisWDiv;
@@ -251,6 +264,14 @@ onDraw.begin = () => {
       let l = g.lineWidth*two;
       for (x=x0, x1=ww; x<x1; x+=x_delta) { g.fillRect(fromPx(x), getSy(x), l, l); } // Draw dotted func!
       g.fillStyle = oldFill;
+      break;
+      case "yhor": // x(y)=0
+      break;
+      case "draw":
+      break;
+      case "implicit": // see https://github.com/sxyu/nivalis/blob/3b05e3105ef640f6d24670d2ecff23ec6ab1d2d9/src/plotter/render.cpp#L273
+      break;
+      case "parametric": // t_step set (x,y)
       break;
     }
   }

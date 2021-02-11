@@ -32,7 +32,9 @@ var maths = {
     inboundsPN: function (k, n) { return maths.inbounds(-k, k, n); },
     coerceIn: function (first, last, n) { return (n < first) ? first : (n > last) ? last : n; },
     idf: function (into, from) { return function (x) { return into(from(into(x))); }; },
-    nop: function () { return null; }
+    nop: function () { return null; },
+    RE_SYMSPLIT: /\s*[+\-*/\^\d()\[\]]\s*/g,
+    symbols: function (code) { return new Set(code.split(maths.RE_SYMSPLIT).filter(function (it) { return it.length != 0; })); }
 };
 var g;
 var ybounds = [0, 0]; // for y axis, per session (no reset on redraw)
