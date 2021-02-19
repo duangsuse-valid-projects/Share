@@ -178,6 +178,7 @@ https://www.zhihu.com/question/366698484/answer/977959047
 + [五子连珠与spaceship](HTMLs/renju_spaceship)
 + [CSS? Animation](HTMLs/anim)
 + [CSS? Animation](HTMLs/dim2)
++ [LRUD](HTMLs/lrud.html)
 
 ## Building Locally
 

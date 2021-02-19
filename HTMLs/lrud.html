@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>广度优先的染色，是从侧面看还是从下面看？</title>
+  <meta name="description" content="选择 LRUD,RDLR 等搜索次序，查看寻径着色过程动画！">
+</head>
+<body>
+  <canvas style="position:absolute; left:0px;top:0px; z-index:-1000;"></canvas>
+  <div class="config">
+  宽高：<input id="nW" type="number"></input> x <input id="nH" type="number"></input>
+  <br>次序：<input id="sOrder"></input></div><a onclick="dtStep = parseInt(prompt('delta time?', '1'))">调速</a>
+<script>
+const helem = s=>document.getElementById(s), div = (a,b) => Math.floor(a/b);
+  also = (f,x) => { f(x); return x; }, assoc = (ks, op) => { let o={}; for (let k of ks) o[k] = op(k); return o; };
+const
+  [eCanvas, eCfg] = ["canvas", "div.config"].map(s => document.body.querySelector(s)),
+  eOrd = helem("sOrder"), g = eCanvas.getContext("2d");
+eOrd.value = "UDLR";
+
+class Mat2D {
+  constructor(n,m) {this.n=n; this.m=m; this.cells = Array(n*m);}
+  p(i, j) { return i*this.m+j; }
+  xy(p) { return [p%this.m, div(p,this.m)]; }
+  has(p) { return 0<= p&&p <this.cells.length; }
+  toString() {
+    let sb=[];
+    for (let i=0;i<this.n;i++) {
+      let j; for (j=0; j!=this.m; j++) { let v=this.cells[this.p(i,j)]; sb.push((v!==undefined)? v:`_${j==0? i : j}`); sb.push(" "); }
+      sb.push(this.cells[this.p(i,j)]);
+      sb.push("\n");
+    }
+    return sb.join("");
+  }
+}
+
+let esWH = null, mat = new Mat2D(3,3);
+window.onresize = also(run=>run(), () => {
+  let de = document.documentElement;
+  const kWH = ["Width", "Height"]; esWH = assoc(kWH, k => helem(`n${k[0]}`));
+  for (let k of kWH) {
+    let v = de[`client${k}`];
+    esWH[k].value = v; eCanvas.style[k.toLowerCase()] = v+"px";
+  }
+});
+pOrigin = 0, pTarget = 0, dtStep = 100;
+isTarget = (a, p) => a.cells[p] == -1
+hasNeighbor = (a, p, p1) => a.has(p1) && (Math.abs(p1-p) == a.m || div(p1,a.m) == div(p,a.m)); // no horz. overflow
+for (let [k, e] of Object.entries(esWH)) { // bind actual WH
+  let ec = eCanvas;
+  let f = () => { ec.setAttribute(k, e.value); mat = new Mat2D(ec.height, ec.width); pOrigin = mat.p(div(mat.n,2), div(mat.m,2)); mat.cells[pTarget] = -1; mat.cells[pOrigin] = 0; };
+  (e.onchange = f)();
+}
+
+eCanvas.onclick = () => { eCfg.hidden=!eCfg.hidden; if(eCfg.hidden) redraw(); };
+async function delay(dt) { return new Promise(resolve => setTimeout(resolve, dt)); }
+
+function Redrawer(dirs) {
+  let seen = new Set;
+  let que = []; let steps = new Map;
+  function backtrace(m, p_dst) { // finally, we decided to use Dijksta-like backtrace
+    if (p_dst == null) return null; // but 我保留了有序的深度扫描便于 debug
+    let path = [];
+    let p = p_dst, p0k; while (!!(p0k = m.get(p))) {
+      let [p0, k] = p0k;
+      path.push(k); p = p0;
+    }
+    return path.reverse();
+  }
+  let pTarget = null;
+  return async () => {
+    const a = mat, debug = a.cells.length < 500? console.debug : (p,p1)=>{};
+    for (let dir of dirs) switch (dir[0]) { // fill ncol
+      case "u": dir[1] = -a.m; break;
+      case "d": dir[1] = +a.m; break;
+    }
+    que.push([pOrigin]); // BFS origin
+    seen.clear(); steps.clear(); g.clearRect(0,0,a.m,a.n);
+    let ps, p; out:while (!!(ps = que.pop())) while ((p = ps.pop()) != null) {
+      seen.add(p); g.fillRect(...a.xy(p), 1, 1); if(dtStep!=0)await delay(dtStep);
+      let ps1 = []; que.push(ps1);
+      for (let [id, offset] of dirs) {
+        let p1 = p+offset;
+        if (seen.has(p1) || !hasNeighbor(a, p, p1)) continue;
+        steps.set(p1, [p, id]); debug(p, p1);
+        if (isTarget(a, p1)) { pTarget = p1; break out; }
+        ps1.unshift(p1);
+      }
+    }
+    console.log(steps, backtrace(steps, pTarget));
+  };
+}
+const dirs = [];
+(eOrd.onchange = () => {
+  dirs.splice(0, dirs.length);
+  for (let k of eOrd.value) switch (k) {
+  case 'L': dirs.push(["l", -1]); break;
+  case 'R': dirs.push(["r", +1]); break;
+  case 'U': dirs.push(["u", -3]); break;
+  case 'D': dirs.push(["d", +3]); break;
+  }
+})();
+const redraw = Redrawer(dirs);
+</script>
