@@ -1,0 +1,146 @@
+<!doctype html><head><meta charset="UTF-8"/><title>模板语言、表格横变纵</title></head>
+<body>
+<h1>顺便科普下见过一些有意思的 Web 前端 JS 技巧吧</h1>
+也写了字面意义的半天。ES6 可以用 babel 翻译成 IE 都支持的格式。 以下编辑框没有效果 就是需要编辑好后点下外面。体验愉快
+<div align="center">
+  <label>初看：<input id="first-time" type="checkbox"></input></label>
+</div>
+<h2>基于 ${} 而支持 for, if 的模板语言</h2>
+<pre>
+基于 ES6 eval ，最初来源 阮一峰《ES6 标准教程》。
+简单来说， `${` 前、`}` 后都是反引号字符串的内容，而第一个 `${` 时展开出不完全js代码，会被容错处理。
+类似 <code>s.replaceAll("${", "`); a.push(").replaceAll("}", "); a.push(`")</code> 这种的
+
+这种方法不是很优雅，因为实质在拼凑一个个代码区间(raw str vs. js code)，但是总可以用，的确挺巧妙。
+（但是说实在话 [ <b>]code1[</b> ]code2[ ] 这样拼接真的很烦，还得维护被<b> ] </b>关的区间词法。
+
+
+为了实用性加了个 <s>$(do/end) 等于开/闭括号</s> 呃我改成以 // 开头的行特殊化了
+</pre>
+
+<textarea id="es6-template"></textarea>
+<div style="border: 2px solid yellow" id="output"></div>
+
+<h2>表格横纵切变</h2>
+<pre>
+一般而言表格（即二维矩阵）数据都是 row-first 的， `a[i][j]` 是指(0始) i 行 j 列。
+
+col-first 的纵表格是按列分的， `a[j][i]` 才是；也就是 `i. all j` 和 `j. all i` 的区别而已，前者横、后者纵。
+
+如果说 `(i in 0 until n) &amp;&amp; (j in 0 until m)` ，只需把 n,m 反转下再建表格 反转索引即可。
+
+当然，这不能只在 DOM 上操作（即便你想做，也没法扫完一行就赋到一列，那会破坏数据），一般还是要 from/into 扒/建 一下 data struct 。
+</pre>
+<textarea id="rev-data"></textarea>
+<button align="right">大鸟转转转🦅</button>
+<table></table>
+
+<h2>zip 与 reduce 函数</h2>
+按 --- 切分词对，没有自动无视换行哦。这还包含复制剪贴板功能的实现（虽然从接口言只是个小问题）
+<br>
+<textarea id="zip-replace"></textarea>
+<input id="zip-replace-src"></input>
+
+<pre>
+<code id="test-zip">给定=["Google Android", "Huawei Harmony"]; /*如何*/ 把替换成("Huawei's Harmony", "Google's Android")</code>
+
+相当于 `Google -> Huawei; Android -> Harmony` 对应关系的一个语法糖，利用了 `zip(...iters)` 的数据对应模式。
+
+早知道下回就写 .md 文件用 HTML 预处理器了。
+</pre>
+<style>
+table { border: 2px solid aqua; }
+table>tr>td { border: 1px red; border-top-style: dashed;}
+</style>
+<script src="norm-techpage.js"></script>
+<script> <!-- 全部脚本了 -->
+const
+  also=(f,x)=>{ f(x); return x; },
+  reduce=(f,v,xs)=>{ let acc=s; for (let x of xs) acc = f(xs, acc); return acc; },
+  zip=function*(...xss){ let lowLen=Math.min(...xss.map(xs => xs.length)); for (let i=0;i<lowLen;i++) yield xss.map(xs => xs[i]); }, // ES6 generator
+  swap=(a,b,k)=>{ let old=b[k]; b[k]=a[k]; a[k]=old; },
+  translate=(rules,s)=> { let acc=s; for (let [sub,rep] of rules) acc=acc.replaceAll(sub,rep); return acc;  }, //= reduce((r,s1) => s1.replaceAll(...r), s, rules)
+  readRules=(code)=>code.split("\n").map(row => row.split(" -> ")),
+  showRules=(rules)=>rules.map(row => row.join(" -> ")).join("\n"), // 反函数
+  reReplace=(re,op,s)=>re[Symbol.replace](s,op),
+  copyStr = (s)=>also(it => { it.value=s; it.select(); document.execCommand("copy"); it.remove(); }, document.body.appendChild(document.createElement("input"))),
+  copyClip = (s)=>{ copyStr(s); alert(`已复制 ${s}`); }, // 不能用 also(alert, copyStr) 可惜了
+  toFullRegex = re=>RegExp(`^(${re.source})$`, re.flags);
+
+function es6Template(sparam, code, rules="${ -> `); s_(\n} -> ); s_(`", re_code=/\/\/\s*(.*)/g) {
+  exprCode = translate(readRules(rules), code);
+  stmtCode = reReplace(re_code, (m,s1)=>s1=="end"? "`); } s_(`":("`);"+s1+"{ s_(`"), exprCode); // 后面是 raw str 区间 ，不得不说，维护这些 `` 区间开闭真的很累……
+  return eval(`(${sparam}) => { let sba=[], s_=sba.push.bind(sba); s_(\`${stmtCode}\`); return sba.join(""); }`);
+}
+
+also(it=>{
+  it.value = `暴露三个编辑框 id，<br>\n//for (let id of ["es6-template", "rev-data", "zip-replace"])
+<mark> <a href="#\${id}">\${id}</a> </mark><br>\n//end`;
+  let eDiv = it.nextElementSibling;
+  it.onblur = ()=>{
+    eDiv.innerHTML = es6Template("", it.value)();
+  };
+}, helem("es6-template"));
+
+function zipReplace(ssub, srep) {
+  let rules = [...zip(...[ssub,srep].map(s => s.split(" ")))];
+  let sRules = showRules(rules); alert(sRules);
+  return s=>translate(rules, s); // 其实认真讲此函数不应封装后两行的功能，尤其是 alert。
+}
+also(it=>{
+  let fn = alert;
+  it.onblur = ()=>{
+    fn = zipReplace(...it.value.split("---"));
+  };
+  it.nextElementSibling.onblur = (ev)=>copyClip(fn(ev.target.value));
+}, helem("zip-replace"));
+</script>
+<script> <!-- 这部分是淘汰，噢不我觉得难看的 -->
+function subExprs(code, eval, re_sep=/(===?)|(!==?)|(&&)|(\|\|)|([+\-\*\/;])/g) {
+  let tab = {}; // 也可以用 op list ，然后得到递归子表达式结果。 当然这个不精确 不能分 a+"+b"
+  let reFull = toFullRegex(re_sep); // 讲真这个应该不重复计算，可以返回接受 code 的闭包 其他参数和依赖它们的计算结果都复用。
+  let oldFn={alert: console.log}; swap(window, oldFn, "alert");
+  for (let s of re_sep[Symbol.split](code)) if(!!s&&!reFull.test(s)) {
+    try { tab[s] = eval(s); } catch(ex) { tab[s]=ex; }
+  }
+  swap(window, oldFn, "alert"); // 可以考虑支持更多个。
+  tab.$value = eval(code);
+  return tab;
+}
+
+if(helem("first-time").checked) also(it=>{ // 注意不是 .value=="on" 啊，那个有问题
+  let 给定;
+  function 把替换成(expect, src) {
+    console.log(subExprs("zipReplace(...给定)(src) == expect", s=>eval(s))); // JS 是没有显式 binding ，只有 eval 调用处 caller 带 binding
+  }
+  eval(it.innerText);
+  setTimeout(()=>editCode("script"), 7*1000);
+}, helem("test-zip")); // 吐槽：要素过多
+</script>
+<script><!-- 好吧，那这就是表格侧的 -->
+
+const
+  mapEl=(e,op)=>{ e.replaceWith(op(e)); },
+  fromTable=(eTbl)=>[...eTbl.children].map(row => [...row.children]),
+  intoTable=(rows)=>el("table", withNone, rows.map(row => el("tr", withNone, row.map(col => col instanceof HTMLElement? col : el("td", withText(col)) )))), // 支持 string|tag
+  loadTable=(code_csv)=>intoTable(code_csv.split("\n").map(line => line.split(","))),
+
+  shape=(a)=>(!!a.length)? [a.length, ...shape(a[0])] : [], // 太秀了…… 没必要吧(也是 js 没 linked list 和 Y=f=>f(f) 匿名递归
+  newArray=(size,init)=>{ let a=new Array(size); for(let i=0;i<size;i++) a[i]=init(i); return a; };
+
+function revTable(eTbl) {
+  let cells = fromTable(eTbl);
+  let [n,m] = shape(cells);
+  let a = newArray(m, j=>newArray(n, i=>cells[i][j])); // rev
+  return intoTable(a); // Or? eTbl.parentNode.replaceChild(it, eTbl);
+}
+
+also(it=>{
+  it.value = "a,b,c\nd,e,f\n笱,pear,中国\n奇,音,惑";
+  let btnRev = it.nextElementSibling, eTbl =()=>btnRev.nextElementSibling; // 会被替换 只能相对位置找（或只改 <tr> ，但那不太符合直觉
+  (it.onchange = ()=>eTbl().replaceWith(also(console.log,loadTable(it.value))) )(); // 别学我 (a=b) == a 但这是坏习惯
+  btnRev.onclick = ()=>mapEl(eTbl(), revTable);
+}, helem("rev-data"));
+
+loadConfig();
+</script>
