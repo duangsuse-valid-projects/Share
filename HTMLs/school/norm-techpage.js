@@ -1,4 +1,5 @@
 const helem=id=>document.getElementById(id),
+  bound=(o,attr)=>o[attr].bind(o),
   hrefScript = (s) => { let e=document.head.appendChild(document.createElement("script")); e.src = s; return new Promise(done=>e.onload=done); }, // 当然亦可选择 addEventListener
   matchAll=(re,s)=>re[Symbol.matchAll](s),
   fetchText=(url)=>fetch(url).then(r => r.text()).catch(alert);

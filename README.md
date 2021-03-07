@@ -163,22 +163,22 @@ https://www.zhihu.com/question/366698484/answer/977959047
 
 ## HTMLs
 
-+ [身份证校验码](HTMLs/idnum.html)
-+ [无聊编辑器 TeaMeow 复刻](HTMLs/TeaMeoow.html)
-+ [Bilibili AV/BV](HTMLs/BV.html)
-+ [文字模板图](HTMLs/文字图片模板化生成.html)
-+ [Tokenizer](HTMLs/Tokenizer/?simple=a_dict.txt+a_dict.txt%3Ea_dict.txt&reverse=~a_dict.txt&text=Hello%20Rolld)
++ [身份证校验码](HTMLs/idnum.html) 基本 DOM form IO 吧
++ [无聊编辑器 TeaMeow 复刻](HTMLs/TeaMeoow.html) 支持组合键和 MD
++ [Bilibili AV/BV](HTMLs/BV.html) 算法来自某知乎密码学大佬
++ [文字模板图](HTMLs/文字图片模板化生成.html) 无可奉告
++ [Tokenizer](HTMLs/Tokenizer/?simple=a_dict.txt+a_dict.txt%3Ea_dict.txt&reverse=~a_dict.txt&text=Hello%20Rolld) 好东西，可惜独立了
 + [Tokenizer(日语配置)](HTMLs/Tokenizer/?conf=japan.ini)
 + [Tokenizer(示例们，当然都不是最新)](HTMLs/Tokenizer_examples.html)
-+ [~~ulang~~ uilang 重写](HTMLs/uilang)
-+ [~~PlaceImg~~ 往一图贴一图式缩放](HTMLs/PlaceImg.html)
-+ [qndxx即多字模板图 ~~烂尾版~~](HTMLs/YounthLearn.html)
-+ [高级计算器](HTMLs/calc.html)
-+ [Parse Deep-nested text](HTMLs/deep.html)
-+ [五子连珠与spaceship](HTMLs/renju_spaceship)
-+ [CSS? Animation](HTMLs/anim)
-+ [CSS? Animation](HTMLs/dim2)
-+ [LRUD 「烟花」](HTMLs/lrud)
++ [~~ulang~~ uilang 重写](HTMLs/uilang) 老夫也学某入门前端一发
++ [~~PlaceImg~~ 往一图贴一图式缩放](HTMLs/PlaceImg.html) 一行代码
++ [qndxx即多字模板图 ~~烂尾版~~](HTMLs/YounthLearn.html) 支持可视化编辑但js模型辅助不全的(第四项)
++ [高级计算器](HTMLs/calc.html) 的确是高级计算器，还支持 stack FIFO ；可惜没大应用价值
++ [Parse Deep-nested text](HTMLs/deep.html) h1~h6 深度树解析
++ [五子连珠与spaceship](HTMLs/renju_spaceship) 重构小玩具
++ [CSS? Animation](HTMLs/anim) 另一个侧面的重构小玩具
++ [绘制函数图 - 失败第一](HTMLs/dim2) 成功第二大概独立出去了
++ [LRUD 「烟花」](HTMLs/lrud) BFS 的 canvas 动画
 
 ## Building Locally
 

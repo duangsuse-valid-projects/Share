@@ -3,7 +3,7 @@
 <h1>顺便科普下见过一些有意思的 Web 前端 JS 技巧吧</h1>
 也写了字面意义的半天。ES6 可以用 babel 翻译成 IE 都支持的格式。 以下编辑框没有效果 就是需要编辑好后点下外面。体验愉快
 <div align="center">
-  <label>初看：<input id="first-time" type="checkbox"></input></label>
+  <label>初看：<input id="first-time" type="checkbox" checked="on"></input></label>
 </div>
 <h2>基于 ${} 而支持 for, if 的模板语言</h2>
 <pre>
@@ -16,6 +16,7 @@
 
 
 为了实用性加了个 <s>$(do/end) 等于开/闭括号</s> 呃我改成以 // 开头的行特殊化了
+<q>手机上大概用不了吧，那就不必体验了（反正也不是给实际应用），咱也没有调试环境 不知咋修</q>
 </pre>
 
 <textarea id="es6-template"></textarea>
@@ -30,7 +31,10 @@ col-first 的纵表格是按列分的， `a[j][i]` 才是；也就是 `i. all j`
 如果说 `(i in 0 until n) &amp;&amp; (j in 0 until m)` ，只需把 n,m 反转下再建表格 反转索引即可。
 
 当然，这不能只在 DOM 上操作（即便你想做，也没法扫完一行就赋到一列，那会破坏数据），一般还是要 from/into 扒/建 一下 data struct 。
+
+下面的参数1你可以填 C,H,V 三个字符，也可以什么也不填，它们分别代表90度转(横纵)、横翻、纵翻操作。
 </pre>
+<input id="rev-op" value="C"></input>
 <textarea id="rev-data"></textarea>
 <button align="right">大鸟转转转🦅</button>
 <table></table>
@@ -47,6 +51,8 @@ col-first 的纵表格是按列分的， `a[j][i]` 才是；也就是 `i. all j`
 相当于 `Google -> Huawei; Android -> Harmony` 对应关系的一个语法糖，利用了 `zip(...iters)` 的数据对应模式。
 
 早知道下回就写 .md 文件用 HTML 预处理器了。
+
+还可以写 TCO (尾部递归 蹦床函数化)和 ES6 function* (generator) 的 co() async Promise 实现，但还是算了，那个太深没实际意义。
 </pre>
 <style>
 table { border: 2px solid aqua; }
@@ -128,10 +134,14 @@ const
   shape=(a)=>(!!a.length)? [a.length, ...shape(a[0])] : [], // 太秀了…… 没必要吧(也是 js 没 linked list 和 Y=f=>f(f) 匿名递归
   newArray=(size,init)=>{ let a=new Array(size); for(let i=0;i<size;i++) a[i]=init(i); return a; };
 
-function revTable(eTbl) {
+function revTable(eTbl, revFlag = bound(helem("rev-op").value, 'includes')) {
   let cells = fromTable(eTbl);
   let [n,m] = shape(cells);
-  let a = newArray(m, j=>newArray(n, i=>cells[i][j])); // rev
+  let a = revFlag('C')? newArray(m, j=>newArray(n, i=>cells[i][j])) : cells; // rev
+  let ps = [revFlag('H'), revFlag('V')];
+  let [n1,m1] = shape(a);
+  let fI = ps[0]? x=>n1-1-x : n=>n, fJ = ps[1]? x=>m1-1-x : n=>n;
+  a = Math.max(...ps)? newArray(n1, i=>newArray(m1, j=> a[fI(i)][fJ(j)] )) : a;
   return intoTable(a); // Or? eTbl.parentNode.replaceChild(it, eTbl);
 }
 
