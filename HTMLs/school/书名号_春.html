@@ -1,0 +1,36 @@
+<!doctype html>
+<html><head><meta charset="UTF-8"/> <title>小朱 春</title></head>
+<body align="center">
+<h1 style="animation: transp 2s cubic-bezier(0.18, 0.89, 0.32, 1.28) infinite">《春》</h1>作者<i><sup>朱自清</sup></i>
+<hr  />
+<div id="hlines">
+<hr width="25%" align="left"/><hr width="25%" align="right"/><hr width="50%"/>
+</div>
+<p align="left">
+盼望着，盼望着，<span class="wtf">东风</span>来了，<span class="wtf">春天</span>的脚步近了。
+<br>一切都像刚睡醒的样子，欣欣然张开了眼。<span class="wtf">山</span>朗润起来了，<span class="wtf">水</span>涨起来了，<span class="wtf">太阳</span>的脸红起来了。
+<br><a id="time"></a>
+<style>
+@keyframes transp {
+  0% { opacity: 0; }
+  50% { opacity: 100; }
+  to { opacity: 0; }
+}
+.wtf { animation: 2s transp 3; }
+</style>
+<script>
+const colors = "red green blue yellow pink cyan brown black".split(" "),
+timed = (t,op) => { setTimeout(()=>{op();timed(t,op);}, t); },
+randPick = xs => xs[Math.floor(Math.random()*xs.length)],
+qs=css=>document.querySelector(css);
+
+timed(500, ()=>{ document.querySelectorAll(".wtf").forEach(it => it.style.color = randPick(colors)); });
+
+var eHlns=qs("#hlines")
+eHlns.querySelectorAll("hr").forEach(it => it.classList.add("wtf"));
+function reverseChild(e) {
+  for (let i=0;i<e.childElementCount; i++) { e.appendChild(e.firstChild); }
+}
+timed(1000, ()=>{ reverseChild(eHlns);  });
+timed(1000, ()=>{ qs("#time").innerText = new Date().toString("MM:dd"); });
+</script>

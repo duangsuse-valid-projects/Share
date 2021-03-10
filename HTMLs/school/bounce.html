@@ -1,0 +1,67 @@
+<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="user-scalable=no, width=device-width, maximum-scale=1.0"><meta name="description" content="猜对了，这是 Android API Demo 动画测试里第一个动画的 CSS3/Animation API 重写"><title>弹球动画</title></head>
+<body style="position: relative; overflow: hidden">
+<style>
+.ball { position: absolute; stroke-width: 0; }
+@keyframes bgcolor {
+  from { background: red; }
+  to { background: white; }
+}
+</style>
+<svg class="ball"><ellipse fill="inherit"></ellipse> </svg>
+<script>
+function* product(xs, ...rest) { // 秀用的
+  if (rest.length==0) yield* xs;
+  else for (let x of xs) for (let x1 of product(...rest)) yield x+x1;
+}
+function debounce(dt_ms, op) { // could be replaced by PointerEvent.timeStamp
+  let timer;
+  //return (...args) => { clearTimeout(timer); timer = setTimeout(op.bind(null,...args), dt_ms); };
+  return (ev) => { if (ev.timeStamp-timer > dt_ms) { op(ev); } timer=ev.timeStamp; };
+}
+
+const assign=(o,sk,o1,op)=>{ for (let k of sk.split(" ")) o[k]=op(o1[k]); },
+  px=n=>n+"px", rectWH=e=>{ let r=e.getClientRects()[0]; return [r.width,r.height] },
+  mapPx=(op,v)=>!!(v-0)? op(parseFloat(v)) : px(op(parseFloat(v))); //  略 JS hacky
+function fitRect(select_ee, e) {
+  assign(e.style, "width height", select_ee(e).getClientRects()[0], px);
+}
+let ballL = 30, ballY1, anchorIsTop=false;
+let eBall = document.querySelector("svg"); // 这段都是预计算改DOM的
++function(e){ for (let s of product(["c", "r"], ["x","y"])) e.setAttribute(s, ballL); }(eBall.firstChild)
+fitRect(it=>it.firstChild, eBall);
+
+(window.onresize = ()=>{document.body.style.height=px(window.innerHeight); ballY1=anchorIsTop?0:window.innerHeight-ballL*2;})()
+document.body.onclick = ()=>{ anchorIsTop^=1; window.onresize(); };
+with(document.body.style) { marginTop = marginBottom = "0px"; } // just4fun
+
+function centeredMove(e) {
+  let [dw, dh] = rectWH(e);
+  dw/=2;dh/=2;
+  return p=>{ e.style.top=px(p.clientY-dh); e.style.left=px(p.clientX-dw); };
+}
+let moveBall = centeredMove(eBall);
+const animBack=(a,b)=>[a,b,a], animModify=(e,k,op_v1)=>[{[k]: e.style[k]}, {[k]: mapPx(op_v1, e.style[k]) }], animEnum=(k,vs)=>(typeof vs=="string"? vs.split(" ") : vs).map(v=>{return {[k]:v}}), maxFirst=(a,b,key,op)=>key(a)>key(b)? op(a, b) : op(b, a);
+// 不可以改进 animModify() 去用 JQ 式的 animate({top: y=>y1, color: c=>"red"}) ，那样只能选择两种颜色！可以测试下自动补间的参数力。
+function animCombine(a1, a2) {
+  return maxFirst(a1,a2, it=>it.length, (a,b) => {
+    let step = Math.round(a.length/b.length);
+    for (let iB=0, iA=0; iB!=b.length; iB++,iA+=step) Object.assign(a[iA], b[iB]);
+    return a;
+  });
+}
+
+let colorAnim = animEnum("fill", "red orange yellow green cyan blue purple pink black");
+function setupAnim(e) {
+  let a0 = animBack(...animModify(e, "top", y=>ballY1)); // 无需 reverse() 的往复动画
+  return e.animate(animCombine(a0, colorAnim), 500); // 不得不利用 fill:inherit 来同步pos/color 的两个标签
+}
+document.body.onpointermove = debounce(10, (ev) => {
+  //console.log(ev)
+  moveBall(ev);
+  let e1 = eBall.cloneNode(true); setupAnim(e1).onfinish=()=>e1.remove();
+  document.body.appendChild(e1);
+});
+setTimeout(()=>document.body.animate(animEnum("background", "aqua yellowgreen violet  thistle teal steelblue"), {duration: 3*1000, iterations: Infinity}), 9*1000);
+
+// 其实必要的只是 body:relative, svg:absolute 和 mousemove 时 cloneNode 及 left,top,color 的动画，但我真的超 HIGH
+</script>

@@ -1,0 +1,37 @@
+<!doctype html><html><head><meta charset="UTF-8"/><title>动手实践</title>
+<style>h2 { color:red; } span[cmt], .info span { color: green; } span.num { color: red; } h2 span.num { color: purple; } hr { height:1px; background-color: orange; border: none;} </style>
+</head>
+<body>
+<div style="border: 1px solid gray">
+  <img alt="前端" src="前端开发.jpg" style="float:left; width:300px;height:310px;"></img>
+  <h2>Web前端工程师</h2>
+  <span cmt>技术要求：</span>
+  <p>&nbsp;&nbsp;了解常用JS框架，如JQuery、YUI等；掌握最基本的JavaScript计算方法编写；对目前互联网流行的网页制作方法（Web2.0）HTML+CSS，以及各大浏览器兼容性有较多了解；基本掌握前沿技术（HTML5+CSS3）。<a href="#"><i>Web前端技术</i></a>你究竟掌握多少…</p>
+  <div class="info"><span cmt>更新时间：</span><span id="date" cmt></span></div>
+  <hr/>
+  <h2><a id="h22"></a> </h2>
+</div>
+<script>
+let [e,e1]="date h22".split(" ").map(id=>document.getElementById(id))
+function formatDate(t, fmt, toks={"yyyy": "FullYear", "mm": "Month", "dd": "Day", "hh": "Hours", "MM": "Minutes"}) {
+  let acc=fmt;
+  for (let k in toks) acc = acc.replace(k, t["get"+toks[k]].apply(t) ) // bad, improve with RegExp Symbol. replace/split
+  return acc;
+}
+e.innerText = formatDate(new Date(), "yyyy年mm月dd日hh时MM分");
+
+function _addTo(e, text) {
+  addSpans(e.parentNode, text.split(" "));
+}
+_addTo(e, "（已有 323 人点赞）")
+_addTo(e1, "相关技术文章 8 篇")
+
+function addSpans(e, texts) {
+for (sp of texts) {
+  let span = document.createElement("span");
+  span.innerText = sp;
+  if (!!parseInt(sp)) { span.classList.add("num"); }
+  e.appendChild(span);
+}
+}
+</script>

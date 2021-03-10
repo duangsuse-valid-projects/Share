@@ -1,0 +1,109 @@
+<!doctype html><html><head><meta charset="UTF-8"/><title>贪吃蛇</title></head>
+<body><canvas class="wholepage"></canvas>
+<p align="right"></p>
+<style>
+.wholepage { position: absolute; left:0px;top:0px; z-index: -1000; }
+kbd {
+  padding-right: 5px;
+  background: gray;
+  border-radius: 45px;
+  border: 2px solid black;
+}
+</style>
+<script>let eInfo=document.querySelector("p"); for (let [k,v] of "p pause;i fruit;0 relive;1 new player".split(";").map(s=>s.split(" ")) ) { eInfo.appendChild(document.createElement("dt")).innerHTML=`<kbd>${k}</kbd>${v}`; }</script>
+<script>
+const ask=(title,deft,op)=> { let v=prompt(title,deft); if(!!v) op(v); },
+readInts=s=> s.split(" ").map(sn => parseInt(sn)),
+eventUpd=(evt,evn,op)=>{ evt.addEventListener(evn, op); op(); }; // trick: timed(2000, ()=>styles.sort(()=>Math.random()))
+
+const wh = [60, 35], nCellPx = 10;
+ask("Dim[w,h]", wh.join(" "), s=>{ wh.splice(0,wh.length, ...readInts(s)); });
+
+eCan = document.querySelector("canvas");
+const ks = ["Width", "Height"];
+for (let i=0; i<2; i++) {
+  document.body.style[ks[i].toLowerCase()] = `${wh[i]*nCellPx}px`;
+}
+eventUpd(window, "resize", ()=>{
+  for (let k of ks) {
+	let v=document.body[`client${k}`];
+	eCan.style[k.toLowerCase()] = `${v}px`;
+    eCan.setAttribute(k, v);
+  }
+});
+
+const
+  pXY=(x,y)=> y*wh[0]+x, xyP=(p)=>[p%wh[0],Math.floor(p/wh[0])],
+  isZeroOr=(n,x)=>(x==0||x==n),
+  div2=(x)=>Math.floor(x/2),
+  randP_V=(v_target)=>{ let p; do { p = Math.floor(Math.random()*n); } while(cells[p]!=v_target); return p; },
+  timed=(t,op)=>{ setTimeout(()=>{op();timed(t,op);}, t); };
+const
+  styles = ["gray", "green", "red"],
+  SNK_DIED=0x1;
+let n,cells, snakes,nAlive;
+function putWall() {
+  let [w,h] = wh;
+  for (let y=0; y<h; y++) for (let x=0; x<w; x++) {
+    cells[pXY(x,y)] = isZeroOr(w-1, x)||isZeroOr(h-1, y)? 1 : 0;
+  }
+}
+function putFruit() { cells[randP_V(0)] = 2; }
+function init() {
+  cells=Array(wh[0]*wh[1]); n=cells.length;
+  snakes=[new Snake(pXY(div2(wh[0]), div2(wh[1]) ))];
+  putWall();
+}
+function draw() {
+  let g = eCan.getContext("2d");
+  for (let p=0; p<n; p++) {
+    g.fillStyle = styles[cells[p]];
+	let [x,y] = xyP(p);
+	g.fillRect(x*nCellPx, y*nCellPx, nCellPx, nCellPx);
+  }
+}
+
+const kbhits = [], kbhit=()=> kbhits.length!=0, getkey=()=>kbhits.pop(), isDigitCode=(n)=>n>=48&&n<=48+9, rAt=(xs,i)=>xs[xs.length-1-i];
+document.onkeydown = (ev)=>{ if(ev.code.startsWith("Key")||isDigitCode(ev.keyCode))ev.preventDefault(); kbhits.unshift(ev.key); };
+
+class Snake {
+  constructor(p) { this.p=p; this.d=1; this.que=[]; this.k_dists={}; this.putCell(); }
+  step() {
+    this.p+=this.d;
+	let pv = cells[this.p];
+	if (pv==1) { this.flags|=SNK_DIED; return; }
+	else if (pv==2) { this.putCell(); putFruit(); return; }
+	this.putCell();
+	cells[this.que.pop()] = 0;
+  }
+  putCell() { cells[this.p]=1; this.que.unshift(this.p); }
+  keyPad(ks) {
+    let ds = [-1, +1, -wh[0], +wh[0]];
+    for (let i=0; i<ks.length; i++) this.k_dists[ks[i]] = ds[i];
+  }
+}
+init();
+snakes[0].keyPad("Left Right Up Down".split(" ").map(s => "Arrow"+s));
+putFruit();
+draw();
+timed(100, ()=>{
+  nAlive = 0;
+  for (let snk of snakes) {
+    if (snk.flags&SNK_DIED) if(nAlive==0&&snk==rAt(snakes, 0)) kbhits.push('0'); else continue;
+    nAlive += 1;
+    if (kbhit()) {
+      let key=getkey();
+      switch (key) {
+      case 'p': alert("pause"); break;
+      case 'i': putFruit(); break;
+      case '0': ask("relive snake#", "0", sn=>{ let snk=snakes[parseInt(sn)]; snk.p=randP_V(0); snk.flags&=~SNK_DIED; nAlive+=1; }); break;
+      case '1': ask("new snake!", "adws", s=>{ let snk1 = new Snake(randP_V(0)); snk1.keyPad(s.toLowerCase().split("")); snakes.push(snk1); }); break;
+      default:
+        let d1=snk.k_dists[key]; if (d1===undefined) kbhits.unshift(key); else if (d1!=-snk.d) { snk.d=d1; }
+      }
+    }
+    snk.step();
+  }
+  draw();
+});
+</script>
