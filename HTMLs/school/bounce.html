@@ -19,7 +19,7 @@ function debounce(dt_ms, op) { // could be replaced by PointerEvent.timeStamp
   return (ev) => { if (ev.timeStamp-timer > dt_ms) { op(ev); } timer=ev.timeStamp; };
 }
 
-const assign=(o,sk,o1,op)=>{ for (let k of sk.split(" ")) o[k]=op(o1[k]); },
+const assign=(o,sk,o1,op,k_op)=>{ for (let k of sk.split(" ")) o[!!k_op? k_op(k):k]=op(o1[k]); return o; },
   rectWH=e=>{ let r=e.getClientRects()[0]; return [r.width,r.height] },
   px=n=>n+"px", mapPx=(op,v)=>!!(v-0)? op(parseFloat(v)) : px(op(parseFloat(v))); //  略 JS hacky
 function fitRect(select_ee, e) {
@@ -30,10 +30,15 @@ function fitRect(select_ee, e) {
 function centeredMove(e) {
   let [dw, dh] = rectWH(e);
   dw/=2;dh/=2;
-  return p=>{ e.style.top=px(p.clientY-dh); e.style.left=px(p.clientX-dw); };
+  return p=>{ e.style.top=px(p.y-dh); e.style.left=px(p.x-dw); };
 }
+function timerRate(dt,op) { op(); let me=arguments.callee; setTimeout(op.name==me.name? op : timerRate.bind(null,dt,op), dt); }
 const animBack=(a,b)=>[a,b,a],
-  animModify=(e,k,op_v1)=>[{[k]: e.style[k]}, {[k]: mapPx(op_v1, e.style[k]) }], animEnum=(k,vs)=>(typeof vs=="string"? vs.split(" ") : vs).map(v=>{return {[k]:v}}), maxFirst=(a,b,key,op)=>key(a)>key(b)? op(a, b) : op(b, a);
+  animModify=(e,k,op_v1)=>[{[k]: e.style[k]}, {[k]: mapPx(op_v1, e.style[k]) }], animEnum=(k,vs)=>(typeof vs=="string"? vs.split(" ") : vs).map(v=>{return {[k]:v}});
+
+const maxFirst=(a,b,key,op)=>key(a)>key(b)? op(a, b) : op(b, a),
+  ifNotZero=(n,op)=>(n==0)? undefined : op(n),
+  apReduce=(join,op,xs)=>{ let acc=op(xs[0]); for (let i=1;i<xs.length; i++) acc=join(acc,op(xs[i])); return acc; };
 // 不可以改进 animModify() 去用 JQ 式的 animate({top: y=>y1, color: c=>"red"}) ，那样只能选择两种颜色！可以测试下自动补间的参数力。
 function animCombine(a1, a2) {
   return maxFirst(a1,a2, it=>it.length, (a,b) => {
@@ -51,9 +56,10 @@ const cfg = {
   particleDt: 10,
   bgColors: "aqua yellowgreen violet thistle teal steelblue",
   bgDuration: 1000,
+  animAutoDuration: 0,
   anchorIsTop: false
 };
-Object.assign(cfg, JSON.parse("{"+document.location.search+"}"));
+Object.assign(cfg, JSON.parse("{"+decodeURIComponent(document.location.search.substr(1))+"}"));
 let ballY1;
 let eBall = document.querySelector("svg"); // 这段都是预计算改DOM的
 +function(e){ for (let s of product(["c", "r"], ["x","y"])) e.setAttribute(s, cfg.ballL); }(eBall.firstChild)
@@ -83,6 +89,13 @@ setTimeout(()=>{
 }, 6*1000);
 
 document.body.addEventListener("touchmove", document.body.onpointermove);
+
+const evMousePos=(evn,e)=> new MouseEvent(evn,assign({}, "x y", e.getClientRects()[0], n=>Math.floor(n+cfg.ballL), k=>"client"+k.toUpperCase()) );
+ifNotZero(cfg.animAutoDuration, (t)=>{
+  let a=eBall.animate([{left:0}, {left:px(apReduce((a,b)=>a-b, e=>rectWH(e)[0], [document.body, eBall]) )}], t);
+  a.onfinish=()=>a.reverse();
+  ifNotZero(cfg.particleDt, dt=>timerRate(dt, ()=>document.body.dispatchEvent(evMousePos("pointermove", eBall)) ));
+});
 
 // 其实必要的只是 body:relative, svg:absolute 和 mousemove 时 cloneNode 及 left,top,color 的动画，但我真的超 HIGH
 </script>
