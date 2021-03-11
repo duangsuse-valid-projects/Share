@@ -20,27 +20,20 @@ function debounce(dt_ms, op) { // could be replaced by PointerEvent.timeStamp
 }
 
 const assign=(o,sk,o1,op)=>{ for (let k of sk.split(" ")) o[k]=op(o1[k]); },
-  px=n=>n+"px", rectWH=e=>{ let r=e.getClientRects()[0]; return [r.width,r.height] },
-  mapPx=(op,v)=>!!(v-0)? op(parseFloat(v)) : px(op(parseFloat(v))); //  略 JS hacky
+  rectWH=e=>{ let r=e.getClientRects()[0]; return [r.width,r.height] },
+  px=n=>n+"px", mapPx=(op,v)=>!!(v-0)? op(parseFloat(v)) : px(op(parseFloat(v))); //  略 JS hacky
 function fitRect(select_ee, e) {
   assign(e.style, "width height", select_ee(e).getClientRects()[0], px);
 }
-let ballL = 30, ballY1, anchorIsTop=false;
-let eBall = document.querySelector("svg"); // 这段都是预计算改DOM的
-+function(e){ for (let s of product(["c", "r"], ["x","y"])) e.setAttribute(s, ballL); }(eBall.firstChild)
-fitRect(it=>it.firstChild, eBall);
 
-(window.onresize = ()=>{document.body.style.height=px(window.innerHeight); ballY1=anchorIsTop?0:window.innerHeight-ballL*2;})()
-document.body.onclick = ()=>{ anchorIsTop^=1; window.onresize(); };
-with(document.body.style) { marginTop = marginBottom = "0px"; } // just4fun
 
 function centeredMove(e) {
   let [dw, dh] = rectWH(e);
   dw/=2;dh/=2;
   return p=>{ e.style.top=px(p.clientY-dh); e.style.left=px(p.clientX-dw); };
 }
-let moveBall = centeredMove(eBall);
-const animBack=(a,b)=>[a,b,a], animModify=(e,k,op_v1)=>[{[k]: e.style[k]}, {[k]: mapPx(op_v1, e.style[k]) }], animEnum=(k,vs)=>(typeof vs=="string"? vs.split(" ") : vs).map(v=>{return {[k]:v}}), maxFirst=(a,b,key,op)=>key(a)>key(b)? op(a, b) : op(b, a);
+const animBack=(a,b)=>[a,b,a],
+  animModify=(e,k,op_v1)=>[{[k]: e.style[k]}, {[k]: mapPx(op_v1, e.style[k]) }], animEnum=(k,vs)=>(typeof vs=="string"? vs.split(" ") : vs).map(v=>{return {[k]:v}}), maxFirst=(a,b,key,op)=>key(a)>key(b)? op(a, b) : op(b, a);
 // 不可以改进 animModify() 去用 JQ 式的 animate({top: y=>y1, color: c=>"red"}) ，那样只能选择两种颜色！可以测试下自动补间的参数力。
 function animCombine(a1, a2) {
   return maxFirst(a1,a2, it=>it.length, (a,b) => {
@@ -49,19 +42,47 @@ function animCombine(a1, a2) {
     return a;
   });
 }
+</script><script>
 
-let colorAnim = animEnum("fill", "red orange yellow green cyan blue purple pink black");
-function setupAnim(e) {
-  let a0 = animBack(...animModify(e, "top", y=>ballY1)); // 无需 reverse() 的往复动画
-  return e.animate(animCombine(a0, colorAnim), 500); // 不得不利用 fill:inherit 来同步pos/color 的两个标签
-}
-document.body.onpointermove = debounce(10, (ev) => {
+const cfg = {
+  ballL: 30,
+  colors: "red orange yellow green cyan blue purple pink black",
+  duration: 500,
+  particleDt: 10,
+  bgColors: "aqua yellowgreen violet thistle teal steelblue",
+  bgDuration: 1000,
+  anchorIsTop: false
+};
+Object.assign(cfg, JSON.parse("{"+document.location.search+"}"));
+let ballY1;
+let eBall = document.querySelector("svg"); // 这段都是预计算改DOM的
++function(e){ for (let s of product(["c", "r"], ["x","y"])) e.setAttribute(s, cfg.ballL); }(eBall.firstChild)
+fitRect(it=>it.firstChild, eBall);
+
+(window.onresize = ()=>{document.body.style.height=px(window.innerHeight); ballY1=cfg.anchorIsTop?0:window.innerHeight-cfg.ballL*2;})()
+document.body.onclick = ()=>{ cfg.anchorIsTop^=1; window.onresize(); };
+with(document.body.style) { marginTop = marginBottom = "0px"; fill = "red"; } // just4fun
+
+let moveBall = centeredMove(eBall);
+
+const setupAnim = function() {
+  const aColor = animEnum("fill", cfg.colors),
+  aPos = e=>animBack(...animModify(e, "top", fY1)),
+  fY1=y=>ballY1; // 无需 reverse() 的往复动画
+  return e=>e.animate(animCombine(aPos(e), aColor), cfg.duration); // 不得不利用 fill:inherit 来同步pos/color 的两个标签
+}();
+document.body.onpointermove = debounce(cfg.particleDt, (ev) => {
   //console.log(ev)
   moveBall(ev);
   let e1 = eBall.cloneNode(true); setupAnim(e1).onfinish=()=>e1.remove();
   document.body.appendChild(e1);
 });
-setTimeout(()=>document.body.animate(animEnum("background", "aqua yellowgreen violet  thistle teal steelblue"), {duration: 3*1000, iterations: Infinity}), 9*1000);
+setTimeout(()=>{
+  let kfs = animEnum("background", cfg.bgColors);
+  document.body.animate(kfs, {duration: kfs.length*cfg.bgDuration, iterations: Infinity})
+}, 6*1000);
+
+document.body.addEventListener("touchmove", document.body.onpointermove);
 
 // 其实必要的只是 body:relative, svg:absolute 和 mousemove 时 cloneNode 及 left,top,color 的动画，但我真的超 HIGH
 </script>
