@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"/><title>抖动的文字</title></head>
+<body>
+<div id="config"><!-- 如果用 align=right 的话会纵向挤开 mode=0b10 -->
+<label for="text">你想抖一抖的文字：</label><textarea id="text" placeholder="支持多行和空格呢"></textarea>
+</div>
+<style>canvas { position:absolute; z-index: -1000; left:0;top:10px; width:100%;height:100%; } body { overflow-y: hidden; } div#config { float: right; } body { /*为支持 canvas 这里好像不能加 position:relative */ }</style>
+<style>@keyframes twitch { from { border-width: 5px } to { border-width: 1px; } } div.animate-container { animation: twitch infinite; animation-duration: 0.2s; animation-timing-function: linear; border-bottom: solid green; }</style>
+<script>
+let eText=document.getElementById("text"),
+  proc=n=>n + 2*Math.random(),
+  appOnParticleXY=(axy)=>{ for (let i=1; i<3; i++) axy[i] = proc(axy[i]); },
+  appInitCanvas=(g)=>{ g.font = "20px sans"; g.fillStyle = "black"; g.textBaseline = "top"; },
+  sCfg = decodeURI(document.location.search.substr(1));
+try { mode=eval(sCfg)||0b1; } catch (e) { alert(e); mode=parseInt(sCfg, 2); }
+function animUpdate(op) { let f=()=>{ op(); requestAnimationFrame(f); }; return f;  } // let my=animUpdate; requestAnimationFrame(op.name==my.name? op : my.bind(null,op));
+
+function sumTextPoints(g, text) {
+  let x=0, y=0, hFont=parseInt(g.font);
+  let useJoin=mode&0b100, sb=useJoin? [] : null, res=[];
+  for (let line of text.split("\n")) {
+    for (let c of line) {
+      x = useJoin? g.measureText(sb.join("")).width : x+g.measureText(c).width;
+      // 假设堆叠不会影响单字符的宽度，怎么可能呢？
+      let cxy=[c,x,y]; appOnParticleXY(cxy);
+      res.push(cxy); // 这个逆语序参数挺出乎意料啊，而且 anchor(baseline) 也不是默认 top
+      if(useJoin)sb.push(c);
+    }
+    y += hFont; x = 0; if(useJoin)sb.splice(0,sb.length);
+  }
+  return res;
+}
+function calcMaxArg(i0, dst, ps) {
+  dst[0]=0; dst[1]=0;
+  let up=(p,i)=>{ let v=p[i0+i]; if(v>dst[i]) dst[i] = v; };
+  for (let p of ps) { up(p, 0); up(p, 1); }
+  return ps;
+}
+function antiGitter(e, evn, dist_len, op) { // 当然是给 oninput 而非 onchange 用的
+  let last = 0;
+  e.addEventListener(evn, (ev)=>{ let v=ev.target.value, n=v.length; if (Math.abs(n-last)>dist_len) {op(v); last=n;}  });
+  e.addEventListener("blur", (ev)=>{ op(ev.target.value); });
+}
+
+function createAppendElement(tag) {
+  let e = document.createElement(tag);
+  return document.body.appendChild(e);
+}
+function newArray(n, init) { let ary=Array(n); for (let i=0;i<n;i++) ary[i]=init(i); return ary; }
+function px(n) { return Math.floor(n)+"px"; }
+Object.moveKeys = (map, o)=>{
+  let o1 = {};
+  for (let k in map) o1[k] = o[map[k]];
+  return o1;
+};
+Object.mapKeys_ = (ops, o)=>{
+  for (let k in ops) o[k] = ops[k](o[k]);
+};
+let appAnimCfg = {duration: 200, iterations: Infinity};
+cssAnimProp2Js = function(){ // 迫真翻译
+  let map = {};
+  for (let key of "duration delay direction".split(" ")) map[key] = key;
+  map.fill = "fill-mode";
+  map.easing = "timing-function";
+  map.iterations = "iteration-count";
+  for (let k in map) map[k] = "animation-"+map[k];
+  let readT=n=>parseFloat(n)*1000,
+    ops = {duration: readT, delay: readT, iterations: s=>s=="infinite"? Infinity : parseInt(s)};
+  return (rule) => {
+    let cfg = Object.moveKeys(map, rule.style);
+    Object.mapKeys_(ops, cfg);
+    return cfg;
+  }
+}();
+function animateShaking(e) {
+  let left=e.offsetLeft, top=e.offsetTop;
+  let randP = i=>{return {left: px(proc(left)), top: px(proc(top))}};
+  Object.assign(e.style, randP(0));
+  let kfs = newArray(5, randP); kfs.push(kfs[0]); //kfs.push(...[...kfs].reverse()); // 往复运动
+  e.animate(kfs, appAnimCfg);
+}
+let appCanvas=()=>{
+  let eCan = createAppendElement("canvas");
+  let g;
+  (window.onresize = ()=>{
+    let style = getComputedStyle(eCan);
+    for (let k of ["width", "height"]) eCan[k] = style[k].substr(0,style[k].length-2/*px*/);
+    g = eCan.getContext("2d");
+    appInitCanvas(g);
+  })();
+  let whText = [0,0]; // 上回的 xy bound
+  let lClear = parseInt(g.font)*2;
+  let draw = (text)=>{
+    g.clearRect(0,0, whText[0]+lClear, whText[1]+lClear);
+    for (let arg of calcMaxArg(1, whText, sumTextPoints(g, text)) ) { g.fillText(...arg); }
+    //eCan.width=whText[0]; eCan.height=whText[1]; // 嫌麻烦不写必要时 resize 了, g 也要重赋值
+  };
+  antiGitter(eText,"input", 3, draw);
+  let enabled = false;
+  eCan.onclick = ()=>{ if(enabled)return; animUpdate(()=>draw(eText.value))(); enabled=true; };
+},
+appCSS=()=>{
+  let eDiv = createAppendElement("div");
+  eDiv.classList.add("animate-container");
+  antiGitter(eText,"input", 5, (text)=>{
+    eDiv.style.paddingTop = "0"; // 维护 border 高度的计算
+    let eOld = eDiv;
+    eDiv = eOld.cloneNode(); eOld.replaceWith(eDiv);
+    for (let c of text) eDiv.appendChild(document.createElement("span")).innerText = c;
+    let es = eDiv.querySelectorAll("span");
+    es.forEach(animateShaking);
+    es.forEach((e)=>{ e.style.position = "absolute"; }); // 我也不知道为什么，貌似 position=absolute 会清除一段时间里的 top/left 定义？
+    let eLast = eDiv.lastElementChild;
+    if (!!eLast) eDiv.style.paddingTop = eLast.offsetTop+eLast.offsetHeight+"px";
+  });
+  document.body.onclick =  ()=>{ appAnimCfg = cssAnimProp2Js(document.styleSheets[1].cssRules[1]); eText.dispatchEvent(new Event("blur")); console.info("anim changed"); }; // 特性 可 CSS 化编辑 animate() 参数
+};
+
+if (mode&0b01) appCanvas();
+if (mode&0b10) appCSS();
+eText.dispatchEvent(new Event("input"));
+</script>

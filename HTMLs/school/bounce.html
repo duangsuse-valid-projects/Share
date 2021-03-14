@@ -88,7 +88,8 @@ setTimeout(()=>{
   document.body.animate(kfs, {duration: kfs.length*cfg.bgDuration, iterations: Infinity})
 }, 6*1000);
 
-document.body.addEventListener("touchmove", document.body.onpointermove);
+document.body.addEventListener("touchmove", (ev)=>document.body.onpointermove(ev.touches[0]));
+document.body.addEventListener("touchstart", (ev)=>{ ev.preventDefault(); });
 
 const evMousePos=(evn,e)=> new MouseEvent(evn,assign({}, "x y", e.getClientRects()[0], n=>Math.floor(n+cfg.ballL), k=>"client"+k.toUpperCase()) );
 ifNotZero(cfg.animAutoDuration, (t)=>{
