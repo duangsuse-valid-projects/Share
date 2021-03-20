@@ -1,0 +1,76 @@
+<head><meta charset="UTF-8">
+<script>
+Object.copyIfMissing=function(o,k,k1) { if(o[k]==null) o[k] = o[k1]; };
+
+function ser(o) {
+  function typed(obj, ...ks) {
+    let res = {_type: obj.__proto__.name};
+    for (let k of ks) res[k] = obj[k];
+    return res;
+  }
+  o._type = o.__proto__.name;
+  if (o instanceof Error) { return typed(o, "message", "stack"); }
+  else { delete o._type; }
+  return o;
+}
+function deser(o) {
+  if (o._type == "Error") { let ex = Error(o.message); ex.stack = o.stack; return ex; }
+  return o;
+}
+
+function PortServer(port, table) { // use runtime.connect(...[id?,{name}]) to get port
+  Object.copyIfMissing(port, "sendMessage", "postMessage")
+  let addRecv = (!!port.onMessage)? (op)=>port.onMessage.addListener(op) : (op)=>port.addEventListener("message", (ev)=>op(ev.data) );
+
+  if (!!table) {
+    function respond(data) {
+      if(data.length!=3) return;
+      let [no,k,args] = data;
+      let res; try { res = table[k](...args); } catch(ex) { res = ex; } // dytype
+      this.sendMessage([no, ser(res)]);
+    }
+    addRecv(respond); return;
+  }
+  let que = [], seqNum = 0, offsetL = 0; // client only!
+  function send(k, args) {
+    let dones, promise = new Promise((resolve,reject) => { dones = [resolve,reject] });
+    if (que.every(it=>it===null)) offsetL = seqNum;
+    //console.log(que,offsetL,seqNum)
+    let iResp = seqNum-offsetL;
+    if (iResp>=que.length) que.push(dones); else que[iResp] = dones;
+    port.sendMessage([seqNum,k,args]); seqNum++;
+    addRecv((data) => {
+      if(data.length!=2) return;
+      let [no,resp] = data; resp = deser(resp);
+      let iResp = no-offsetL;
+      if(que[iResp]==null) return; // sometimes dispatched for 2 times?
+      que[iResp][(resp instanceof Error)? 1:0](resp); que[iResp] = null;
+    });
+    return promise;
+  }
+  return new Proxy({}, {get: (self,k)=>(...args)=>send(k,args)})
+}
+
+async function delay(ms) { return new Promise((resolve)=>setTimeout(resolve,ms)) }
+PortServer(window, {add:(a,b)=>a+b, checkNot:(v,x)=>{ if (x==v) throw Error(`invalid ${x}`); } })
+server=PortServer(window)
+onload=async()=>{ console.log(await server.add(1,2)); server.checkNot(1,1).catch(console.log); console.log(await Promise.all([[1,2], [5,4], [1,3], [6,9], [1,1]].map(async(ns)=>{ await delay(100); return server.add(...ns) }) )); }
+</script>
+<pre>
+from sys import stdin
+IntViewDict = dict # 可以用动态增长的稀疏数组 iLow 指针储存，动态右移视口
+class ReqPairer:
+  def __init__(self,op): self.op=op; self.que=IntViewDict();self.seqNo=0
+  def beg(self,k):
+      self.que[self.seqNo] = k; no=self.seqNo; self.seqNo+=1; return no
+  def end(self,s):
+      (si,k)=s.split(" ",1)
+      self.op(self.que.pop(int(si)), k)
+def subs(obj,obj1,v): return obj1 if v==obj else v
+
+c = ReqPairer(print)
+for ln in stdin:
+  ln=ln[:-1] #v 前者相当于 onMessage 后者相当于 post. k 相当于操作名。如果beg不返回也可把no注册在信息 
+  no = c.end(ln[1:]) if ln[0]=="<" else c.beg(ln)
+  print(subs(None, "---", no))
+</pre>
