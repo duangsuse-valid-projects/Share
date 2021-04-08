@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>四项边框样式</title>
+		<style>
+			h1{border-bottom: 5px double blue;}
+			h3{border-style: dashed double dotted solid; border-color: red darkblue lightblue green; border-width: 3px 10px 3px 10px;}
+		</style>
+	</head>
+	<body>
+		<h1>设置边框属性</h1>
+		<h3>单侧边框综合属性，左右上下<sub>准确的说是 <ruby>TL;DR<rt>左上;右下</rt></ruby></sub>都有不同边框样式</h3>
+		<div><button onclick="styBord.mapRule(1, it => mapStyleTok(it.cssText, alsoEffect(xs=>{ xs.unshift(xs.pop()); })) );">不好</button></div>
+		<script>
+			function matchAll(sre,s) {
+				let re=RegExp(sre,"g"),m=null; let res=[];
+				while ((m = re.exec(s)) !== null) res.push(m);
+				return res
+			}
+			class Functor { // 特地注释这不是函数式涵子 Functor 免误人子弟 ;) 
+				flatMap(x,op) { return this.map(x, xs=>xs.map(op)) }
+			}
+			class Equiv extends Functor {
+				constructor(from,into){super();this.from=from;this.into=into;}
+				map(x,op) { return this.into(op(this.from(x))) }
+				swap() { return new Equiv(this.into, this.from) }
+				id() { return x=>this.into(this.from(x)) }
+			} // 开始提升没 super 我还以为是要 Py 那样 super.constructor(this) 呢，或者 Functor["constructor"](this) ，还回忆了 ES5 prototype，其实有专门语法
+			function alsoEffect(op) { return x=>{ op(x); return x; } }
+
+			let tokEqu = sep=>new Equiv(s=>s.split(sep), xs=>xs.join(sep)), spaceTokEqu=tokEqu(" ");
+			let cssEqu = new Equiv(s=>matchAll(/(\S+):\s*([^;]*);/g, s), t=>t.map(r => r[1]+":"+r[2]).join(";"));
+			let styBord = document.styleSheets[0];
+			function mapStyleTok(s, op_tok) {
+				return cssEqu.flatMap(s, alsoEffect(xs=>{ xs[2] = spaceTokEqu.map(xs[2], op_tok); }))
+			} //v push(shift()) 也可以，但就是从左边出了
+			CSSStyleSheet.prototype.mapRule = function(i,op) { let r=this.rules[i]; this.addRule(r.selectorText, op(r)); this.removeRule(i); }
+			// 你可能觉得我也能选择让 mapRule 只支持 str 输入输出，或者让 mapStyleTok 默认取 cssText ，但请注意目前的访问流输入输出类型是最一致的。
+		</script>
+	</body>
+</html>

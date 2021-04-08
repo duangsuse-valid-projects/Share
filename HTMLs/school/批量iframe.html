@@ -1,0 +1,52 @@
+<!doctype html><html><head><meta charset="utf-8"><title>打开iframes</title></head>
+<body>
+<!-- 可选 PJAX 方便全屏预览以及 定时重载, sizegrip, iframe src=, URL 参数等 -->
+<label><input type="checkbox" onchange="isAppend=event.target.checked">添入列表</label>
+<label>网页文件<input type="file" accept="text/html" multiple></label>
+<div align="center" class="views">下表。</div>
+<style>
+div.views { display: grid; }
+</style>
+<script>
+let eIn=document.querySelector("input[type=file]"), eOut=eIn.parentNode.nextElementSibling;
+isAppend = false;
+
+let docP = new DOMParser;
+function xxerPromise(xx, init) {
+  if(xx.readyState==xx.LOADING) return delayRetry(arguments);
+  return new Promise((res,rej)=>{ xx.onload=()=>res(xx.result); xx.onerror=rej; init(xx); })
+}
+function delayRetry(argv) {
+  let op=argv.callee,dt=delayRetry[op.name]||500;
+  return new Promise((res,rej)=> setInterval(()=> op.apply(null,argv).then(res).catch(rej), dt) )
+}
+function makeRead(type,kind) {
+  let fr=new window[type+"Reader"], opP=fr["readAs"+kind];
+  return (f)=>xxerPromise(fr, fr=>opP.call(fr, f));
+}
+let textR = makeRead("File","Text");
+
+function iframeTo(eDst,s) {
+  let eDoc=document.createElement("iframe");
+  function copy(e,eDst) {
+    for(let i=0;i<e.childElementCount;i++)eDst.appendChild(e.children[i]);
+    //e.childNodes.forEach(ee=>eDst.appendChild(ee))
+  }
+  eDoc.onload=()=>{ let doc = docP.parseFromString(s, "text/html"); for(let k of ["head","body"]) copy(doc[k], eDoc.contentDocument[k]) };
+  eDst.appendChild(eDoc);
+  return eDoc
+}
+function clear(e){while(!!e.firstChild)e.removeChild(e.firstChild)} // 不能用 e.replaceWith(e.cloneNode(false)) 不然引用处会失效
+eIn.onchange=()=>{
+  if(!isAppend) clear(eOut);
+  //for (let f of eIn.files) eOut.appendChild(iframeSource(await textR(f)));
+  Promise.all([...eIn.files].map(f=>textR(f).then(iframeTo.bind(null,eOut)))).then(console.log)
+};
+</script>
+
+<script>//批量导出CSS选择器 ，可在 chrome:extensions 等页面用于学习
+function tryMap(xs,op){ let ys=[]; for (let x of xs) try{ys.push(op(x))}catch(ex){ys.push(ex)} return ys }
+function* flat(xs){if(xs instanceof Array)for(let a of xs)yield* flat(a);else yield xs;} // 分支2 不需要是[]，因为 yield* 接受的正是 Generator
+
+[...flat(tryMap(document.styleSheets,style=>[...style.rules].map(it=>it.selectorText)))].join("\n")
+</script>

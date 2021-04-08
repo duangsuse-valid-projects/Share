@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>看起来像弹框</title>
+		<style>
+			.dialog-header {
+				height: 20px; border: 1px solid gray;
+				background-color: #A0A0A0; color: white; padding: 5px;
+				font-family: "微软雅黑";
+				text-align: left; text-indent: 4px;
+			}
+			.dialog-content { margin: 10px auto; position: relative; }
+			.dialog-content > img { position: absolute; z-index: -100; transition: 0.5s ease-in-out; } /*等于自动生成 css prop 变更动画 @keyframes from-to ，好高级啊， filter 序列还能渐变有无开关*/
+			.dialog-content > img:hover { filter: none !important; }
+			.dialog-content li { list-style-position: inside; background-color: rgba(255, 0, 0, 0.67); width: calc(50% + 20px); margin-top: 2px; } /*到底是怎么了为什么 li 自动横扩充了*/
+		</style>
+	</head>
+	<body>
+		<dl>
+			<dt><img alt="H" src="img/HBuilder.png"/></dt>
+			<dd><h2>HBuilder</h2> <p>Yeah</p></dd>
+		</dl><hr>
+		<div align="center">
+			<div class="dialog-header" style="width: 420px;">你好世界 <img alt="x" width="20" align="right" src="img/HBuilder.png"/>
+			<div class="dialog-content">
+				<img alt="企鹅" src="img/Penguins1.png" style="filter:grayscale(0.9);"/> <!-- 没办法 wrap_content 设计标题栏、没办法用 img.height 计算。注意 header 嵌套着 content -->
+				<h3 style="padding: 90px; position: absolute; color: red;">绝赞的未名课程<br><span style="color:green">不来绝对不是我们的损失！</span></h3>
+				<ul style="list-style-type: circle; color: white; padding-left: calc(50% - 50px); padding-top: 200px"></ul>
+			</div>
+			</div>
+		</div>
+		<script>
+			e=document.querySelector(".dialog-content ul");
+			"非常厉害的课程 等你来玩 获得认证不来是损失".split(" ").forEach(function(s) { e.appendChild(document.createElement("li")).innerText = s; })
+		</script>
+	</body>
+</html>

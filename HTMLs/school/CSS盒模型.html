@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>CSS盒模型</title>
+		<style>
+			.box { border: 15px double darkred; width: 100px;height:90%; padding: 10px; margin: 20%;  background: brown;}
+		</style>
+	</head>
+	<body>
+		<div class="box">内容<img src="CSS盒模型_files/Penguins.jpg" width="30"/></div>
+		<script>
+			function foldN(n,op,init) { let acc=init; while(n--)acc=op(acc); return acc }
+			function cyclicIter(xs) { let i=0; return ()=>{ if(i==xs.length)i=0; return xs[i++]; } }
+			//function lets(v,op) { return (...args)=>op(v,...args) }
+			let boxNum=5,eBox=document.querySelector("div"), styBox=document.styleSheets[0].rules[0].style;
+			window.onwheel=(ev)=>{ ev.preventDefault(); boxNum-=Math.sign(ev.deltaY); if(ev.deltaY)eBox.removeChild(eBox.lastChild); foldN(boxNum, e=>e.appendChild(e.cloneNode(true)), eBox); };
+			dispatchEvent(new WheelEvent("wheel", {deltaY:0}));
+			eBox.onclick=((next)=>{ styBox.borderStyle = next(); }).bind(null,cyclicIter("solid dashed dotted double".split(" ")));
+			eBox.onmousemove=((next)=>{ styBox.borderColor = next(); }).bind(null,cyclicIter("red orange yellow green blue cyan purple".split(" ")));
+			document.ondblclick=(ev)=>(e=>{ e.tagName=="BODY"? e.setAttribute("ContentEditable","") : e.remove(); })(ev.target);
+		</script>
+	</body>
+</html>
