@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>grid simple</title>
+<script>
+class Area {
+	constructor(x,y,w,h){
+		if(x instanceof Image) {
+			this.setWH(x.naturalWidth,x.naturalHeight);this.setXY(0,0); return;
+		}
+		[this.x,this.y,this.w,this.h]=[x,y,w,h];
+	}
+	//setXY(x,y){this.x=x,this.y=y;}
+	//setWH(w,h){this.w=w,this.h=h;}
+	clipSpirit(e) { let m=this; e.style.cssText += `width:${m.w}px;height:${m.h}px;background-position:${m.x}px ${m.y}px;`; }
+	*chunks(nx,ny) {
+		let dx=div(this.w,nx), dy=div(this.h,ny);
+		for(let y of Array.range(0,this.h, dy))
+			for(let x of Array.range(0,this.w, dx)) yield new Area(x,y,dx,dy); 
+	}
+}
+String.prototype.capitalize=function(){return this[0].toUpperCase()+this.substr(1)}
+String.prototype.splitCond=function(sep,op1,op2,limit){ limit=limit||0;
+	let iSep=this.indexOf(sep), ss0=this.slice(0,iSep),ss1=this.slice(iSep+1);
+	return (iSep==-1)? op1(this) : (limit==2)? op2(ss0,ss1) : op2(ss0, ...ss1.split(sep,limit-1))
+}
+Object.setLazy=function(o,k,get_v){ Object.defineProperty(o,k,{get:get_v}) }
+Array.prototype.reduceOnto=function(op_i0,join){
+	return this.slice(1).reduce(join, op_i0(this[0]));
+}
+
+function defineSetterComp(type, s_keys) {
+	let ks = s_keys.split(" "), name=ks.map(k=>k.capitalize()).join("");
+	type.prototype["set"+name] = function compoundSetter() {
+		for(let i=0;i<arguments.length;i++) this[ks[i]] = arguments[i]
+	}
+	function getChangePad(){
+		let pad = {
+			value: ks.map(k=>this[k]),
+			map: (op)=>{ ks.forEach(k=>{ this[k]=op(this[k]) }); return pad }
+		};
+		ks.forEach(k=>{ Object.setLazy(pad,"map"+k.capitalize(),()=>(op)=>{ return this[k]=op(this[k]) }) })
+		return pad;
+	}
+	Object.setLazy(type.prototype,"prop"+name,getChangePad)
+}
+function clearChild(e){while(!!e.firstChild)e.removeChild(e.firstChild)}
+defineSetterComp(Area, "x y"); defineSetterComp(Area, "w h");
+function emetAttr(e,s_attrs) {
+	s_attrs.split(",").forEach(k=>k.splitCond("=",
+	  e.ref("setAttribute"), (k,v)=> (k=="text")? (e.textContent=v) : e.setAttribute(k,v), 2) )
+}
+function emet_(css_single) {
+	const ssyms = Object.entries({".": "className", "#": "id", "[":null, "$":null});
+	let e;
+	let s=css_single, iK1 = 0, vK1; // of last scanned marker
+	for (let [k,v] of ssyms) { //v can turn to function onMarker(iK).
+		let iK = (v==null&&k=="$")? s.length : s.indexOf(k,iK1); if(iK==-1)continue;
+		if (iK1 == 0) {
+			e = document.createElement(s.slice(0,iK)); // tagName first.
+		} else {
+			if (!!vK1)e[vK1] = s.slice(iK1,iK);
+			if(k=="[") { // this cond can't be merged
+				let iStop = s.indexOf("]", iK1);
+				emetAttr(e,s.slice(iK+1, iStop));
+			}
+		}
+		iK1 = iK+1, vK1 = v; // fresh value.
+	}
+	return e
+}
+function emet(css) {
+	return css.splitCond(" ", emet_, (...items)=>{
+		let eTop = emet_(items[0]);
+		return [eTop,items.slice(1).reduce((e0,code)=>e0.appendChild(emet_(code)), eTop)]
+	})
+}
+
+function div(a,b){return Math.floor(a/b)}
+Array.range=function(start,stop,step) { step=step||1;
+	var a =[]; for(var i=start; i<stop; i+=step) a.push(i);
+	return a
+}
+Object.prototype.ref=function(k){ return this[k].bind(this); }
+const lamAddArg = (op,...aarg) => function(){return op.apply(this,[...arguments,...aarg])}
+
+function getBgImage(e){ const re=/url\((.*?)\)/g;
+	let img=new Image;
+	img.src=JSON.parse(re.exec(getComputedStyle(e).backgroundImage)[1]);
+	return img
+}
+function makeIFxWin(eImg) {
+	let eClips = emet("div.ifxwin-clip")
+	eImg.onload=()=> {
+		clearChild(eClips);
+		eImg.removeAttribute("hidden")
+		eImg.parentNode.insertBefore(eClips,eImg)//.replaceWith(eClips);
+		for (let aa of new Area(getBgImage(eImg)).chunks(eImg.clipX||2,eImg.clipY||2)) aa.clipSpirit( eClips.appendChild(eImg.cloneNode()) );
+		eImg.setAttribute("hidden","")
+	};
+	eImg.onload();
+}
+</script>
+<style>
+.wim {background-image: url(img/Chrysanthemum.jpg)}
+.ifxwin-clip { display: flex; flex-wrap: wrap; }
+.ifxwin-clip * {margin: 1px;transition: 0.2s margin ease-in;}
+.ifxwin-clip *:hover {margin:5px}
+</style>
+<body>
+	<span class=wim></span>
+	<input type=file accept="image/*">
+<script>
+var $=$||document.ref("querySelector")
+window.onload=()=>{
+let eImg=$("span.wim");
+$("input[type=file]").onchange=lamAddArg((ev,fr)=>{
+  fr.readAsDataURL(ev.target.files[0])
+  fr.onload=()=>{ document.styleSheets[0].rules[0].style.backgroundImage=`url(${fr.result})`; eImg.onload(); }
+}, new FileReader);
+
+
+makeIFxWin(eImg)
+
+}
+</script>
+	</body>
+</html>

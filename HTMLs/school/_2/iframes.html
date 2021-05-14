@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="UTF-8"><title>嵌入式浏览器们</title></head>
+<body>
+<script>
+function withTarget(ev, get, op){
+  var evt=ev.target/*this*/, o=get(evt);
+  //evt.removeEventListener(ev.type, arguments.callee); //没用
+  var e1=evt.cloneNode(true); e1.removeAttribute("on"+ev.type); evt.replaceWith(e1);
+  e1.addEventListener(ev.type, (function(){return op.call(this, o) }).also(f=>f()));
+}
+_={};
+_=new Proxy(_, {get: (_,k)=>o=>o.ref(k) });
+
+HTMLElement.prototype.clear=function(){ var e;while(!!(e=this.firstChild))this.removeChild(e); }
+Function.prototype.doRun=function(){var fn=this; return function(){return fn.apply(this, arguments) }; }
+</script>
+<input type="file"multiple accept="text/html"><input type="button" value="X" onclick="withTarget(event, _.nextElementSibling, _.clear )">
+<div class="iframes"></div>
+<script>
+Object.prototype.ref=function(k){ var o=this,v=o[k]; return (v instanceof Function)? function(){return v.apply(o,arguments) } : v; }
+Object.prototype.also=function(op){op(this);return this;}
+qs=document.ref("querySelector");
+
+opAddE=qs("div.iframes").ref("appendChild")
+qs("input")/*document.currentScript.previousElementSibling*/.onchange=function(ev){
+  var evt=ev.target, fs=[].slice.call(evt.files);
+  Promise.all(fs.map(f=>
+    fileR(f).then(makeInnerH("iframe")).then(opAddE)
+  )).then(console.log);
+}
+
+function makeInnerH(tag){return html=>document.createElement(tag).also(
+  (tag=="iframe")? e=>{ e.onload=()=> e.contentDocument.write(html) } : e=>{ e.innerHTML=html })
+}
+function makeLoaderOp(type,fname){var o=new type(), f=o[fname]; return function loaderDispatch(){
+  return(o.readyState==type.LOADING)? Promise.delayCall(arguments) :
+    new Promise((ok,err)=>{ o.onload=(ev)=>ok(ev.target.result); o.onerror=err; f.apply(o,arguments); })
+}; }
+
+fileR=makeLoaderOp(FileReader,"readAsText")
+
+Promise.also(P=>{
+  P.callDelays={};
+  P.delayed=function(create,dt_ms){return new Promise((ok,err)=>setTimeout(()=>create().then(ok).catch(err), dt_ms) )}
+  P.delayCall=function(argv){return Promise.delayed(()=>argv.callee.apply(null,argv), Promise.callDelays[argv.callee.name]||200)}
+})
+</script>

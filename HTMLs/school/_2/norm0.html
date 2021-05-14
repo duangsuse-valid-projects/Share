@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>grid simple</title>
+<script>
+class Area {
+	constructor(x,y,w,h){
+		if(x instanceof Image) {
+			this.setWH(x.naturalWidth,x.naturalHeight);this.setXY(0,0); return;
+		}
+		[this.x,this.y,this.w,this.h]=[x,y,w,h];
+	}
+	setXY(x,y){this.x=x,this.y=y;}
+	setWH(w,h){this.w=w,this.h=h;}
+	clipSpirit(e) { let m=this; e.style.cssText += `width:${m.w}px;height:${m.h}px;background-position:${m.x}px ${m.y}px;`; }
+	*chunk(nx,ny) {
+		let dx=div(this.w,nx), dy=div(this.h,ny);
+		for(let y of Array.range(0,this.h, dy))
+			for(let x of Array.range(0,this.w, dx)) yield new Area(x,y,dx,dy); 
+	}
+}
+function div(a,b){return Math.floor(a/b)}
+Array.range=function(start,stop,step) { step=step||1;
+	var a =[]; for(var i=start; i<stop; i+=step) a.push(i);
+	return a
+}
+Object.prototype.ref=function(k){ return this[k].bind(this); }
+
+function getBgImage(e){ const re=/url\((.*?)\)/g;
+	let img=new Image;
+	img.src=JSON.parse(re.exec(e.style.backgroundImage)[1]);
+	return img
+}
+</script>
+<style>
+#wtf { display: flex; flex-wrap: wrap; }
+#wtf span { margin: 1px }
+</style>
+	</head>
+	<body>
+		<span style="background-image: url(img/Chrysanthemum.jpg)"></span>
+		<div id="wtf"></div>
+<script>
+var $=$||document.ref("querySelector")
+window.onload=()=>{
+let eClips=$("#wtf"), eImg=$("span[style^=background]");
+
+for (let aa of new Area(getBgImage(eImg)).chunk(2,2)) aa.clipSpirit( eClips.appendChild(eImg.cloneNode()) );
+}
+</script>
+	</body>
+</html>

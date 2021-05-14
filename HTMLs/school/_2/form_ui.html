@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+
+	<head>
+		<meta charset="UTF-8">
+		<title>用CSS控制表单样式</title>
+		<style>
+			*{padding: 0;margin: 0;}
+			body{font:12px 宋体;}
+			form table { background: #DCF5FA; margin: 30px auto; padding-top: 20px; }
+			form table * { margin: 10px; }
+			input[name="num"] {background: url(images6/1.jpg) no-repeat;}
+			input[name="pas"] {background: url(images6/2.jpg) no-repeat;}
+			input[type="submit"] {background: url(images6/5.jpg) no-repeat; width: 87px; content: none;}
+			span-colon:before {content: "："}
+		</style>
+	</head>
+
+	<body>
+			<form method="get">
+				<table style="text-align: end;">
+				<tr><td> <label>用户名：<input name="num" /></label></tr>
+				<tr><td> <label>密码：<input name="pas" type="password"/></label></tr>
+				<tr><td> <input type="submit" value=""/>
+				</table>
+			</form>
+			<div generate-form="
+姓名 电话 性别:radio(男,女) 邮箱:input(email) 意向课程:opt(平面UI设计) 了解传智渠道:cbox(baidu,老学员,朋友,CSDN,视频教程,其它) 留言:tarea() submit reset;
+报名的重要依据，请认真填写,报名的重要依据，请认真填写,[6]请简述您有没有设计基础，以及为什么选择学习平面设计？" align="center">
+	<h2>快点在线报名吧~！<sub>（不过这些信息务必认真填写）</sub></h2>
+</div>
+<script>
+RE_ARY_SUB=/^\[\s*(\d+)\s*\]/g;
+function letNul(o,a,b){return (!!o)? a(o): b()};
+function loadAry(text,sep=",") {
+	let a=text.split(sep), ary=[];
+	a.forEach((x,i)=> letNul(RE_ARY_SUB.exec(x), (m)=>{ary[parseInt(m[1])]=x.substr(0+m[0].length)}, ()=>{ary[i]=x} ))
+	return ary;
+}
+Array.prototype.sumBy=function(op,init=0){ let acc=init; for(let x of this) acc+=op(x); return acc; }
+String.prototype.splitCount=function(sep,n){
+	let a=this.split(sep,n);
+	a.push(this.substr(a.sumBy(it=>it.length+sep.length)));
+	return a;
+}
+String.prototype.withPair=function(a,b,op){
+	let iA=this.indexOf(a);
+	if(iA==-1) return null;
+	let iB=this.indexOf(b,iA+1);
+	if(iB==-1) return null;
+	return op(this.substring(0,iA), this.substring(iA+1,iB)); // 注意 substr 是 pos+len 的
+}
+console.logArgFn=(op)=>(...arg)=>{ console.log(...arg); return op(...arg) };
+function makeE(tag,childs){ let e=document.createElement(tag); if(!!childs)for(let ee of childs)e.appendChild(ee); return e }
+function splitAnchors(seps,s) {
+	let iLast = 0, iBeg=iLast, parts=[];
+	for(let sep of seps) { iBeg=iLast; iLast=s.indexOf(sep,iLast); if(iLast==-1) break; parts.push(s.substring(iBeg,iLast)); iLast+=sep.length; }
+	parts.push(s.substr(iLast));
+	return parts;
+} // splitAnchors("# $ &".split(" "), "#b$dsc&") 可惜没用上
+function expandForm(e,code) {
+	let [sWids,sTips] = code.splitCount(";",2).map(s=>s.trim());
+	let wids = loadAry(sWids, " "), tips = loadAry(sTips);
+	console.log(wids,tips)
+	let mkInput = (type)=>{ let e=makeE("input"); e.type=type; return e },
+	  setsText = op=>x=> { let e=op(); e.innerText=x; return e },
+	  fnWidSet = type=>(xs)=>makeE("div", xs.map(x=>{ let ee=mkInput(type), e=makeE("label",[document.createTextNode(x),makeE("span-colon"),ee]); ee.name="inherit"; return e; }));
+	let scope = {
+		radio:fnWidSet("radio"),
+		opt:(xs)=>makeE("select", xs.map(setsText(()=> makeE("option"))) ),
+		cbox:fnWidSet("checkbox"),
+		input:mkInput,
+		tarea:()=>makeE("textarea"),
+	}, evalCall=(o,s)=>s.withPair("(",")", console.logArgFn( (fname, s_arg)=>o[fname].call(null, loadAry(s_arg))) );
+	"submit reset".split(" ").forEach(k=>{ scope[k]=mkInput.bind(null,[k]); })
+	wids.forEach((s)=>{ // 展开并从缩写设置单项
+		let iCall=s.indexOf(":"), ee, isButton;
+		if(iCall==-1) {
+			isButton = (s in scope);
+			ee=isButton? scope[s]() : makeE("input");
+			ee.name=s;
+		} else {
+			isButton = false;
+			ee=evalCall(scope,s.substr(iCall+1));
+			ee.name=s.substr(0,iCall);
+			ee.querySelectorAll("[name=inherit]").forEach(eee=>{eee.name=ee.name});
+		}
+		e.appendChild(makeE("tr", isButton? [ee] : [makeE("label", [document.createTextNode(ee.name), makeE("span-colon"), ee])]) );
+	});
+	tips.forEach((s,i)=>{e.children[i].firstChild.lastChild.placeholder = s});
+}
+document.querySelectorAll("div[generate-form]").forEach(e=>{ let ee=document.createElement("form"); expandForm(ee,e.getAttribute("generate-form")); e.appendChild(ee); })
+</script>
+	</body>
+
+</html>
