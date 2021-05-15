@@ -1,0 +1,158 @@
+<!doctype html><html><head>
+  <meta charset="utf-8">
+  <title>学生请假条</title>
+  <meta name="description" content="查看这个学生的今日校园请假条">
+  <link rel="icon" href="favicon.png">
+  <meta name="viewport" content="width=device-width">
+  <script src="emet.js"></script>
+  <script src="util.js"></script>
+</head><body>
+<form name=请假条>
+begAt:假期开始时间
+endAt:假期结束时间
+
+tel:紧急联系人
+reason:请假原因
+issuePlace:发起位置
+issuer:请假申请人
+spSummary:审批流程
+sper:审批人
+spAt:审批申请时间
+spNotifyAt:审批催办时间
+spDoneAt:审批通过时间
+<p>
+时间格式：<input class="dateformat" value="mm-dd hh:MM"><br>
+时间显示：<input class="dateformat" value="mm-dd hh:MM"><br>
+<b>上为时间输入/显示格式，一般不用改。<br>填表注意假期开始不应早于审批时间</b>
+<input type="submit">
+</p>
+</form>
+
+<script>
+qs("form").wrapBy(e=> emet("details summary[text=配置面板]")[0] )
+// 只是有一些不懂，URLParam、Storage、contentEditable 之间有多大关系，该怎么做？
+function enableClock(e){
+  let k=e.getAttribute("fmt"), fmt = k[0]==":"? dateFmt[k.substr(1)] : dateFmt(k);
+  enableClock.all.push(timerRate(1000,()=>{
+    e.textContent = fmt(new Date);
+  }))
+}
+enableClock.all=[];
+
+function expandTable(e0,code) {
+  let cell=elemMatchMapper(e0.getAttribute("gen"), (k,s)=>{ let e=emet_(k);e.textContent=s; return e } );
+  code.split("\n").mapAppend(e0, row=>row.split("|").mapAppend(emet("tr"), col=>
+    cell(emet("td"), col)
+  ));
+}
+
+if (location.search!="")window.onload=()=>{
+  qs("details").hidden=true;
+  qs(".status-box").onclick=()=>qs(".app").requestFullscreen();
+  document.onfullscreenerror=()=>{document.body.style.margin="0 0";}
+}
+</script>
+
+<style>
+.app{background-color: #f2f2f2; user-select:none;}
+.app nav{text-align:center;padding: 14px 12px;background:white;}
+.app nav * {display:inline}
+.app nav>img:nth-child(1){float:left}
+.app nav a{float:right;font-size: large;}
+.banner {text-align: center;padding: 3px 0;background: lightsteelblue;color: white;font-weight: bold;}
+.banner:before{content: "  ";background:url(ico/quest.svg) no-repeat;filter: invert(1);}
+.banner:after{content:"  ➡";font-size:17px}
+.banner a:link{color:inherit}
+.app a:link {text-decoration:none}
+
+.status-box{
+  text-align:center;
+  padding-top:20px;
+  background: linear-gradient(180deg, #3eab33, #2adb48);
+  color:white;
+}
+.status-box img:nth-child(1){filter:invert(1)}
+.status-box>h2{margin: 2px 0;font-size:xx-large;font-weight:lighter;letter-spacing:5pt;}
+.status-anim{
+  background:url(ico/ban_spirit.png) repeat-x; width: 100%;
+  animation: 9s roller-x linear infinite;
+}
+@keyframes roller-x{
+  from{background-position-x: 0%}
+  to{background-position-x: 100%}
+}
+
+.label-mid{
+  margin: auto 25%;
+  padding: 3px;
+  background: #190c0cbd;color: white;
+  border-radius: 7px;
+}
+
+.section{background:white;width: 100%;}
+.app button{ width: 90%;
+  margin: 4px 8px;padding: 9px;
+  border: 1px lightgray solid;
+  border-radius: 5px;
+  background: ghostwhite;
+}
+.app button:focus{outline:none}
+button.highlight{background: slateblue;color:white;}
+
+ul.timeline {list-style-type: circle;}
+ul.timeline>li::marker{font-size:35px;}
+.timeline li:nth-child(1)::marker {color:blue}
+.timeline li:nth-child(2)::marker {color:yellow} // 早该写能 zip(a,b)的模板系统了
+.timeline li:nth-child(3)::marker {color:green}
+
+.app em{font-style: normal;color: dimgray;}
+</style>
+<style setprop="colspan">
+.app>table > tr:nth-child(3) > td {color:blue;content:"2";}
+.app table > tr:nth-child(4) > td:nth-child(2) {color:-webkit-link;}
+</style>
+<div class="app">
+  <nav><img src="ico/back.svg"> <img src="ico/guard.svg"><h2>请假详情</h2> <a href>反馈</a></nav>
+  <div class="banner"><a href="https://google.com">如何销假？</a></div>
+  <div class="status-box" style="height: 100px;">
+    <span><img src="ico/okay.svg">审批已通过</span>
+    <h2>正在休假中</h2>
+    <div class="status-anim" style="height: 17px; margin-top:25px"></div>
+  </div>
+  <div class="label-mid">当前时间：<span class="date" fmt=":all"></span></div>
+  <table class="section" gen="(em)："><caption>
+请假类型：事假|需要离校：离校
+销假规则：离校请假需要销假，非离校请假无需销假
+实际休假时间：-
+  </table><!--因为看起来并不是 flex wrap 做的-->
+  请假详情
+  <div class="section"><h4>我的 请假申请</h4>
+<table gen="(em)：(var)"><caption>
+开始时间：begAt
+结束时间：endAt
+审批流程：spCount|查看>
+紧急联系人：tel
+请假原因：reason
+发起位置：place 蓝
+抄送人：无
+</table>
+  </div>
+  <div class="section"><h4>审批状态</h4>
+  <ul class="timeline">
+  <li><var>issuer</var> - 发起请假 <span class="date"></span>
+  <li><var>issuer</var> - 发起催批 <span class="date"></span>
+  <li>一级：[辅导员]周瑜 - 审批 <font color=green>通过</font> <span class="date"></span>
+  </ul>
+  <input style="margin:0 0 20px 20px" disabled value="审批意见：无">
+  </div>
+  <button class="highlight">去销假</button>
+  <button>申请续假</button>
+  <button>转发</button>
+</div>
+<script>
+qs(".app nav img").onclick=()=>alert("【系统繁忙】抱歉，今日校园临时错误，请稍后操作"); // 反正旧版骗不了多少人，干脆不做了
+qsEach(".date[fmt]", enableClock);
+qsEach(".app>button", e=>{e.onclick=(ev)=>alert("您目前还不能"+ev.target.textContent)});
+qsEach("table[gen] caption", e=>{expandTable(e.parentNode, e.textContent);e.remove()})
+enableStyleSetprop();
+</script>
