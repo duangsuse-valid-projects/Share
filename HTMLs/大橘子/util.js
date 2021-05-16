@@ -73,7 +73,8 @@ Object.assign(dateFmt, Object.mapValues({
   cnTime:"hh时MM分",
   cnSimp:"mm月dd日 hh:MM",
   all: "yyyy-mm-dd hh:MM:ss",
-  simp: "mm-dd hh:MM"
+  simp: "mm-dd hh:MM",
+  std:"yyyy-mm-ddThh:MM:ss"
 }, dateFmt));
 
 function timerRate(dt_ms, op) {
@@ -89,7 +90,7 @@ function newArray(n,get){var a=Array(n),i;for(i=0;i<n;i++)a[i]=get(i);return a}
 String.prototype.extractFlag=function(s_pre){
   return this.startsWith(s_pre)? [true,this.substr(s_pre.length)]:[false,this];
 }
-const rand=(a,b)=>Math.random()*b%a,randInt=(a,b)=>Math.floor(Math.random()*b)%a;
+const rand=(a,b)=>a+Math.random()*(b-a),randInt=(a,b)=>a+Math.floor(Math.random()*(b-a));
 
 const reParens=/\((.*?)\)/g,reVar=/%(.*?)%/g;
 function elemMatchMapper(fmt,op_ks=(k,s)=>{ let e=emet_(k);e.textContent=s; return e }) {
