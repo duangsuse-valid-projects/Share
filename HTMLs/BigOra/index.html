@@ -1,7 +1,7 @@
 <!doctype html><html><head>
   <meta charset="utf-8">
   <title>学生请假条</title>
-  <meta name="description" content="查看这个学生的今日校园请假条">
+  <meta name="description" content="查看这个学生的校园请假条">
   <link rel="icon" href="favicon.png">
   <meta name="viewport" content="width=device-width">
   <script src="emet.js"></script>
@@ -70,7 +70,7 @@ function autoFillDates(e) {e=e||qs("form");
 
 <div class="app">
   <nav><img src="ico/back.svg"> <img src="ico/guard.svg"><h2>请假详情</h2> <a href="https://qq.com">反馈</a></nav>
-  <div hidden class="banner" style="background:red"><a href="https://duck.io">今日校园外链浏览器异常！查看解法</a></div>
+  <div hidden class="banner" style="background:red"><a href="https://duck.io">校园应用外链浏览器异常！查看解法</a></div>
   <div class="banner"><a href="https://google.com">如何销假？</a></div>
   <div class="status-box" style="height: 100px;">
     <span style="position: absolute;top: 6%;right: 3%;">个人信息></span>
@@ -109,7 +109,7 @@ function autoFillDates(e) {e=e||qs("form");
   <button>转发</button>
 </div>
 <script>
-qs(".app nav img").onclick=()=>alert("【系统繁忙】抱歉，今日校园临时错误，请稍后操作"); // 反正旧版骗不了多少人，干脆不做了
+qs(".app nav img").onclick=()=>alert("【系统繁忙】抱歉，网络临时错误，请稍后操作"); // 反正旧版骗不了多少人，干脆不做了
 qs(".status-box span").onclick=()=>{prompt("登录信息过期！抱歉，请重新登录","******");confirm("密码错误！是否重置密码？");}
 qsEach(".app>button", e=>{e.onclick=(ev)=>alert("您目前还不能"+ev.target.textContent)});
 qs(".banner:nth-child(3)").ondblclick=timedToggle(7000,"hidden");
