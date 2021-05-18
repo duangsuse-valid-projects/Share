@@ -1,8 +1,9 @@
 Object.prototype.ref=function(k){ return this[k].bind(this); }
+Object.prototype.let=function(op){ return op(this); }
 var qs=document.ref("querySelector"), qsEach=(css,op)=>document.querySelectorAll(css).forEach(op), $=$||qs;
-Element.prototype.wrapBy=function(get_e1){
+Node.prototype.wrapBy=function(get_e1){
   let e1=get_e1(this); this.replaceWith(e1); e1.appendChild(this);
-}
+} // Node=Text|Element
 Array.prototype.mapAppend=function(e0,op){
   for (let x of this) e0.appendChild(op(x));
   return e0
@@ -15,6 +16,9 @@ Array.prototype.partition=function(p){
 
 Object.mapValues_=function(o,op){
   for (let k of Object.keys(o)) o[k]=op(o[k]);
+}
+Object.copyKeys=function(o_dst,o,ks){
+  for(let k of ks.split(" ")) o_dst[k]=o[k];
 }
 function forEntries(o,op){for(let [k,v] of Object.entries(o))op(k,v);}
 function copy(o){return o}//TODO

@@ -1,0 +1,83 @@
+<!doctype html><html><head><meta charset="UTF-8">
+<title>分页控件</title>
+<script>
+const qs=(css,e0)=>(e0? e0:document).querySelector(css), qsEach=(css,op)=>document.querySelectorAll(css).forEach((e)=>op(e)),
+px=CSS.px||(n=>n+"px"), noOp=()=>{};
+
+Array.prototype.groupBy=function(op){
+  let d=new Map;
+  function add(k,v){ let vs=d.get(k); if(!vs){vs=[];d.set(k,vs);} vs.push(v); }
+  for(let x of this){let ks=op(x); if(ks instanceof Array)for(let k of op(x)) add(k, x); else add(k, x); }
+  return d
+};
+
+function* chain(init,next){let acc=init; for(;acc!=null; acc=next(acc))yield acc;}
+function seqFirstTest(p, xs,ys){
+  for(let x of xs)for(let y of ys)if(p(x,y))return [x,y]; // no algor. chunked search?
+  return null;
+}
+function elemQueryChain(e,k,css) {
+  let res = e.parentNode.querySelector(css);
+  if(!res)return null;
+  const next=e=>e[k];
+  for (let e1 of chain(e,next)) if (e1.isSameNode(res)) return res;
+  return seqFirstTest((a,b)=>a.isSameNode(b), chain(e,next),  e.parentNode.querySelectorAll(css));
+}
+function forArgs(op,...xs){for(let x of xs)op(x)}
+function enableTabs(e0,sAct="active") {
+  let eTabs = elemQueryChain(e0,"nextElementSibling",".tabs"), no = e=>parseInt(e.getAttribute("no"));
+  let [eNow, teNow]=[eTabs,e0].map(e=>qs.bind(null, "."+sAct,e));
+  let eIndi = qs(".tab-indicator",e0);
+
+  const moveIndi=(!!eIndi)? (e)=>{
+    eIndi.style.left=px(e.offsetLeft);
+    eIndi.style.width=px(e.offsetWidth);
+  } : noOp, moveCopy=(function(){
+    let pe = [...eTabs.querySelectorAll("[tab]")].groupBy(e=>e.getAttribute("tab").split(" ").map(sn=>parseInt(sn)) );
+    return (pe.size!=0)? (e)=>{
+      let es = pe.get(no(e)), eTab=eTabs.children[no(e)];
+      for(let ee of es) eTab.insertBefore(ee, eTab.childNodes[no(ee)]);
+    } : noOp
+  })();
+  function active(ee) {
+    if(ee.classList.contains(sAct))return;
+    let e=eNow(), e1=eTabs.children[no(ee)];
+    e.hidden=true; forArgs(e=>e.classList.remove(sAct), e, teNow());
+    e1.hidden=false; forArgs(e=>e.classList.add(sAct), e1, ee);
+    moveIndi(ee); moveCopy(ee);
+  }
+  e0.querySelectorAll("span").forEach((ee,i)=>{
+    ee.setAttribute("no",i);
+    ee.onclick=(ev)=>active(ev.target); // hide now, show new
+  });
+  if(teNow()==null) e0.children[0].className=sAct;
+  eTabs.children[no(teNow())].classList.add(sAct); // assign .tabs
+  for(let ee of eTabs.children){ee.hidden=true}; eNow().hidden=false;
+  moveIndi(teNow());
+}
+
+onload=()=>{qsEach(".tab-bar", enableTabs);};
+</script>
+<style>
+.tab-bar span {
+    padding: 20px 38px;
+    display: inline-block;
+}
+.tab-bar .tab-indicator {
+  height: 2px; position: absolute;
+  background-color: cadetblue;
+  transition: 0.5s left,width ease-in;
+}
+</style>
+</head>
+<body>
+<nav class="tab-bar">
+<span>Happy</span>
+<span>Sad</span>
+<div class="tab-indicator"></div>
+</nav>
+<hr>
+<div class="tabs">
+<div>I'm Happy really!<b tab="0 1" no="1">SEE?</b> </div>
+<div>But now I'm sad...</div>
+</div>

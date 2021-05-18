@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width">
   <script src="emet.js"></script>
   <script src="util.js"></script>
+  <script src="unsrc.js"></script>
 </head><body>
 <form name=请假条>
 begAt:假期开始时间
@@ -20,6 +21,7 @@ spAt:审批申请时间
 spNotifyAt:审批催办时间
 spDoneAt:审批通过时间
 copier:抄送人
+returnRule:销假规则
 <p>
 时间格式：<input name="datefmt" class="dateformat" value="mm-dd hh:MM"><a role="button" onclick="autoFillDates()">重随时间</a><br>
 <b>上为时间显示格式，一般不用改。<br>填表注意审批时间不应晚于假期开始</b>
@@ -47,6 +49,8 @@ document.addEventListener("DOMContentLoaded",()=>{
 qsEach("form", e=>{ expandForm(e);for(let s of "submit reset".split(" "))e.appendChild(emet(`input[type=${s}]`)); });
 qsEach(".date[fmt]", enableClock);
 qsEach("table[gen] caption", e=>{expandTable(e.parentNode, e.textContent);e.remove()})
+let eVar1 = document.createExpression("/html/body/div/table/tr[3]/td/text()").evaluate(document).iterateNext();
+eVar1.wrapBy(e=>emet("var"));
 enableStyleSetprop();
 autoFillDates();
 qs("td[colspan='2']").appendChild(emet("span[style=color:cadetblue;padding-left:5pt,text=查看>]"));
@@ -73,7 +77,7 @@ function autoFillDates(e) {e=e||qs("form");
   <div hidden class="banner" style="background:red"><a href="https://duck.io">校园应用外链浏览器异常！查看解法</a></div>
   <div class="banner"><a href="https://google.com">如何销假？</a></div>
   <div class="status-box" style="height: 100px;">
-    <span style="position: absolute;top: 6%;right: 3%;">个人信息></span>
+    <span style="position: absolute;top: 6%;right: 12px;">个人信息></span>
     <span><img src="ico/okay.svg">审批已通过</span>
     <h2>正在休假中</h2>
     <div class="status-anim" style="height:17px"></div>
@@ -81,7 +85,7 @@ function autoFillDates(e) {e=e||qs("form");
   </div>
   <table class="section" gen="%(.*?：)|1|em%%#text%"><caption>
 请假类型：事假|需要离校：离校
-销假规则：离校请假需要销假，非离校请假无需销假
+销假规则：returnRule
 实际休假时间：-
   </table><!--因为看起来并不是 flex wrap 做的-->
   <div class="section-head">请假详情</div>
@@ -104,14 +108,16 @@ function autoFillDates(e) {e=e||qs("form");
   </ul>
   <input style="margin:0 0 20px 20px" disabled value="审批意见：无">
   </div>
+  <div class="action-section">
   <button class="highlight">去销假</button>
   <button>申请续假</button>
   <button>转发</button>
+  </div>
 </div>
 <script>
 qs(".app nav img").onclick=()=>alert("【系统繁忙】抱歉，网络临时错误，请稍后操作"); // 反正旧版骗不了多少人，干脆不做了
 qs(".status-box span").onclick=()=>{prompt("登录信息过期！抱歉，请重新登录","******");confirm("密码错误！是否重置密码？");}
-qsEach(".app>button", e=>{e.onclick=(ev)=>alert("您目前还不能"+ev.target.textContent)});
+qsEach(".action-section>button", e=>{e.onclick=(ev)=>alert("您目前还不能"+ev.target.textContent)});
 qs(".banner:nth-child(3)").ondblclick=timedToggle(7000,"hidden");
 </script>
 
@@ -130,7 +136,6 @@ body>details>form label{display:block}
 .banner:after{content:"  ➡";font-size:17px}
 .banner a:link{color:inherit}
 .app a:link {text-decoration:none;}
-.app a:visited{color:initial}
 .app button:focus{outline:none}
 .app em{font-style: normal;color: dimgray;}
 .app input {
@@ -175,6 +180,7 @@ div.section-head{
 
 .section{background:white;width: 100%;}
 .section>h4{padding: 15px 0 0 2px;margin-bottom: 0px;}
+.action-section{text-align:center;}
 .app button{ width: 90%;
   margin: 4px 8px;padding: 9px;
   border: 1px lightgray solid;
@@ -202,4 +208,5 @@ ul.timeline>li>.date{float:right}
 body > details > form > label:nth-child(8) > input{content:"共 1 步"}
 body > details > form > label:nth-child(9) > input{content:"一级：[辅导员]"}
 body > details > form > label:nth-child(13) > input{content:"无"}
+body > details > form > label:nth-child(14) > input{content:"离校请假需要销假，非离校请假无需销假"}
 </style>
