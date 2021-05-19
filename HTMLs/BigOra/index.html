@@ -6,7 +6,8 @@
   <meta name="viewport" content="width=device-width">
   <script src="emet.js"></script>
   <script src="util.js"></script>
-  <script src="unsrc.js"></script>
+<!--   <script src="unsrc.js"></script> -->
+  <script src="tabs.js"></script>
 </head><body>
 <form name=请假条>
 begAt:假期开始时间
@@ -22,6 +23,7 @@ spNotifyAt:审批催办时间
 spDoneAt:审批通过时间
 copier:抄送人
 returnRule:销假规则
+durText:假期时间
 <p>
 时间格式：<input name="datefmt" class="dateformat" value="mm-dd hh:MM"><a role="button" onclick="autoFillDates()">重随时间</a><br>
 <b>上为时间显示格式，一般不用改。<br>填表注意审批时间不应晚于假期开始</b>
@@ -30,6 +32,7 @@ returnRule:销假规则
 
 <script>
 qs("form").wrapBy(e=> emet("details summary[text=配置面板]")[0] )
+document.hrefStyle(enableTabs.css("14px 18px","4px"));
 // 只是有一些不懂，URLParam、Storage、contentEditable 之间有多大关系，该怎么做？
 
 if (location.search!="")window.onload=()=>{
@@ -39,21 +42,22 @@ if (location.search!="")window.onload=()=>{
     ()=>{document.body.style.margin="0 0";document.documentElement.requestFullscreen();}
   document.onfullscreenerror=()=>{qs(".banner[hidden]").toggleAttribute("hidden")}
 
-  if(ps.has("auto"))autoFillDates(ps);
-  if(ps.has("edit"))document.body.setAttribute("ContentEditable","");
+  if(ps.hasOn("auto"))autoFillDates(ps);
+  if(ps.hasOn("edit"))document.body.setAttribute("ContentEditable","");
   expandsPropMap.fmtRe.push([/.*At/, sdate=>dateFmt(ps.get("datefmt"))(new Date(sdate))]);
   expandsPropMap("textContent","var",ps);
   document.head.appendChild(emet("style[text=body{overflow-x:hidden}var{font-style:normal}]"));
 }
 document.addEventListener("DOMContentLoaded",()=>{
-qsEach("form", e=>{ expandForm(e);for(let s of "submit reset".split(" "))e.appendChild(emet(`input[type=${s}]`)); });
+qsEach("form", e=>{ expandForm(e);for(let s of "submit reset".split(" "))e.appendChild(emet(`input[type=${s}]`)); e.appendChild(emet("label[text=刷新时自动填写时间] input[type=checkbox,name=auto,checked]")[0])});
 qsEach(".date[fmt]", enableClock);
 qsEach("table[gen] caption", e=>{expandTable(e.parentNode, e.textContent);e.remove()})
-let eVar1 = document.createExpression("/html/body/div/table/tr[3]/td/text()").evaluate(document).iterateNext();
+let eVar1 = document.createExpression("/html/body/div/div/div[1]/table/tr[3]/td/text()").evaluate(document).iterateNext();
 eVar1.wrapBy(e=>emet("var"));
 enableStyleSetprop();
 autoFillDates();
 qs("td[colspan='2']").appendChild(emet("span[style=color:cadetblue;padding-left:5pt,text=查看>]"));
+enableTabs();
 })
 
 Date.prototype.map=function(unit,op){
@@ -74,9 +78,12 @@ function autoFillDates(e) {e=e||qs("form");
 
 <div class="app">
   <nav><img src="ico/back.svg"> <img src="ico/guard.svg"><h2>请假详情</h2> <a href="https://qq.com">反馈</a></nav>
-  <div hidden class="banner" style="background:red"><a href="https://duck.io">校园应用外链浏览器异常！查看解法</a></div>
-  <div class="banner"><a href="https://google.com">如何销假？</a></div>
-  <div class="status-box" style="height: 100px;">
+  <div class="tab-bar"><span>请假信息</span> <span>核验二维码</span> <div class="tab-indicator"></div></div>
+<div class="tabs">
+<div>
+  <div hidden class="banner-q" style="background:red"><a href="https://duck.io">校园应用外链浏览器异常！查看解法</a></div>
+  <div class="banner-q"><a href="https://google.com">如何销假？</a></div>
+  <div class="status-box" style="height: 100px;" tab="0 1" no="4">
     <span style="position: absolute;top: 6%;right: 12px;">个人信息></span>
     <span><img src="ico/okay.svg">审批已通过</span>
     <h2>正在休假中</h2>
@@ -89,7 +96,8 @@ function autoFillDates(e) {e=e||qs("form");
 实际休假时间：-
   </table><!--因为看起来并不是 flex wrap 做的-->
   <div class="section-head">请假详情</div>
-  <div class="section"><h4>我的 请假申请</h4>
+  <div class="section" style="position:relative"><h4>我的 请假申请</h4>
+  <div class="float-label"><var>durText</var></div>
 <table gen="%(.*?：)|1|em%%var%"><caption>
 开始时间：begAt
 结束时间：endAt
@@ -114,14 +122,32 @@ function autoFillDates(e) {e=e||qs("form");
   <button>转发</button>
   </div>
 </div>
+<div>
+<div></div> <div class="banner" style="background:darkorange">请出示专属验证二维码，用于验证清单真伪</div>
+<div class="chk-code">
+  <img src="hncjzf_weibo.png" width="200"/><br>
+  <span style="font-size:small;color:gray">请使用辅导猫扫码核验清单真伪</span>
+  <div class="label-mid">当前时间：<span class="date" fmt=":all"></span></div>
+</div>
+</div>
+</div></div>
 <script>
 qs(".app nav img").onclick=()=>alert("【系统繁忙】抱歉，网络临时错误，请稍后操作"); // 反正旧版骗不了多少人，干脆不做了
 qs(".status-box span").onclick=()=>{prompt("登录信息过期！抱歉，请重新登录","******");confirm("密码错误！是否重置密码？");}
 qsEach(".action-section>button", e=>{e.onclick=(ev)=>alert("您目前还不能"+ev.target.textContent)});
-qs(".banner:nth-child(3)").ondblclick=timedToggle(7000,"hidden");
+qs(".banner:nth-child(2)").ondblclick=timedToggle(7000,"hidden");
 </script>
 
 <style>
+/*page2*/.chk-code {text-align: center; padding: 50px; height: 5in;}
+.chk-code .label-mid {margin-top:10px;background-color:cadetblue; border-radius:15px;padding:3px 9pt;font-weight:bold;}
+.chk-code img {
+  padding: 5px;
+  border-radius: 14px;
+  box-shadow: 0 5px 7px 1px grey;
+  background: white;
+}
+
 body>details>form label{display:block}
 
 .app{background-color: #f6f7f9;user-select:none;}
@@ -131,10 +157,11 @@ body>details>form label{display:block}
 .app nav>img:nth-child(1){float:left}
 .app nav>a{float:right;font-size: large;color:#4ecad2;}
 
-.banner {text-align: center;padding: 3px 0;background: lightsteelblue;color: white;font-weight: bold;}
-.banner:before{content: "  ";background:url(ico/quest.svg) no-repeat;filter: invert(1);}
-.banner:after{content:"  ➡";font-size:17px}
-.banner a:link{color:inherit}
+.banner-q {text-align: center;padding: 3px 0;background: lightsteelblue;color: white;font-weight: bold;}
+.banner-q:before{content: "  ";background:url(ico/quest.svg) no-repeat;filter: invert(1);}
+.banner-q:after{content:"  ➡";font-size:17px}
+.banner-q a:link{color:inherit}
+
 .app a:link {text-decoration:none;}
 .app button:focus{outline:none}
 .app em{font-style: normal;color: dimgray;}
@@ -177,6 +204,26 @@ div.section-head{
   color: white;
   border-radius: 7px;
 }
+.float-label{
+  position: absolute; right:0;top:0;
+  margin: 40px 24px;
+  padding: 4pt 6pt;
+  background-color: #ebf5f9;
+  color: cadetblue;
+  border: 1px solid dodgerblue;
+  border-radius: 4px;
+}
+
+.tab-bar {
+  display: grid;
+  grid-auto-flow: column;
+  column-gap: 25%;
+  justify-content: center;
+  color: cadetblue;
+  background-color: white;
+  border-top: 1px solid #69696933;
+}
+.banner {width:100%;text-align:center;color:white;}
 
 .section{background:white;width: 100%;}
 .section>h4{padding: 15px 0 0 2px;margin-bottom: 0px;}
@@ -200,13 +247,14 @@ ul.timeline>li>.date{float:right}
 .timeline li:nth-child(3)::marker {color:green}
 </style>
 <style setprop="colspan">
-.app>table > tr:nth-child(3) > td:nth-child(1) {color: darkorange;content:"2";}
+div.tabs > div:nth-child(1) > table > tr:nth-child(3) > td:nth-child(1) {color: darkorange;content:"2";}
 .app table > tr:nth-child(4) > td:nth-child(2) {color:cadetblue;font-size:small;cursor: not-allowed;}
-.app > div:nth-child(7)> table > tr:nth-child(7)>td>var {color:cadetblue}
+.app > div.tabs > div:nth-child(1)>div:nth-child(6)> table > tr:nth-child(7)>td>var {color:cadetblue}
 </style>
 <style setprop="value">
 body > details > form > label:nth-child(8) > input{content:"共 1 步"}
 body > details > form > label:nth-child(9) > input{content:"一级：[辅导员]"}
 body > details > form > label:nth-child(13) > input{content:"无"}
 body > details > form > label:nth-child(14) > input{content:"离校请假需要销假，非离校请假无需销假"}
+body > details > form > label:nth-child(15) > input{content:"1天"}
 </style>

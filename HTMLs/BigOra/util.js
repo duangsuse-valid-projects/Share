@@ -1,9 +1,21 @@
 Object.prototype.ref=function(k){ return this[k].bind(this); }
 Object.prototype.let=function(op){ return op(this); }
-var qs=document.ref("querySelector"), qsEach=(css,op)=>document.querySelectorAll(css).forEach(op), $=$||qs;
+var qs=(css,e0)=>(e0? e0:document).querySelector(css), qsEach=(css,op)=>document.querySelectorAll(css).forEach(op), $=$||qs,
+px=CSS.px||(n=>n+"px"), noOp=()=>{};
 Node.prototype.wrapBy=function(get_e1){
   let e1=get_e1(this); this.replaceWith(e1); e1.appendChild(this);
 } // Node=Text|Element
+function isHTMLTrue(s){
+  return (s=="on"||s=="")? true : false; //Boolean(s):len!=0
+}
+function forArgs(op,...xs){for(let x of xs)op(x)}
+for(let k of ["Style"])document["href"+k]=function insRes(code){
+  this.head.appendChild(this.createElement(k)).textContent=code;
+}
+URLSearchParams.prototype.hasOn=function(k){
+  if(!this.has(k))return false;
+  return isHTMLTrue(this.get(k));
+}
 Array.prototype.mapAppend=function(e0,op){
   for (let x of this) e0.appendChild(op(x));
   return e0
@@ -12,6 +24,12 @@ Array.prototype.partition=function(p){
   let a=[],b=[];
   for(let x of this)(p(x)?a:b).push(x);
   return [a,b];
+}
+Array.prototype.groupBy=function(op){
+  let d=new Map;
+  function add(k,v){ let vs=d.get(k); if(!vs){vs=[];d.set(k,vs);} vs.push(v); }
+  for(let x of this){let ks=op(x); if(ks instanceof Array)for(let k of op(x)) add(k, x); else add(k, x); }
+  return d
 }
 
 Object.mapValues_=function(o,op){
@@ -52,14 +70,15 @@ function dateFmt(fmt) {//TODO 支持 :simp
   }else function subst(op){ // 丑.
     return dateFmt.toks.re[Symbol.replace](fmt, (m1)=>{ return m1&&m1.length==2&&(m1[0]==m1[1])? fillZ(op(m1[0])):op(m1); })
   }
+  function dZero(k){return (k=="m")?1:0}
   let ks = [], re = RegExp(subst(k=>{ks.push(k);return "(.*?)"}), "g");
   return (t,s)=>{
     if(!!s) {
       let m = re.exec(s);
-      for(let i=1;i<m.length;i++) t["set"+dateFmt.toks[ks[i-1]] ].call(t, m[i]); // 就是以 m=[0,...ms] 为中心去迭代 i
+      for(let i=1;i<m.length;i++) t["set"+dateFmt.toks[ks[i-1]] ].call(t, parseInt(m[i])-dZero(ks[i-1])); // 就是以 m=[0,...ms] 为中心去迭代 i
       return t;
     }
-    return subst(k=>t["get"+dateFmt.toks[k]].call(t));
+    return subst(k=>t["get"+dateFmt.toks[k]].call(t)+dZero(k));
   };
 }
 dateFmt.toks={
