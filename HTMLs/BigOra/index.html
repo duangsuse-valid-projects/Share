@@ -25,7 +25,7 @@ copier:抄送人
 returnRule:销假规则
 durText:假期时间
 <p>
-时间格式：<input name="datefmt" class="dateformat" value="mm-dd hh:MM"><a role="button" onclick="autoFillDates()">重随时间</a><br>
+时间格式：<input name="datefmt" class="dateformat" value="mm-dd hh:MM"><a role="button" onclick="autoFillDates()">重随时间</a>，<label>长度：<input name="autoDur" type="number" value="24">h</label><br>
 <b>上为时间显示格式，一般不用改。<br>填表注意审批时间不应晚于假期开始</b>
 </p>
 </form>
@@ -65,13 +65,15 @@ Date.prototype.map=function(unit,op){
   return d1;
 }
 function autoFillDates(e) {e=e||qs("form");
-  let date = new Date;date.setSeconds(0);date.setMilliseconds(0);
+  let date = (new Date).map("Minutes",i=>i-randInt(5,15)); date.setSeconds(0);date.setMilliseconds(0);
   let issDate=date.map("Date",i=>i-randInt(1,5));
   const eOf=name=>e.querySelector(`input[name=${name}]`),
+    isURL=(e instanceof URLSearchParams),
     rdate=(a,b)=>issDate.map("Hours",i=>randInt(a,b));
-  let o={begAt:date,endAt:date.map("Date",i=>i+1),
+  let kDur="autoDur", dDur = parseInt(isURL? e.get(kDur) : eOf(kDur).value)||2;
+  let o={begAt:date,endAt:date.map("Hours",i=>i+dDur),
     spAt:rdate(9,12),spNotifyAt:rdate(14,16),spDoneAt:rdate(16,20)}
-  if(e instanceof URLSearchParams) forEntries(o,e.ref("set"));
+  if(isURL) forEntries(o,e.ref("set"));
   else forEntries(o,(k,v)=>{eOf(k).value=dateFmt.std(v)});
 }
 </script>
