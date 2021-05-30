@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>可爱列表</title>
+		<style>
+		div.inter-pairs { background: url(head.png) no-repeat; position: relative; }
+		.inter-pairs ul,ol { display: inline-block; padding-top: 80px; }
+		.inter-pairs ul { list-style: none; } .inter-pairs ol { list-style-position: outside; }
+		.inter-pairs ul li, ol li { padding: 65px 80px 50px 50px ; }
+		.inter-pairs img { position: absolute; z-index: -100; }
+		.inter-pairs img:hover {filter: invert(1);}
+		</style>
+	</head>
+	<body>
+		<div class="inter-pairs">
+			<ul></ul>
+			<ol></ol>
+		</div>
+		<script>
+			function splitItemsTo(eDst, tag, text) { text.split(" ").forEach(function(s){ eDst.appendChild(document.createElement(tag)).innerText = s }) }
+			var ePairs=document.querySelector(".inter-pairs"), eRows=ePairs.children[0], content = ["A B C", "pA pB pC"]
+			for(var i=0;i<2;i++)splitItemsTo(ePairs.children[i],"li",content[i]);
+			function assignPxLT(e,left,top) { e.style.left=left+"px";e.style.top=top+"px"; }
+			for(var i=0,n=eRows.childElementCount;i<n;i++) {
+				var imgNo = 1+ i%2, e=ePairs.appendChild(document.createElement("img")), e1=eRows.children[i];
+				e.src = "bg"+imgNo+".png"; assignPxLT(e, ePairs.clientLeft, e1.offsetTop);
+				e1.setAttribute("bgno",imgNo); /*大失败，本质是横向表格才对*/
+			}
+		</script>
+	</body>
+</html>

@@ -24,15 +24,16 @@ function elemQueryChain(e,k,css) {
   return seqFirstTest((a,b)=>a.isSameNode(b), chain(e,next),  e.parentNode.querySelectorAll(css));
 }
 function forArgs(op,...xs){for(let x of xs)op(x)}
-function enableTabs(e0,sAct="active") {
-  let eTabs = elemQueryChain(e0,"nextElementSibling",".tabs"), no = e=>parseInt(e.getAttribute("no"));
+function enableTabs(e0,eTabs=elemQueryChain(e0,"nextElementSibling",".tabs"),sAct="active") {
   let [eNow, teNow]=[eTabs,e0].map(e=>qs.bind(null, "."+sAct,e));
   let eIndi = qs(".tab-indicator",e0);
 
-  const moveIndi=(!!eIndi)? (e)=>{
+  const no = e=>parseInt(e.getAttribute("no")),
+  moveIndi=(!!eIndi)? (e)=>{
     eIndi.style.left=px(e.offsetLeft);
     eIndi.style.width=px(e.offsetWidth);
-  } : noOp, moveCopy=(function(){
+  } : noOp,
+  moveCopy=(function(){
     let pe = [...eTabs.querySelectorAll("[tab]")].groupBy(e=>e.getAttribute("tab").split(" ").map(sn=>parseInt(sn)) );
     return (pe.size!=0)? (e)=>{
       let es = pe.get(no(e)), eTab=eTabs.children[no(e)];
