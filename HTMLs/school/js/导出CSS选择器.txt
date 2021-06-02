@@ -1,0 +1,4 @@
+function tryMap(xs,op){ let ys=[]; for (let x of xs) try{ys.push(op(x))}catch(ex){ys.push(ex)} return ys }
+function* flat(xs){if(xs instanceof Array)for(let a of xs)yield* flat(a);else yield xs;} // 分支2 不需要是[]，因为 yield* 接受的正是 Generator
+
+[...flat(tryMap(document.styleSheets,style=>[...style.rules].map(it=>it.selectorText)))].join("\n")

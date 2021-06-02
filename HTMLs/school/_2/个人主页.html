@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>姚羽霄的个人页</title>
+</head>
+<body id="首页">
+	<nav>
+	<a><ruby>DSE<rt>咱的小屋</rt></ruby></a>
+	<input type="search" name="" placeholder="搜索你想要的……">
+	<div><div class="link"><a each="首页:咱的个人页！ 简介:自我介绍 爱好:咱喜欢做的事情 作业:电脑课历史 留言:来说句话吧亲 链接:觉得可爱的东西" repeat="parentNode" key="textContent+href=#${it}:title" pos="parentNode.parentNode"></a></div></div>
+	</nav>
+<style bgsvg>
+*{padding:0;margin:0}
+body{background: url(yun.jpg) no-repeat fixed;background-size: cover;color:white;}
+article{margin: 20px}
+nav{text-align: right;position:relative;padding: 7px;--h: 32px;}
+nav>a:nth-child(1){
+	position: absolute;
+	left: var(--h); top: var(--h);
+	vertical-align: text-top;
+	font-size: var(--h);
+	font-family: P052, Z003, Gothic, Serif;
+	font-style: italic;
+	font-weight: bolder;
+}
+nav input,div {padding: calc(var(--h) / 2);display: inline-block;}
+nav input[type=search] {
+	background: #ffffff5c;color:inherit;border: 0;border-radius: 25px;/* direction: rtl; */text-align: right;caret-color:aqua;
+	background-image: url(#g-search);
+    background-repeat: no-repeat;
+    background-size: 35px;
+    background-position: 10px center;
+    background-blend-mode: soft-light;
+}
+nav .link {transition: background .1s ease-in-out;border: 2px solid transparent;}
+nav .link:hover { background: #ffffff9c; user-select:none; }
+nav .link:active {background: #ffffff5c;border: 2px dotted darkkhaki;blue;}
+div.link a {text-decoration:none; color:inherit}
+svg[id]{display: none}
+</style>
+<script src="eeach.js"></script>
+<script>
+{
+	const sPre="url(\"#", xsr=(new XMLSerializer);
+	procStyleSheet("bgsvg",c=>{let u;return !!(u=c.backgroundImage)&&u.startsWith(sPre)/*if(!!())只多2字符但会回undef*/}, r=>r.style.mapKey("backgroundImage",v=>{
+		let e = document.getElementById(v.slice(sPre.length,-"\")".length));
+		let xml = xsr.serializeToString(e);
+		return "url(data:image/svg+xml;base64,"+btoa(xml)+")";
+	}));
+}
+onhashchange=()=>{qsEach("details",e=>{e.open=false});document.querySelector(decodeURIComponent(location.hash)).open=true}
+</script>
+<svg id="g-search" viewBox="0 0 48 48">
+<g xmlns="http://www.w3.org/2000/svg" transform="matrix(0.32 0 0 0.32 21.28 21.28)">
+<circle style="stroke: rgb(0,0,0); stroke-width: 5; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill: none; fill-rule: nonzero; opacity: 1;" vector-effect="non-scaling-stroke" cx="0" cy="0" r="40"/>
+</g>
+<g xmlns="http://www.w3.org/2000/svg" transform="matrix(1 0 0 1 37.33 41.17)">
+<line style="stroke: rgb(0,0,0); stroke-width: 4; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;" vector-effect="non-scaling-stroke" x1="-5.333333333333332" y1="-6.5" x2="5.333333333333332" y2="6.5"/>
+</g>
+</svg>
+
+
+<!--<details key="id:firstElementChild.textContent"><summary></summary>-->
+<article>
+<details id="简介">duangsuse，简称 dse ，除了电脑没有别的爱好，但在写不写东西时也是咸鱼哟</details>
+<details id="爱好">写作和编程。当然编程是任何类型的，只要不涉及太多数学物理，偏用户界面还是算法逻辑都喜欢</details>
+<details id="作业">从来不写作业</details>
+<details id="留言">允许留言，但还没实现留言板……</details>
+<details id="链接"><a each="阮一峰:ruanyifeng" key="textContent:href=https%3A//$it.com" pos="parentNode"></a></details>
+</article>
+</body>
+</html>
