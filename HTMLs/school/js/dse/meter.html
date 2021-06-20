@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>meter tag</title>
+</head>
+<body>
+<script src="eeach.js"></script>
+<script>
+onhashchange=()=>{qsEach("details",e=>{e.open=false});document.querySelector(decodeURIComponent(location.hash)).open=true}
+function* range(a,b,step){for(let i=a;i<b;i+=step)yield i}
+</script>
+
+<p><meter each="=[...range(0,1,0.1)]" pos="parentNode" key="value" low="0.4" optimium="0.5" high="0.8"></p>
+</body>
+</html>

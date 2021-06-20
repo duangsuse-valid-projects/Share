@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="">
+  <head>
+    <meta charset="utf-8">
+    <title>Ball move</title>
+  </head>
+  <body>
+<script>
+Object.defineProperty(Element.prototype, "pos", {get: function(){
+  return new Proxy(this.style, {set:(o,k,v)=>{ o[k]=(typeof v=="number")? v+"px":v; }})
+}})
+</script>
+
+<style>
+.gdot {position:relative;height: 500px;transition: padding-top .5s cubic-bezier(0.73, -0.15, 0.99, 1.01);}
+.gdot div {
+  position: inherit;
+  width: 20px;
+  height: 20px;
+  transition: left .5s cubic-bezier(0.5, 0.1, 0.62, 0.88);
+  left: 5%;
+  top: 5%;
+  background: radial-gradient(9px,green, transparent) no-repeat;
+}
+</style>
+<div class="gdot" onclick="var ev=event; this.pos.paddingTop=ev.clientY,this.children[0].pos.left=ev.clientX;"><div></div></div>
+  </body>
+</html>

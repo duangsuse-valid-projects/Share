@@ -1,0 +1,58 @@
+<!doctype html><html><head><meta charset="utf-8"><title>选择 meter 参数</title></head>
+<script src="eeach.js"></script>
+<form>
+<label each="min:界底:1 low:低值:20 high:高值:90 max:界顶:100 optimium:定色域标:91 value:当前值:60" pos="parentNode" key="children.1.name:children.0.textContent:children.1.value=${it.e0.lastChild.value||it}"><span></span>：<input type="number"><br></label>
+<input each="submit reset" key="type" pos="parentNode">
+<label each="c-low:red c-warn:yellow c-ok:green" repeat="firstChild" pos="parentNode" key="firstChild.name+firstChild.placeholder:firstChild.value"><input><br></label>
+</form>
+<canvas></canvas>
+<div id="prog">
+<meter each="=it.data" key="value" pos="parentNode">
+</div>
+<script>
+Array.prototype.eachWithNext=function(op) {
+    if(this.length<2)return;//chk err?
+    let a=this[0]; for(let i=1,b=null;i<this.length;i++){ b=this[i]; op(a,b,i-1); a=b; } //i=(0..<n-1)?
+}
+Object.assign(CanvasRenderingContext2D.prototype,{
+dim:function(){
+    let e=this.canvas, p=parseInt;
+    return [p(e.width),p(e.height)];
+},
+horRects:function(h,fills,...xs) {
+    xs.eachWithNext((a,b,i)=> { this.fillStyle=fills[i]; this.fillRect(a,0,b-a,h); });
+}
+})
+function* range(a,b,step=1){
+    for(let i=a;i<b;i+=step)yield i;
+}
+function* rangeN(n_step,a,b){yield* range(a,b,(b-a)/n_step)}
+let kLevs="low warn ok".split(" ").map(s=>"c-"+s);
+function render(g,c) {
+    let {min,low,high,max,optimium}=c;
+    let n=Math.abs(max-min), pL=low/n, pR=high/n, pO=optimium/n;
+    let [w,h]=g.dim(), rect=(key,x,y,w,h)=>{g.fillStyle=c["c-"+key];g.fillRect(x,y,w,h);};
+    console.log(c)
+    let pA=pL*w, pB=pR*w, pOpt=pO*w;
+    /*rect("low",0,0,pA,h);
+    rect("warn",pA,0,pB-pA,h);
+    rect("ok",pB,0,w-pB,h);*/
+    g.horRects(h, kLevs.map(k=>c[k]), 0,pA,pB,w);
+    g.moveTo(pOpt,0);
+    g.lineTo(pOpt,h); g.stroke();
+}
+{
+    let g=document.querySelector("canvas").getContext("2d"), eMet = document.querySelector("#prog>meter");
+    function recheck(cfg) {
+        if(!cfg.nKey)return;
+        render(g, cfg);
+        Object.assign(eMet,cfg);
+        expandElem(eMet, {data: [...rangeN(10,cfg.min,cfg.max)]});
+    }
+}
+{
+    let o={_deft_:parseFloat}
+    for(let k of kLevs) o[k]=s=>s;
+    recheck(objConf((new URLSearchParams(location.search)).entries(),o))
+}
+</script>

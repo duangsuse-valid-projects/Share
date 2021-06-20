@@ -1,0 +1,71 @@
+0px -12px 6px red
+0px -12px 6px red
+-8px -11px 6px red
+12px -9px 6px red
+17px 0px 6px red
+13px 12px 6px red
+-1px 16px 6px red
+-11px 13px 6px red
+-18px 3px 6px red
+-16px -10px 6px red
+-5px -18px 6px red
+
+Array.prototype.zip=function(x1s,op=(a,b)=>[a,b]){return this.map((x,i)=>op(x,x1s[i]))}
+function*range(a,b,step=1){for(let i=a;i<b;i+=step)yield i}
+const expandKF=(s,fmt,nl="\n")=>{let ln=s.split(nl); return [...range(0,100,100/ln.length)].zip(ln, (a,b)=>`${a}% {${fmt(b)};}`).join(nl)}
+/#([0-9a-f]+)/ig[Symbol.match](``).join("\n")
+
+@keyframes bgshadow-rotate {
+0% {text-shadow:0px -12px 6px #8a2a2a;}
+9.090909090909092% {text-shadow:0px -12px 6px #FFEB3B;}
+18.181818181818183% {text-shadow:-8px -11px 6px #FFC107;}
+27.272727272727273% {text-shadow:12px -9px 6px #03A9F4;}
+36.36363636363637% {text-shadow:17px 0px 6px #F44336;}
+45.45454545454546% {text-shadow:13px 12px 6px #607D8B;}
+54.545454545454554% {text-shadow:-1px 16px 6px #673AB7;}
+63.63636363636365% {text-shadow:-11px 13px 6px #795548;}
+72.72727272727273% {text-shadow:-18px 3px 6px #2196F3;}
+81.81818181818183% {text-shadow:-16px -10px 6px red;}
+100% {text-shadow:-5px -18px 6px #009688;}
+}
+@keyframes color{
+0% {color:#8a2a2a;}
+10% {color:#FFEB3B;}
+20% {color:#FFC107;}
+30% {color:#03A9F4;}
+40% {color:#F44336;}
+50% {color:#607D8B;}
+60% {color:#673AB7;}
+70% {color:#795548;}
+80% {color:#2196F3;}
+90% {color:#009688;}
+100%{color:red}
+}
+@keyframes bgcolor{
+0% {background-color:#8a2a2a;}
+10% {background-color:#FFEB3B;}
+20% {background-color:#FFC107;}
+30% {background-color:#03A9F4;}
+40% {background-color:#F44336;}
+50% {background-color:#607D8B;}
+60% {background-color:#673AB7;}
+70% {background-color:#795548;}
+80% {background-color:#2196F3;}
+90% {background-color:#009688;}
+100%{background-color:red}
+}
+@keyframes opa{from{opacity:0}to{opacity:1}}
+@keyframes shake{10%{transform:translate(6px,10px)}100%{transform:translate(15px,4px)}}
+body{transition: .5s text-shadow ease; animation: 7s 2s bgcolor ease-in infinite alternate; font-size:xx-large}
+body>*:nth-child(1){animation: 5s bgshadow-rotate ease infinite;}
+table{animation: 5s color ease infinite reverse;}
+body:hover{
+   text-shadow: -5px -18px 0 green !important;
+}
+#copyright{animation: 1s opa ease-out infinite}
+img{animation: .5s shake cubic-bezier(0.03, 1.49, 0.46, -0.04) alternate infinite;}
+
+
+关于eeach的pos参数，我也是比较迷，默认(无repeat=)是直接自我复制，加在自身里的，就很傻逼，然后如果 pos="" 还能默认删掉复制母签，pos=null 则可以删除自己？？ 虽说这是考虑 pos 隐含为 parentNode.append ，顺序可能会不符预期，也有点过度设计了。
+
+repeat= 吧本身就是个不应该存在的东西，是不是还能给加个 :css-query 的 qChain 模式？为什么要引入 child-par 和 par-child 的区别？如果说是为应付自动生成，那怎么不能直接在 JS 侧调用？我觉得默认 posa=after 可能比较好些。
