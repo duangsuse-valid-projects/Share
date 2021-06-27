@@ -29,7 +29,7 @@ def enflat(key=lambda x:None, pat="**"):
     with lifo.add() as f: f.writelines(fpa)
 def deflat():
   dfp={path.basename(ln):path.dirname(ln) for ln in lifo.pop().split("\n")}
-  for (fp,fpdOrig) in zipNotNone(globAll("**"), lambda fp:dfp.get(path.basename(fp))): mkdirs(fpdOrig); move(fp,fpdOrig)
+  for (fp,fpdOrig) in zipNotNone(globAll("**"), lambda fp:dfp.get(path.basename(fp))): mkdirs(fpdOrig); move(fp,path.concat(fpRoot,fpdOrig))
 def main(args):
   fpRoot=args.pop(0)
   if len(args):

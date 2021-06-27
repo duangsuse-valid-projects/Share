@@ -1,0 +1,195 @@
+<!doctype html><html><head><meta charset=utf8>
+<title>键盘网格动画</title>
+</head>
+<label>选择布局：<select id=sel-kbd></select></label>
+<label>高亮悬浮：<input id=use-hl type=checkbox></label>
+；自定义样式：<textarea id=css-code>
+#kbd > tr:first-child > td {padding: 8pt 7pt;}
+#kbd{--bg:#5e6769;--bg-hl:aquamarine/*gainsboro*/}
+td.nano {
+  text-align: center;
+  font-family: system-ui,sans-serif;
+  font-size: larger;
+  text-transform: uppercase;
+}
+td.empty { border: none!important; box-shadow: none!important; transition:none!important }
+</textarea>
+<table id=kbd></table>
+<br><canvas id=anim></canvas><hr><svg id=animH><ellipse cx="6" cy="5" rx="2"><animate attributeName="rx" dur="2s" repeatCount="indefinite" values="1;12"></ellipse></svg>
+<script>
+/*
+这次的键盘格动画，不难发现UI目标是带 colspan 的 td 们(最小单位为键长差)，CSS 选择器排版所以要用到 js 缩写二维组，创建(这样也能支持切换布局)。
+全部的(涟漪、竖杠、卷动单格、星闪)动画自 canvas 2D 位图生成，再映射到表格背景，皆为单色 mask 形式，应该带 onFrame。
+若用不支持它的 CSS anim 则利用定时器不等号判断，利用 g.drawImage(svg) 生成。动画子程序接受 (i,j) 并向 svg/g 输出后 onFrame() 更新到网格
+这部分只需 Element.animate(kfs, {dur,easing}) 与 timerRate(dt,op) 和全局回调 canvas g; onFrame 即可实现
+每帧都要 g.clearRect 刷新，黑色像素即对应单键不发光，故可以用 renderOp((svg)=>{}) 的格式进行每帧次要操作的判断。
+*/
+const
+  ref=(o,k,n_arg)=>(!!n_arg)? (...a)=>o[k].apply(o,a.slice(0,n_arg)) : o[k].bind(o), //key(o).bind(o),
+  runAlso=(op,op1)=>(...a)=>{let r=op(...a); if(r!==undefined) op1(r,...a); else op1(...a); return r}, logs=op=>runAlso(op,console.log),
+  bindR=(op,...a1)=>(...a)=>op(...a,...a1),
+  newAry=(n,op)=>{let a=Array(n);for(let i=0;i<n;i++)a[i]=op(i);  return a},
+  split2D=(s,sp1,sp2)=>s.split(sp1).map(r=>r.split(sp2)),
+  splitCond=(s,sp,op_one,op)=>(i=> i==-1? op_one(s) : op(s.slice(0,i),s.slice(i+1)) )(s.indexOf(sp)), noOp=()=>{},
+
+  mapKV=(o,op)=>Object.fromEntries(Object.entries(o).map(op)),
+  mapsOnly_=(i,op)=>a=>{a[i]=op(a[i]); return a},
+  withThis=(op)=>function(...a){return op(this,...a)},
+  opMerge=(op,n=2)=>newAry(n, i=>(...a)=> op(i,...a) ),
+  lets=(o,op)=>(o!=null)?op(o):o,
+  mapIf=(o,p,op)=>p(o)? op(o):o,
+
+  assign=(o_dst,o,op_v,selectOn=mapsOnly_.bind(null,1))=>Object.assign(o_dst, (!!op_v)? mapKV(o,selectOn(op_v,o_dst,o) ) : o),
+  doc=document,
+  el=(tag,...ees)=>{let e=(typeof tag!="string")? tag:doc.createElement(tag);if(!!ees)ees.forEach(ref(e,(typeof ees[0]=="string")?"append":"appendChild",1)); return e},
+  cfgCan=(e,eSvg)=>(w,h,el_k=1)=>{ let d={width:w,height:h}; assign(e,d); assign(e.style,d, v=>v*el_k+"px"); if(!!eSvg)assign(eSvg.viewBox.baseVal,d); },
+
+  timerRate=(dt,op)=>{ let id;
+    function once(){op();id=setTimeout(once,dt)}
+    once(); return ()=>clearTimeout(id); // 提一句，不存在 clear 无效，即调用时 op 在执行的情况，DOM 事件不可能在 once() 仍在执行时调度
+  },
+  onEvModify=(e,op,evn="change",ev_init=null)=>{ e.addEventListener(evn,withThis(op)); op(e,ev_init); },
+  onEvPair=(e,pair,op0,op1)=>{let ev0;
+    e.addEventListener(pair[0], withThis(runAlso((e,ev)=>{ev0=ev}, op0)));
+    e.addEventListener(pair[1], withThis(bindR(op1,ev0)));
+  },
+  promisy=(op)=>(...a)=>{let r,p=new Promise(res=>(r=op(...a,res)) ); return [r,p]},
+  evFireNth=(e,evns)=>i=>e.dispatchEvent(new Event(evns[i])),
+  cyclicGet=(xs,i)=>xs[i%xs.length],
+  expandK=(ks,fmts,srep="%",ops=null)=>fmts.map((f,i)=> ks.split(" ").map(!!ops? k=> f.replace(srep,cyclicGet(ops,i)( k )) : k=>f.replace(srep,k) )),
+  assignKsVs=(o,[ks,vs])=>ks.forEach((k,i)=>{ o[k]=vs[i] } ) ||o,
+  getMaybe=(o)=>(d=>v=> d.get(v)||v)(new Map(Object.entries(o))),
+  caps=s=>(s!="")?s[0].toUpperCase()+s.slice(1).toLowerCase():s
+  ;
+
+assign(doc, {qs:"querySelector",id:"getElementById"}, ref, (op,o)=>mapsOnly_(1, v=>op(o, v))/*bind(o)*/ );
+
+let kbdFN=newAry(12,i=>`F${1+i}`),
+laysHs=[
+"1/! 2/@ 3/# 4/$ 5/%25 6/^ 7/& 8/* 9/( 0/) -/_ =/+",
+"sleep wifi F3.w50 F4.w50 brig- brig+ scroff projector touchoff sndoff vol- vol+",
+"projector home mail qrcode music stop prev pause next sndoff vol- vol+"].map(s=>s.split(" ")),
+zipMayJoin=(sep,a,b)=>a.map((s,i)=>{let s1=b[i]; return s1? s+sep+s1: s}),
+lays=mapKV({
+便携:`
+esc ${zipMayJoin("/",kbdFN, laysHs[1]).join(" ")} pause/break prt%20sc/sysrq insert delete
+\`/~ ${laysHs[0].join(" ")} backspace.2
+tab.2 q w e r t y u i o p [/{ ]/} \\/|
+caps%20lock.2 a s d f g h j k l ;/: '/" enter.2
+shift.2 z x c v b n m ,/< ./> %2F/? shift.3
+ctrl fn meta alt space.5 alt menu ctrl .1 up/pgup .1
+.12 left/home down/pgdn right/end
+`,
+背光:`
+esc/\` ${[kbdFN, laysHs[2]].reduce((a,b)=>zipMayJoin("/",a,b), laysHs[0]).join(" ")} backspace/delete
+tab q/1 w/2 e/3 r t y/prt%20sc u/scrlk i/pause o p [/{/brig- ]/}/brig+ \\/|/scroff
+a s d f g h/insert j/home k/pgup l ;/:/vol- '/"/vol+ enter
+shift z x c v b n/del m/end ,/</pgdn ./> %2F/?/up shift
+ctrl meta/lock alt space alt/left menu/down ctrl/right fn
+`
+}, mapsOnly_(1, s=>split2D(s.trim(), "\n"," ") )),
+
+isFN=s=>s[0]=="F",
+restK=new Set(["pause","prt sc"]),
+specialK=new Set("ctrl alt shift tab enter backspace meta menu fn space esc insert delete".split(" ")),
+casK=expandK("ctrl alt shift", ["%Key",".%"]),//(ks=>[ks.map(k=>k+"Key"), ks.map(k=> "."+k) ])("ctrl alt shift".split(" ")),
+trK=(o=>{ o[" "]="space"; return getMaybe(o) })({Control:"ctrl",Escape:"esc"}), //特殊名 ，逗死了开始 assign(expandK-V 顺序写错了哈
+trK1=getMaybe(assignKsVs({},expandK("left right up down", ["Arrow%","%"],"%",[caps,x=>x])) ),
+eOneKey=[()=>[el("hr")], s=>[el("span", s)],  (a,b)=>[el(isFN(a)? "sub" : "sup", b), el("span", a)],
+(a,b,c)=>[el("sup", a+" "+b), el("span", c)], (a,b,c,d)=>[el("sup", a+" "+b), el("sub", d+" "+c)]],
+eLay=s=>{
+  let r=s.split("/").map(decodeURIComponent);
+  return eOneKey[r.length](...r);
+},
+eTable=(e,data,eCell)=> el(e||"table", ...data.map(r=>el("tr", ...r.map(c=> el("td",...eCell(c)) ) )) ),
+toggleStyle=(code)=>(e=>v=>(e.sheet.disabled= !v) )(doc.head.appendChild(el("style",code)) ),
+opEvCls=cls=>kop=> (e ,ev)=>ref(e.classList,kop)(cls),
+evAddsCls=(pair,cls)=>e=>(op=>onEvPair(e,pair,op("add"),op("remove"))) (opEvCls(cls));
+
+let eKbd=doc.id("kbd"),reinit=(n)=>{
+let evn=expandK("down up", ["key%","mouse%"]);
+eKbd.querySelectorAll("td").forEach(evAddsCls(evn[1],"clicked")); // 不能利用 ancestor ，那样无法固定 target
+if(n==0)onEvPair(doc.body, evn[0], ...opMerge( ((i,_,ev)=>{ ev.preventDefault();
+  let e0=eKbd, upd=e=>(!!e)?e.dispatchEvent(new MouseEvent(evn[1][i]) ):null,
+    e=doc.id("k"+mapIf(trK1(ev.key), s=>s[0]!="F", s=>s.toLowerCase())); upd(e); //NOTE 文本数据流没设计好，本来就不需caps()弄k
+  for(let [css,k]of casK) if(ev[k]) upd(e0.querySelector(css));
+  try{e0.querySelectorAll("."+trK(ev.key).toLowerCase()).forEach(upd);}//NOTE 不是单个查
+  catch(ex){}//NOTE 建模有问题，不该用 css 类 特殊名；略失败，不知道 kmodifier 也能有 event
+})))};/*
+要支持 keydown 很简单，首先是 ev.key 到 key <td> 的映射，不难发现可用 td id= ，然后是 ctrl alt shift 是 key 修饰符也可能有多个键位，必须特殊处理
+那么就要在元素创建时对它们做 css class 化处理，每次按下弹起就可以更新多个键位。
+*/reinit(0);
+onEvModify( el(doc.id("sel-kbd"), ...Object.keys(lays).map(runAlso(()=>el("option"), (e,s)=>{ e.textContent=s }) ) ),(e)=>{
+  eKbd.innerHTML="";
+  eTable(eKbd,lays[e.value],eLay).querySelectorAll("td").forEach(e=>{
+    let s=e.textContent;
+    splitCond(s,".",noOp, (a,b)=>{ if(b=="")return; e.textContent=a; if(b[0]=="w") e.width=b.slice(1); else e.colSpan=b; s=e.textContent; });
+    if(s.length<=2) e.classList.add((s.length==0)? "empty" : "nano");
+    if(/F\d{1,2}/.test(s)) e.classList.add("fn");//e.id="k"+e.lastChild.textContent; //NOTE Fn
+    else if(/^pg/.test(s)||/^(home|end)/.test(s)) e.classList.add("arrow"); //草
+    if(specialK.has(s)) e.classList.add(s);
+  });
+  eKbd.querySelectorAll("td.nano,td.fn,td.arrow").forEach(e=>{
+    e.id="k"+e.lastChild.textContent;
+  });
+  reinit(1);
+})
+onEvModify(doc.id("use-hl"), runAlso(e=>e.checked, toggleStyle(`#kbd > tr > td:hover { border: 2px red dotted }`)) )
+onEvModify(doc.id("css-code"), (e=>eA=>(e.textContent=eA.value))(doc.head.appendChild(el("style"))) );
+/*还好吧……写了两天收获是，不该用<table>因为它只是二维数组不是矩阵，需要补0而且宽度不一致还不方便、不该设计为分class 因为 keyCode id 就很好；然后 animate() 是自带 queue 的，每格在动画中逐渐变暗的那种会按刷新率和时间戳去动画，只要调用一下*/
+/*
+其实一开始就是没太打算 g.draw 的，而是整体 svg 动画，但 g 是作矩阵交换的，也能弄散点的动画（反正有加渐变）
+图形的补间手写很麻烦，要利用 svg 但 drawImage 是不能画 svg ，只能走 Path2D 或 canvg 这种鸡肋，万能方法是 img DataURL ，缺点性能低但能忍。
+
+*/
+
+//下面是 canvas pixel 与 td background 的绑定部分，渐变的话 CSS 就自带(opEvCls去切)，否则得自己 list 出然后看时延 补间(color,white)
+let aeTable=e0=>[...e0.children].map(tr=>[...tr.children]),
+  shape2D=(a,zero=doc.head,get_ncol=xs=>Math.max(...xs))=>{
+    let m=get_ncol(a.map(r=>r.length));
+    a.forEach((r,i)=>{ if(r.length!=m)a[i]=r.concat(newAry(m-r.length, ()=>zero)); })
+    return [a.length,m];
+  },
+  imgSvg=(e,load)=>{
+    let xser=new XMLSerializer, r=e.viewBox.baseVal, eI=new Image(r.width,r.height); doc.body.appendChild(eI);
+    eI.onload=(ev)=>load(ev.target);
+    let anim=[...e.querySelectorAll("animate")].map(e=>{let e0=e.targetElement,k=e.getAttribute("attributeName");return [e0,k,e0[k].animVal]});
+    return()=>{anim.forEach(([e,k,v])=>{e.setAttribute(k,v.value)});eI.src="data:image/svg+xml;utf8,"+xser.serializeToString(e)}; //NOTE 其实不需要，img标签里自己也会动
+  };
+
+let eCan=doc.id("anim"), eSvg=doc.id("animH"), g=eCan.getContext("2d"),
+  keyhit=["khit","khitend"],fireEvKh=evFireNth(eKbd,keyhit);
+evAddsCls(keyhit,"keyhit")(eKbd);
+eKbd.ontransitionend=fireEvKh.bind(null,1);
+
+let aTab=aeTable(eKbd), nm=shape2D(aTab).reverse()/*m其实相当于w,n =h*/; //NOTE 啊死了，点击时咋映到位图世界啊，早点弄才好
+let eiSvg,khStop, point=[0,0],  imgSvgP=promisy(imgSvg);let [khP,khP1]=imgSvgP(eSvg);
+aTab.forEach((r,i)=>r.forEach((e,j)=>{ e.addEventListener("mousedown",()=>{ point[0]=i,point[1]=j; onFrame(); }) }));
+cfgCan(eCan,eSvg)(...nm,30); let freshKbd=(e)=>{if(!!e)eiSvg=e;
+  g.clearRect(0,0,...nm);
+  g.drawImage(eiSvg,0,0);
+  let a=g.getImageData(0,0,...nm), nuPix=4;
+  for(let [w,h]=nm, y=0; y<h; y++)for(let x=0;x<w;x++)
+    aTab[y][x].style.backgroundColor=(a.data[(y*w +x)*nuPix +3/*A*/]!=0)? "var(--bg-hl)":"";
+}, kbdSvg=imgSvg(eSvg,e=>{freshKbd(e); if(!!khStop)khStop(); khStop=timerRate(50,freshKbd);}), // 切换动画
+onFrame=()=>{ // 准确的说是 onHit 吧，关键帧都是 svg/css 动画系统
+  let eE=eSvg.children[0],ks=["cy","cx"];point.forEach((v,i)=>{eE.setAttribute(ks[i],v)}); //草没想到不需要纵转啊 ,mn=[nm[1],0]
+  fireEvKh(0); //通知渐变
+  //khP();eiSvg=await khP1; // 没意义，promise 是一次性模型
+  kbdSvg();
+};
+//imgSvg(eSvg, e=>{eiSvg=e;khStop=timerRate(50,onFrame);})();
+//eSvg.children[0].animate([{rx:0},{rx:10}], {duration:5000,iterations:Infinity})
+</script>
+<style>
+#kbd > tr > td {
+    padding: 12pt 4pt;
+    border: 2px var(--bg) solid;
+    box-shadow: grey -1px -1px 3px 5px inset;
+    user-select:none; transition: .5s box-shadow ease-in;
+}
+#kbd > tr > td:active, #kbd > tr > td.clicked {
+  color:white; background: var(--bg); /*filter: invert(1);*/
+  box-shadow: 1px 2px 7px 7px inset;
+}
+#kbd.keyhit td { transition: .32s background-color ease }</style>
