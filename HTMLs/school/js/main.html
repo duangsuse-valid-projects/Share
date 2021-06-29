@@ -1,0 +1,9 @@
+<!doctype html><html><head><meta charset=utf-8><title>Mainpage of script</title></head>
+<body><script>
+(onhashchange=()=>{
+  let doc=document;
+  doc.head.appendChild(doc.createElement("script")).src= doc.location.hash.slice(1).replace(".js","")+".js";
+})()
+</script>
+<input onchange="document.location.hash=event.target.value" placeholder=scriptPath>
+</body>
