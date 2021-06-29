@@ -1,0 +1,23 @@
+<!doctype html><meta charset=utf-8><body><script>
+n=a=>a.length,
+aryJust=(x,n)=>{let a=Array(n);for(let i=0;i<n;i++)a[i]=x;return a}
+shapeD2=(a,m,fill)=>{ a.forEach((r,i)=>r.push(...aryJust(fill(r), m-n(r,i))) ) },
+comb0=(xs,op)=>{
+  let iMul=[],nComb=1,a=xs.filter((x,i)=>{let p=!!n(x);if(p){iMul.push(i);nComb*=n(x)}return p});
+  let subst=[...xs], nM=n(iMul), k=Math.max(...a.map(n)); shapeD2(a,k,r=>r[n(r)-1]);
+  console.log(k,nComb,nM, iMul,a)
+  for(let i=0;i<nComb;i++){for(let acc=i,iM=nM-1;iM!=-1;iM--) { subst[iMul[iM]]=a[iM][acc%k]; acc=Math.floor(acc/k); }op(subst)} //(i+iM)%k==0 调试打表(i,iM)了半天发现是 floor 没加，汗 // 这个数字钟算法只支持1或矩阵，不齐的话是会错的，或可考虑过滤？
+  //昨天想太快乐了，没注意到这个数位钟 zip 法本不是 n*nMul 个的，第二层for 才是在 zip ，整体只长 nComb
+},
+repeat=(n,op)=>{for(let i=0;i<n;i++)op(i);},
+once=(run)=>(p=>()=>{ if(!p) return run();else p=true; })(false),
+comb=(xs,each_xiv)=>{
+  let nComb=1,iMul=[], aM=xs.filter((x,i)=>{let p=!!n(x);if(p){iMul.push(i);nComb*=n(x)} return p}), nM=n(iMul);
+  let xs1=[...xs], k=Math.max(...aM.map(n)), op=each_xiv;
+  shapeD2(aM, k, once(()=>{ op=(a,i,v)=>(v===undefined)?v: each_xiv(a,i,v);  }));
+  console.log(k,nComb,nM)
+  repeat(nComb, i=>{for(let acc=i,iM=nM-1;iM!=-1; iM--) {
+    let subs=aM[iM][acc%k]; xs1[iMul[iM]]=subs; op(xs1, iM,subs); acc=Math.floor(acc/k);
+  } })
+}
+</script>

@@ -1,10 +1,15 @@
-<!doctype html><meta chaset=utf-8><body><script>
-n=a=>a.length,
-aryJust=(x,n)=>{let a=Array(n);for(let i=0;i<n;i++)a[i]=x;return a}
-shapeD2=(a,m,fill)=>{ a.forEach((r,i)=>r.concat(aryJust(fill(r), m-n(r))) ) },
-comb=(xs,op)=>{
-  let iMul=[],nComb=1,a=xs.filter((x,i)=>{let p=!!n(x);if(p){iMul.push(i);nComb*=n(x)}return p});
-  let subst=[...xs], nM=n(iMul), k=Math.max(...a.map(n)); shapeD2(a,k,r=>r[n(r)-1]);
-  for(let i=0;i<nComb;i++)for(let acc=i,iM=nM-1;iM!=-1;iM--) { subst[iMul[iM]]=a[iM][acc%k]; op(subst); acc=Math.floor(acc/k); } //(i+iM)%k==0 调试打表(i,iM)了半天发现是 floor 没加，汗 // 这个数字钟算法只支持1或矩阵，不齐的话是会错的，或可考虑过滤？
-}
+<!doctype html><meta charset=utf-8><body><script>
+const
+  propCall=(op)=>new Proxy(op, {get:(f,k)=>f(k)}),
+  getK=propCall(k=> o=>o[k]), n=getK.length,
+  rep/*eat*/=(n,op)=>{for(let i=0;i<n;i++)op(i);},
+  pipe=(f,g)=>(...a)=>g(f(...a)),
+  arSet=(n,sets,make=Array)=>{let a=make(n); rep(n,sets(a)); return a},
+  aryJust=(x,n)=>arSet(n,a=>i=>{a[i]=x})), //  区别是不用每次调用 op(i) 在rep()多一层，靠 for 就是差不多
+  newAry=(n,op)=>arSet(n,a=>i=>{a[i]=op(i)})),
+  comb=(xs,each_xiv)=>{},
+  asEnumer=(op)=>(...a)=>(each=>op(...a,each)),
+  combs=pipe(aryJust,asEnumer(comb)), //=a*n
+  shapeD2=(a,m,fill)=>a.forEach((r,...p)=>r.push(...aryJust(fill(r,...p),m-n(r)) ),
+  doc=document
 </script>
