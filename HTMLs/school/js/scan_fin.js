@@ -193,3 +193,21 @@ expecting(
 	"  true", true,
 	"false1",false,
 )
+
+/*关于 scan.js 的 Buffer 支持，我和我谈了一下早有的 (s,c=null)=> 组合函方法
+
+buf 的支持是靠 DOM 侧新的 ArrayBuffer View/Blob API 的，它们提供了不同整数的读写接口，不出意外，咱这边最突破的点是，仍是只有组合(s,c)=>的函数值 c 显然不能只是 write 动词，但除了 parse,dump 操作现在还有 sizeof ，有必要用面向对象 class？
+
+显然 c={} 里得包含 str 和 blob 的输出接口，这点都做的到所以关键是怎么在 Seq,One,More 这些组合子里定义多种操作还不乱，老设计是 c=show_rep 然后判 null(Kotlin 里还简单) 但现在显然没，那 if(c.n) c.n= 甚至 else if 这种有无赋值式？太长、自动转型太不严谨，不好看。
+
+最后我选择了 c.n(sz=>sz(10)) 这种“提供惰性计算函数”的方法，主要理由……当然是写着太有颜值， c.o(r=>r.each(seq[i](0,c.of(v) ))) 就能提供 Seq 的回显
+
+这种方法还能同时运行几种操作，比如读取/回显什么的，对 formatter 方便，关键是它对数据绑定的理论优雅性，俩 (s,o) 参数定义了相互的关系和一些调整，尽管对 parser 流绑定关系必须靠 range 映射故应选择性地去增量解析
+
+结合 noWhiteFeed 上的 span 存储化更改，它也让元编程和动态类型的优雅性显现，可以
+if(!c.o(v=>{})) read(s)
+c.n(sz=>{})
+return c.o(res)
+
+这样，在全定义皆语句前提下，较优雅实现多操作、子语言化、输入输出的隔离，我觉得配合 feed/state 的良好组合子框架性 API
+ */
