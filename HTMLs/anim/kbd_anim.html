@@ -110,7 +110,7 @@ let eKbd=doc.id("kbd"),reinit=(n)=>{
 let evn=expandK("down up", ["key%","mouse%"]);
 eKbd.querySelectorAll("td").forEach(evAddsCls(evn[1],"clicked")); // 不能利用 ancestor ，那样无法固定 target
 if(n==0)onEvPair(doc.body, evn[0], ...opMerge( ((i,_,ev)=>{ ev.preventDefault();
-  let e0=eKbd, upd=e=>(!!e)?e.dispatchEvent(new MouseEvent(evn[1][i]) ):null,
+  let e0=eKbd, upd=e=>(!!e)?e.dispatchEvent(new MouseEvent(evn[1][i]) ):null, // evFireNth 的真正用处
     e=doc.id("k"+mapIf(trK1(ev.key), s=>s[0]!="F", s=>s.toLowerCase())); upd(e); //NOTE 文本数据流没设计好，本来就不需caps()弄k
   for(let [css,k]of casK) if(ev[k]) upd(e0.querySelector(css));
   try{e0.querySelectorAll("."+trK(ev.key).toLowerCase()).forEach(upd);}//NOTE 不是单个查
