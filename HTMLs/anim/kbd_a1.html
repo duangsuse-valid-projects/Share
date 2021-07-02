@@ -11,15 +11,15 @@ const
   arSet=(n,sets,make=Array)=>{let a=make(n); rep(n,sets(a)); return a},
   aryJust=(x,n)=>arSet(n,a=>i=>{a[i]=x}), //  区别是不用每次调用 op(i) 在rep()多一层，靠 for 就是差不多
   newAry=(n,op)=>arSet(n,a=>i=>{a[i]=op(i)}),
-  comb=(xs,each)=>{ // 准确说是 product(xs) ，可以递归写
+  combAry=(xs,each)=>{ // 准确说是 product(xs) ，可以递归写
     let nCmb=1, iRep=[], a=xs.filter((x,i)=>{let p=!!n(x);if(p){nCmb*=n(x);iRep.push(i)} return p}); if(nCmb==1)return each(xs);
     shapeD2(a); let nRep=n(iRep), k=n(a[0]), xs1=[...xs]; //v 是 continue,return 还是，试了半天
     repFn(nCmb, cnt=>{ for(let acc=cnt,i=0,rep=null; i<nRep; i++){ rep=a[i][acc%k],acc=Math.floor(acc/k); if(rep!==undefined)xs1[iRep[i]]=rep; } each(xs1)})
   },
   waitArgR1=(op)=>(...a)=>(each=>op(...a,each)),
   arCollect=(gen,op,p)=>{let a=[],i=0; op=op||id, add=x=>{a.push(op(x));}; gen(p? x=>{if(p(x,i))add(x);i++;} : add); return a},
-  combs=pipe(aryJust,waitArgR1(comb)), //=a*n  //[1,2, 3+2]; [1,2,3, 3+3,+1,+4]; [...4, +3,
-  shapeD2=(a,fill=(r=>undefined),m=Math.max(...a.map(n)))=>a.forEach((r,...p)=>r.push(...aryJust(fill(r,...p),m-n(r))) ), //...p 多此一举
+  eachComb=pipe(aryJust,waitArgR1(combAry)), //=a*n  //[1,2, 3+2]; [1,2,3, 3+3,+1,+4]; [...4, +3,
+  shapeD2=(a,fill=(r=>undefined),m=Math.max(...a.map(n)))=>{a.forEach(r=>r.push(...aryJust(fill(r),m-n(r))) ); return[n,m]}
 repFn=rep
 
 Object.assign(String.prototype,{
@@ -28,34 +28,38 @@ splitCond(sp,op_nano,op){let s=this,i;return (i=s.indexOf(sp)==(-1))? op_nano(s)
 })
 const
   doc=document,
-  el=(tag,...ee)=>{let e=!isStr(tag)? tag:doc.createElement(tag); if(isStr(ee[0]))e.textContent=ee[0];else ee.forEach(ref(e).appendChild); return e},
+  el=(tag,...ee)=>{let e=!isStr(tag)? tag:doc.createElement(tag), e0=ee[0]; if(isStr(e0))e.textContent=ee.shift();else if(e0&&!e0.nodeType)ee.shift()(e);  ee.forEach(ref(e).appendChild); return e},
+  ee=e=>[...e.children], ss=s=>s.split(" "),
   isStr=x=>(typeof x=="string"),
-  ee=e=>[...e.children],
   eDiv2D=(a)=>el("table",...a.map(r=>el("tr",...r.map(x=>el("td",x))))), // 渲染侧
-  aeDiv2D=(e,zfill=doc.head)=>doAlso(ee(e).map(ee), a=>shapeD2(a,r=>zfill)),
+  aeDiv2D=(e,nm,zfill=doc.head)=>doAlso(ee(e).map(ee), a=>assign(nm,shapeD2(a,r=>zfill)) ),
   cfgCan=(e,eSvg)=>(w,h,el_k=1)=>{ let d={width:w,height:h}; assign(e,d); assign(e.style,d, v=>v*el_k+"px"); if(!!eSvg)assign(eSvg.viewBox.baseVal,d); },
-  ins=e=>el(doc.body,e),
+
   svgImg=(e,load)=>{
     let xser=new XMLSerializer, r=e.viewBox.baseVal, eI=new Image(r.width,r.height); ins(eI); // 动画布侧
     eI.onload=(ev)=>load(ev.target);
     return()=>{eI.src="data:image/svg+xml;utf8,"+xser.serializeToString(e)};
   },
-  svgData=(e,g,wh,load)=>svgImg(e,img=>{
+  imgEachPixel=(e,g,wh,on_a_xyi,nuPix=4)=>svgImg(e,img=>{
     g.clearRect(0,0,...wh);
-    g.drawImage(eiSvg,0,0);
-    return g.getImageData(0,0,...wh);
-  }),
-  eachPixel=(dimg,on_a_xyi,nuPix=4)=>{
-    for(let {width:w,height:h,data}=dimg, y=0; y<h; y++)for(let x=0;x<w;x++)
-      on_a_xyi(data)(x,y, (y*w +x)*nuPix);
-  },
+    g.drawImage(e,0,0);
+    let op=on_a_xyi(g.getImageData(0,0,...wh).data);
+    let [w,h]=wh;
+    for(let y=0; y<h; y++)for(let x=0;x<w;x++) op(x,y, (y*w +x)*nuPix);
+  })
+ins=e=>el(doc.body,e)
 
-  mapZip=(a,b,join)=>a.map((x,i)=>join(x,b[i])), //zipWith
+const
+  mapZip=(a,b,join=(x1,x2)=>[x1,x2])=>a.map((x,i)=>join(x,b[i])), //zipWith
   opr=s=>eval("(a,b)=>(a"+s+"b)"),
   withThis=(op)=>function(...a){return op(this,...a)},
-  expandK=(sk,fmts,ops=[id])=>fmts.map((sf,i)=> sk.split(" ").map(k=>sf.replace("%", cycGet(ops,i)(k)) )), // 布局简写侧
+
+  expandK=(sk,fmts,ops=[id])=>fmts.map((sf,i)=> ss(sk).map(k=>sf.replace("%", cycGet(ops,i)(k)) )), // 布局简写侧
+  objPuts=sk=>{ let o={}; for(let k of ss(sk))o[k]=(v)=>{o[k]=v}; return o},
   cycGet=(a,i)=>a[i%n(a)],
   mapEntries=(o)=>(d=> v=>d.get(v)||v) (new Map(Object.entries(o))),
+
+  assign=(o_dst,o,op_v)=>{ const O=Object;return O.assign(o_dst, (!!op_v)? O.fromEntries(doAlso(O.entries(o), e=>e.forEach(kv=>{kv[1]=op_v(kv[1],kv)})  )) : o) }, //亦可用 copy&eachK
   assignKsVs=(o,[ks,vs])=>ks.forEach((k,i)=>{ o[k]=vs[i] } ) ||o,
 
   timerRate=(dt,op)=>{ let id, once;
@@ -69,21 +73,29 @@ const
     mapZip(pair, [(e,ev)=>{ev0=ev;return op0(e,ev)}, (...a)=>op1(...a,ev0)],
       (evn,op)=>evBind(e,evn, withThis(op)))
   },
+
   opEvCls=cls=>sel=>sel(getK_On(doc.head.classList)).map(f=> (e,ev)=>f.call(e,cls)),
-  selAddsCls=k=>[k.add,k.remove];
+  selAddsCls=k=>[k.add,k.remove],
+  wA=propCall(k=>v=>e=>e.setAttribute(k,v)),
+  wEv=propCall(evn=>op=>e=>evBind(e,evn,withThis(op))),
+  wAll=(...op)=>e=>op.forEach(f=>f(e)),
+  wLabel=(s,e)=>el("label", s,e),
+
+  enablesStyle=(code)=>(e=>v=>(e.sheet.disabled= !v) )(doc.head.appendChild(el("style",code)) ),
+  styleCk=code=>wAll(wA.type("checkbox"), wEv.change(pipe(getK.checked, enablesStyle(code))) );
 
 ksep=["\n"," "], jrow=s=>s.join(ksep[1])
 
-/*let eSel, eCStyle, eKbd, eCan, eSvg;
-ins(el("div",
-  wLabel("选择布局",el("select")),
-  enablesStyle(``,wLabel("高亮悬浮",el("input",wA.type("checkbox"))) ),
-  el("textarea", eCStyle),
-  el("table", eKbd),el("br"),
-  el("canvas", eCan), el("hr"),
-  el("svg", eSvg)
-));*/
-
+let E=objPuts("sel kbd can svg cstyle app");
+ins(el("div", E.app,
+  wLabel("选择布局",el("select",E.sel)),
+  wLabel("高亮悬浮",el("input", styleCk(`#kbd > tr > td:hover { border: 2px red dotted }`)  )),
+  el("textarea", E.cstyle),
+  el("div", E.kbd),el("br"),
+  el("canvas", E.can), el("hr"),
+  el("svg", E.svg)
+));
+/*
 casK=expandK("ctrl alt shift", ["%Key",".%"]),//(ks=>[ks.map(k=>k+"Key"), ks.map(k=> "."+k) ])("ctrl alt shift".split(" ")),
 trK=(o=>{ o[" "]="space"; return getMaybe(o) })({Control:"ctrl",Escape:"esc"}), //特殊名 ，逗死了开始 assign(expandK-V 顺序写错了哈
 trK1=getMaybe(assignKsVs({},expandK("left right up down", ["Arrow%","%"],"%",[caps,x=>x])) ),
@@ -106,7 +118,7 @@ if(n==0)onEvPair(doc.body, evn[0], ...opMerge( ((i,_,ev)=>{ ev.preventDefault();
   if(cfg.hlAll)e0.querySelectorAll("."+trK(ev.key).toLowerCase()).forEach(upd);//NOTE 不是单个查
 })))};
 
-eKbd.ontransitionend=fireEvKh.bind(null,1); //rmclass animating
+
 onEvModify(eSel, ...Object.keys(lays).map(s=>el("option",s ) ) ),(e)=>{
   eKbd.innerHTML="";
   eDiv2D(eKbd,lays[e.value],eLay).querySelectorAll(".td").forEach(e=>{
@@ -147,13 +159,14 @@ shift z x c v b n/del m/end ,/</pgdn ./> %2F/?/up shift
 ctrl meta/lock alt space alt/left menu/down ctrl/right fn
 `
 }, mapsOnly_(1, s=>split2D(s.trim(), "\n"," ") )),
-
-svgImg(, svgData(e,g,h, eachPixel(a=>(x,y,i) aTab[y][x].style.backgroundColor=(a.data[(y*w +x)*nuPix +3/*A*/]!=0)? "var(--bg-hl)":""; )
-kbdSvg=imgSvg(eSvg,e=>{freshKbd(e); if(!!khStop)khStop(); khStop=timerRate(50,freshKbd);}), // 切换动画
-onFrame=()=>{ // 准确的说是 onHit 吧，关键帧都是 svg/css 动画系统
-  let eE=eSvg.children[0],ks=["cy","cx"];point.forEach((v,i)=>{eE.setAttribute(ks[i],v)}); //草没想到不需要纵转啊 ,mn=[nm[1],0]
-  fireEvKh(0); //通知渐变
-  //khP();eiSvg=await khP1; // 没意义，promise 是一次性模型
-  kbdSvg();
-};
+*/
+aDur=2000;
+let
+  updFrame=svgImg(eSvg, e=>imgEachPixel(e,g,wh, a=>(x,y,i)=>{ aKbd[y][x].style.backgroundColor=a[i+3/*A*/]!=0? "var(--bg-hl)":""; })),
+  onKHit=()=>{
+    let eE=eSvg.children[0],ks=["cy","cx"];point.forEach((v,i)=>{eE.setAttribute(ks[i],v)});
+    fireEvKh(0);
+    setTimeout(timerRate(100, updFrame), aDur);
+  };
+eKbd.ontransitionend=()=>fireEvKh(1);
 </script>

@@ -194,41 +194,4 @@ expecting(
 	"false1",false,
 )
 
-/*关于 scan.js 的 Buffer 支持，我和我谈了一下早有的 (s,c=null)=> 组合函方法
-
-buf 的支持是靠 DOM 侧新的 ArrayBuffer View/Blob API 的，它们提供了不同整数的读写接口，不出意外，咱这边最突破的点是，仍是只有组合(s,c)=>的函数值 c 显然不能只是 write 动词，但除了 parse,dump 操作现在还有 sizeof ，有必要用面向对象 class？
-
-显然 c={} 里得包含 str 和 blob 的输出接口，这点都做的到所以关键是怎么在 Seq,One,More 这些组合子里定义多种操作还不乱，老设计是 c=show_rep 然后判 null(Kotlin 里还简单) 但现在显然没，那 if(c.n) c.n= 甚至 else if 这种有无赋值式？太长、自动转型太不严谨，不好看。
-
-最后我选择了 c.n(sz=>sz(10)) 这种“提供惰性计算函数”的方法，主要理由……当然是写着太有颜值， c.o(r=>r.each(seq[i](0,c.of(v) ))) 就能提供 Seq 的回显
-
-这种方法还能同时运行几种操作，比如读取/回显什么的，对 formatter 方便，关键是它对数据绑定的理论优雅性，俩 (s,o) 参数定义了相互的关系和一些调整，尽管对 parser 流绑定关系必须靠 range 映射故应选择性地去增量解析
-
-结合 noWhiteFeed 上的 span 存储化更改，它也让元编程和动态类型的优雅性显现，可以
-if(!c.o(v=>{})) read(s)
-c.n(sz=>{})
-return c.o(res)
-
-这样，在全定义皆语句前提下，较优雅实现多操作、子语言化、输入输出的隔离，我觉得配合 feed/state 的良好组合子框架性 API
-
-回头再给组合器加自动包 "" 和 [""] 参数的外函数……  最好还能弄 .then .also
-
----还打算弄个最小编程语言：基于 S-表达式和 pSlicedTry JSON
-
-Expr (\a b. Expr) -- abstra
-|(fnExpr Expr*) -- apply
-|nameRef|jsonVal
-词法：非 jsonVal 跳空格和 -- 行注释
-
-这个其实没怎么难，就是递归 s-expr 加 (\a. 的预判和 nameRef 的解析，会把前者变成 function(){} 而后者是 arguments[argNo] ，(f a1) 翻译成 f.apply(scope,[a1])
-其实是有中间树的，长这样： [(a)=>_op("+").apply(null,[a(0),a(1)]), "hello","fun"] ，其中 apply 的参2 可以被闭包式组织，但这种函数定义不得不有 (op)=>(...a)=>op(i=>a[i]) 包装，它不涉及 arg 对象的 [i] 因为那没法组成值表达、它是 JS 语言字面层的引用解析。
-
-细心的朋友们要发现华点了—— _op 没有来源，从值组织上它不是合法闭包性(即能靠 o=>k=>o[k] 这样填出来的)代码，故 (s,a)=> 再 s["_op"] 才是有效的
-这样我们就成功在没有一次 eval() ，也没有一个 tree walker 的前提下从 String 构筑了可从 JS 调用的函数！
-
-有点犯规，因为 combinator 的重写代替每次去 walk AST 是足矣，它相当于邦死了的 walk(eval_er) 函数，但是 upvalue 仍没融合到这个系统，语言现在像 C 或 C预处理宏一样，不存在 make_f()(1) 的层次
-
-你正在学习函数子程序与存储空间的老本本。不难发现编译期 nameRef 靠动态作用域(增设&回删/恢 或全复制)你不能把上层函数的参数，化为 a(i) 的形式，你可以想办法把它变成 s.upval(1, (i)0) 结合调用栈元编程接口和 K-带层差-V 动态域实现。
-
-如此一来，编译原理剩下的基本就是线性化与回填、下层 CGen API 了，最“精华”的部分就是这些“原初”函数式的，要知道动作依赖啥参数、参数以变化有何数量级差，不也是 OOP/FP 始终追寻的易写性吗。
- */
+/*cg_essay.md */

@@ -24,7 +24,12 @@ def acceptRequest(conn):
             sl4a.setClipboard(conn.recv(num).decode(ENCODING))
         elif act == '\n': pass
         else: print("*"); break
-    
+    conn.close()
+
 if __name__ == '__main__': serveTCP()
 #USB 绑定的 ip 是手机上 ip addr|grep inet rndis0 的，或电脑上 gateway: ip route
 #nc -c '-'|xclip; xclip -o; nc -c '+ xclip -selection clipboard -in 等命令能读写二者
+
+
+#echo '-\x04'|nc 192.168.42.129 12345 2>/dev/null
+#  printf "%s%n" s n; printf "%d:%s" n s|nc -c host 12345
