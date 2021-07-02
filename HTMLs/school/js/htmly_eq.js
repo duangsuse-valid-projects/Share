@@ -1,7 +1,7 @@
 //JSON,el(tag,cfg,...child) <=> html
 opr=(code,b="b")=>eval(`(a,b)=>(a${code}${b})`)
 class Equiv/*B,A*/ {
-  constructor(ab,ba){this.from=ab,this.into=ba;}
+  constructor(ab,ba){this.from=ab,this.into=ba||ab;}
   id(a){return this.into(this.from(a))}
   get flip(){return new Equiv(this.into,this.from)}
   static idp=(x=>x)
@@ -38,7 +38,8 @@ const
   id=x=>x,
   concat=(a,b)=>a+b,
   joinStr=recFunPZero(""," ", sep=>rec=> (x,...xs)=>(!x)?"": sep+x+rec(...xs) ), //开始还以为是 id,concat 呢哈哈傻
-  numId=rec(op=> n=>(n==0)? 0 : 1+op(n-1)) //n=> 亦可是靠组合子构筑如 join(n," ",rec)
+  numId=rec(op=> n=>(n==0)? 0 : 1+op(n-1)), //n=> 亦可是靠组合子构筑如 join(n," ",rec)
+  addCount=op=>{let i=0; return (...a)=>op(i++,...a)}
 
 const oJihtml=new Equiv(rec(walk=>e=>{
   if(e.nodeType==Node.TEXT_NODE)return e.textContent;
@@ -100,3 +101,22 @@ xProj=pXML(`
 
 用那种提供完整序列化(本质是 Equiv)操作的 load/dump XML 接口的话，可以把 (k0)ks=[] 放在 p_multi 的同层次，js 是单线程语言，记录路径只需照映调用栈去 push/pop，没必要每层递归去复制
  */
+
+Equiv.joinBy=sep=>new Equiv(a=>a.join(sep), s=>s.split(sep));
+"苹果 香蕉 橘子"
+
+Equiv.fmt=(sf)=>{
+  let sub=fv=>sf.replaceAll("%",fv), re=RegExp(sub("(.*?)")+"$", "");
+  return new Equiv(r=>sub(addCount(i=>r[i])), s=>[...re.exec(s)].slice(1) )
+};
+Equiv.obj=new Equiv(Object.fromEntries, Object.entries);
+Equiv.each=eq=>new Equiv(a=>a.map(eq.from), b=>b.map(eq.into));
+
+eqOp=op=>new Equiv(a=>{op(a);return a}), eqLog=eqOp(console.log), sp=Equiv.joinBy(" ");
+with(Equiv){
+  qa=pipe(eqOp(a=>a.unshift(null)).fwd/*[0]start from 1*/, new Equiv(obj2a).backwd, obj.flip, eqOp(a=>a.shift(1)).fwd,eqLog, each(fmt("Q%: %")), joinBy("\n"))
+  dEq.qa=pipe(sp.flip,qa)
+  dEq.sp=pipe(json.flip, sp);
+}
+
+function obj2a(o) { let a=[]; for(let i=0,inSq=false;;i++)if(i in o)a.push(o[i]); else {if(inSq)break;else inSq=true}  return a} // conti- ki range
