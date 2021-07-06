@@ -168,50 +168,52 @@ if(test)with(State){
   )
 }
 
-const // fuzzy parsing, short, sorry
+const // fuzzy parsing, short, sorry. no stream/stmt separating parse so mainly for REPL/inline
   pairedIdx=([a,b],s,i=0)=>{let N=n(s), nA=0; for(;i<N;i++)if(0== ((s[i]==a)?++nA : (s[i]==b)?--nA : 1))return i;},
   parens=ss("( )"),braces=ss("{ }"),
-
-  opChain0=(prec_joins,oxs)=>{ let t=[],lev_t; //root
-    const
-    takeOp=p=>()=>{let r=next(oxs); return (!isNon(r)&&(r in prec_joins) == p)?r:null },
-    o=takeOp(true),
-    x=takeOp(false),
-    lev=o=>prec_joins[o][0],
-    addTree=(abase, nlev)=>{ // adds item >lev0
-      let n = nlev, a=abase, e=x(), f,_p=v=>a.push(v); if(!e) throw[a,t];
-      do {
-        f=o(); if(!f){_p(e); break;}
-        let n1=lev(f); if (n1<n){_p(e); console.log(e,f,n,a);return [n1,f,a];}
-        else if (n1==n) _p(e);
-        else {
-          let a1 = [f,e]; _p(a1); let nc_f = addTree(a1, lev(f));
-          let [nc, fEnd] = nc_f; console.log(nc_f,n,a,lev_t);
-          if (nc<n)if(n!=lev_t) return nc_f/*chain nlev*/; else {a=[fEnd,a];n=lev(fEnd);}
-          else { a1=a[a.length-1]=[fEnd,a1] ;_p=v=>a1.push(v) ;lg(a)}
-        }
-      } while (!!(e=x()));
-      return [n,null,a] //ss("b|a=1&x b&a=1|x b|a=1=5&x b&a=1=c|x b&a=1=c|x|d b&a=1=c|x&c")
-    }
-    let e=x(),f; if(!e)throw oxs;
-    f=o(); if(!!f){t=addTree([f,e],(lev_t=lev(f)) )[2];} else t.push(e);
-    return Object.assign(t, { run: ()=>t })
-  },
-  subPaired=(p,re,dn,op)=>s=>{
-    let s1=[...s]; // ->() to puts
-    for(let {[1]:sarg, [0]:m0, index:i} of re[Symbol.matchAll](s)) {
-      let i1=pairedIdx(p, s, i+dn); if(!i1)throw s;
-      let code=s1.slice(i+n(m0), i1);
-      s1.splice(i, i1-i +1, ...op(sarg,code.join("")));
+  subPaired=(pr,re,d_m0,op)=>s=>{
+    let s1=[...s]; // ->() to puts()
+    for(let {index:i, [1]:sArg, [0]:m0} of re[Symbol.matchAll](s)) {
+      let i1=pairedIdx(pr, s,i+d_m0); if(!i1)throw s;
+      let sIn=s1.slice(i+n(m0), i1);
+      s1.splice(i, i1-i +1, ...op(sArg,sIn.join("")));
     }
     return s1.join("")
   },
-  nosplitIf=(re, s, p_ab)=>{
+  nosplitIf=(re,s, p_ab)=>{
     let a=re[Symbol.split](s), n=a.length;
-    if(n<2)return a; //v detect single & char
+    if(n<2)return a; //v detect single & char, vp:3  x/x1,i-1
     for(let x,x1="",i=n-1; i>=0; i--){ x=a[i]; if(p_ab(a[i-1], x,x1)){
       a[i-1]=a[i-1]+x+x1; a.splice(i,2) }; x1=x }
     return a
+  },
+
+  opChain=(x,o,lev)=>{
+    let aTop=[], oR;//rec
+    const only=(o0,a)=>{ //v for b|a=1&x depth:1,3,2
+      let v,o1, l=lev,  iArg, _p=()=>{v=x(); if(!v)throw[o0,a,aTop,oR]; iArg=a.push(v);}
+      _p();
+      let l0=l(o0), l1;
+      while ((o1=o())) { l1=l(o1);
+        if(l0>l1) return(o1); else// b<a means b tops/forks a
+        if(l0<l1 ||o1!=o0) {
+          a1=[o1,a.pop()];a.push(a1); oR=only(o1,a1);  if(oR){
+          if(Math.abs(l0-l1)>1 && l0<l1&&l(oR)<l1 ||o0==0)  { //won't find & layer: o_01R |=& 1,3,2
+            let grab=a.splice(iArg-1,1)[0]; a1=[oR,grab];a.push(a1);a=a1; //v*2: try create &replace layer
+          } else if(l0>=l(oR)) {
+            a.unshift(oR, a.splice(0,n(a))); // as-parent [oR, orig, ...arg]
+          }
+          else return oR;   o0=oR,l0=l(o0); _p();}
+        } else _p();//same.
+      }
+      return null; // done, not fall-rewrite
+    }
+    only(0,aTop); return aTop[0]
+  },
+  readOptab=(d,ss)=>{
+    let op=p=>()=>{let v=ss.next().value; return (v in d)==p? v:null; }, res=opChain(op(false), op(true), o=>d[o][0]),
+    run=(walk=(ko,arg,d)=>{let o=d[ko][1]; return n(o)==0? o(arg) : arg.reduce(o)}, t=res)=>walk(t[0], t.slice(1).map(tt=> (tt instanceof Array)? run(walk,tt) : tt), d);
+    return Object.assign(res, {run})
   },
 
   goal=s=>{
@@ -219,52 +221,26 @@ const // fuzzy parsing, short, sorry
     //->(Args){body} = puts((...a)=>body)
     // in eval UI, ()body can denote ->()
     const
-      pputs=subPaired(braces, /->\(([\w\s,]*?)\)\s*{/, n("->"), (sa,code)=>`puts((${ss(sa).join()})=> ${code})` ),
-      read=s=>goExpr(pputs(s));
+      pputs=subPaired(braces, /->\(([\w\s,]*?)\)\s*{/, n("->"), (sa,code)=>`puts((${ss(sa).join()})=> ${goExpr(code).run()})` ), // expand fst.
+      read=s=>goExpr(pputs(s)).run();
     if(s[0]=='('){ let i1=pairedIdx(parens,s), argv=ss(s.slice(1,i1)); argv.unshift(`{${Object.keys(go).join()}}`);
-      let gofn=Function(argv.join(), read(s.slice(i1+1))); argv.shift();
-      return Object.assign(gofn.bind(null,go), {code: String(gofn), src: s, args: argv}) }
+      let gofn=Function(argv.join(), "return "+read(s.slice(i1+1))), fn=(...a)=>gofn.call(fn,go,...a); argv.shift();
+      return Object.assign(fn, {code: String(gofn), src: s, args: argv}) } //gofn. bind() no supp. currying
     with(go){return eval(read(s))}
   },
   scall=(name,dup="")=>(a,b)=>`${name}(${a.startsWith(name)? dup+a.slice(n(name)):a}, ${b})`,
-  goExpr=(s,optab={
+  goExpr=(s,optab={ //^ yes, due to eval order, opChain not always flat. but rel semantic has no "ordering". offen 1st arg same-op
     ["="]:[5, scall("eq")],
     ["&"]:[4, scall("all", "...inn")],
     ["|"]:[3, scall("one", "...inn")],
-  })=>opChain(optab, nosplitIf(/([=&|])(?!\1)/g, s, (xLast,o,x1)=>o in optab&&(xLast.endsWith(o) ||o=='='&&x1.startsWith(">") )).values()).run();
-go.inn=(...a)=>a;
+    [0]:[0]
+  })=>readOptab(optab, nosplitIf(/([=&|])(?!\1)/g, s, (xLast,o,x1)=>o in optab&&(xLast.endsWith(o) ||o=='='&&x1.startsWith(">") )).values());
+globalThis.inn=(...a)=>a;
 
-if(0){
-  let join=goal(`(a b s) b=s&a=null | ->(x,ra,rs){ a=[x,ra]&s=[x,rs]&rec(ra,b,rs) }`)
+{
+  let join=goal(`(a b s) b=s&a=null | ->(x,ra,rs){ a=[x,ra]&s=[x,rs]&this(ra,b,rs) }`)
   lg("compiled", join)
+  lg(
+    st.go(x=>join(null,[1,null],x))
+  )
 }
-
-const logs=op=>(...a)=>{let r=op(...a); console.log(r,...a); return r},
-opChain=(x,o,lev)=>{
-  let aTop=[], oR;
-  const only=(o0,a)=>{ //v for b|a=1&x depth:1,3,2
-    let v,o1, l=lev,  iArg, _p=()=>{v=x(); if(!v)throw[o0,a,aTop,oR]; iArg=a.push(v);}
-    _p();
-    while ((o1=o())) {
-      if(l(o0)>l(o1)) return(o1); else// b<a means b tops/forks a
-      if(l(o0)<l(o1) ||o1!=o0)/*o1 grabs v*/ {
-        a1=[o1,a.pop()];a.push(a1); oR=only(o1,a1);  console.log(o0,o1,oR); if(oR){
-        if(Math.abs(l(o0)-l(o1),o0,o1)>1&&l(o0)<l(o1)&&l(oR)<l(o1))/*won't find & layer: |=& 132, can mk. top: &=| 231 */ { o0=oR; let b=a.splice(iArg-1,1); a1=[oR,b];a.push(a1);a=a1;   _p();}
-        else if(l(o0)>=l(oR)){o0=oR; a.unshift(oR, a.splice(0,n(a))); _p()} //rua("b&a=1=c|x&c")
-        else return oR;}
-      } else _p();
-    }
-    return null; // no fall-rewrite
-  }
-  only(0,aTop,0); return aTop
-},
-runOptab=(d)=>(re=>s=>{
-  let ss=[...re[Symbol.split](s)].values(), op=p=>()=>{let v=ss.next().value; return (v in d)==p? v:null; }
-  return opChain(op(false), op(true), o=>d[o][0])
-})(RegExp("(["+Object.keys(d).join("")+"])")),
-rua=runOptab({
-  ["="]:[3, ],
-  ["&"]:[2, ],
-  ["|"]:[1, ],
-  [0]:[0, ]
-})
