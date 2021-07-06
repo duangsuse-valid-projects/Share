@@ -112,6 +112,52 @@ runOptab(d)=s=>(re=>{
 
 真的最终可以在 mkey.js 里看，这个版本其实不是只切一层、拼合下层再递归的，临时数组少建一点。
 
+真的只切一层的版本需要能处理 str,list 版本的 `stream_xo` 才能递归，其逻辑
+
+```js
+_p(); while ((o1=o())) {
+      if(o1!=o0)if(!a1) {a1=[]; a.push(a1); } else _p(); else {a1=null;a=a0;} _p();
+    }
+```
+
+a1 是状态机的 flag，等效（其缺点是有多少层就至少要创建多少个数组，且有重复遍历，相当于优化的左递归）
+
+```js
+_p(); while ((o1=o())) {
+  if(o1!=o0) {a.push((a1=[o1])); _p(l(o1)>l(o0)? a1:a); while ((o1=o())!=o0)_p(a1);} else _p(a);
+}
+```
+
+算了还是文化输出一下，二十行：
+
+```js
+const logs=op=>(...a)=>{let r=op(...a); console.log(r,...a); return r},
+opChain=(x,o,lev)=>{
+  let aTop=[], oR;
+  const only=(o0,a)=>{
+    let v,o1, l=lev, _p=()=>{v=x(); if(!v)throw[o0,a,aTop,oR]; a.push(v);}
+    _p();
+    while ((o1=o())) {
+      if(l(o0)>l(o1)) return(oR=o1); else// b<a means b tops/forks a
+      if(l(o0)<l(o1) ||o1!=o0)/*o1 grabs v*/ { a1=[o1,a.pop()];a.push(a1); only(o1,a1);   if(oR)if(l(o0)>=l(oR)){a.unshift(oR); _p()} else return; }
+      else _p();
+    }
+    oR=null; // no fall-rewrite
+  }
+  only(0,aTop); return aTop
+},
+runOptab=(d)=>(re=>s=>{
+  let ss=[...re[Symbol.split](s)].values(), op=p=>()=>{let v=ss.next().value; return (v in d)==p? v:null; }
+  return opChain(op(true), op(false), o=>d[o][0])
+})(RegExp("(["+Object.keys(d).join("")+"])")),
+rua=runOptab({
+  ["="]:[3, ],
+  ["&"]:[2, ],
+  ["|"]:[1, ],
+  [0]:0
+})
+```
+
 顺便一提，写的时候可能因为短代码有点走火入魔，居然连 `Symbol.replaceAll` 都记不得了，，啊不对， `pairedIdx` 不能靠 rep 它来着
 
 另外 `setA` 是做什么啊， Array 不就有 push,unshift,splice 等 mutate 方法吗？

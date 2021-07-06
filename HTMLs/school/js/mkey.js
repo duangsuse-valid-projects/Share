@@ -240,27 +240,31 @@ if(0){
 }
 
 const logs=op=>(...a)=>{let r=op(...a); console.log(r,...a); return r},
-opChain=(o,x,lev)=>{
+opChain=(x,o,lev)=>{
   let aTop=[], oR;
-  const only=logs((o0,a)=>{
-    let v, o1, l=logs(lev), _p=()=>{v=x(); if(!v)throw[o0,a,aTop,oR]; a.push(v);}
+  const only=(o0,a)=>{ //v for b|a=1&x depth:1,3,2
+    let v,o1, l=lev,  iArg, _p=()=>{v=x(); if(!v)throw[o0,a,aTop,oR]; iArg=a.push(v);}
     _p();
     while ((o1=o())) {
-      if(l(o0)>l(o1)) return o1; else//=oR, b<a means b tops a
-      if(l(o0)<l(o1) ||o1!=o0)/*o1 grabs*/ { a1=[o1,a.pop()];a.push(a1); oR=only(o1,a1); if(oR)if(l(o0)<l(oR))return oR;else{a.unshift(oR); _p();} }
-      else _p();
+      if(l(o0)>l(o1)) return(o1); else// b<a means b tops/forks a
+      if(l(o0)<l(o1) ||o1!=o0)/*o1 grabs v*/ {
+        a1=[o1,a.pop()];a.push(a1); oR=only(o1,a1);  console.log(o0,o1,oR); if(oR){
+        if(Math.abs(l(o0)-l(o1),o0,o1)>1&&l(o0)<l(o1)&&l(oR)<l(o1))/*won't find & layer: |=& 132, can mk. top: &=| 231 */ { o0=oR; let b=a.splice(iArg-1,1); a1=[oR,b];a.push(a1);a=a1;   _p();}
+        else if(l(o0)>=l(oR)){o0=oR; a.unshift(oR, a.splice(0,n(a))); _p()} //rua("b&a=1=c|x&c")
+        else return oR;}
+      } else _p();
     }
-    return null // no fall-rewrite
-  })
-  only(0,aTop); return aTop
+    return null; // no fall-rewrite
+  }
+  only(0,aTop,0); return aTop
 },
 runOptab=(d)=>(re=>s=>{
   let ss=[...re[Symbol.split](s)].values(), op=p=>()=>{let v=ss.next().value; return (v in d)==p? v:null; }
-  return opChain(op(true), op(false), o=>d[o][0])
+  return opChain(op(false), op(true), o=>d[o][0])
 })(RegExp("(["+Object.keys(d).join("")+"])")),
 rua=runOptab({
   ["="]:[3, ],
   ["&"]:[2, ],
   ["|"]:[1, ],
-  [0]:0
+  [0]:[0, ]
 })

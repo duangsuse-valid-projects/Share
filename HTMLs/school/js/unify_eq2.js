@@ -293,4 +293,20 @@ lev=o=>prec_joins[o][0],
     let e=x(),f; if(!e)throw oxs;
     f=o(); if(!!f){t=addTree([f,e],(lev_t=lev(f)) )[2];} else t.push(e);
     return Object.assign(t, { run: ()=>t })
+
+  const only=(o0,a, oCaller)=>{
+    let v,o1, l=lev, iArg, _p=()=>{v=x(); if(!v)throw[o0,a,aTop,oR]; iArg=a.push(v);}
+    _p();
+    while ((o1=o())) {
+      if(l(o0)>l(o1)) return(o1); else// b<a means b tops/forks a
+      if(l(o0)<l(o1) ||o1!=o0){
+        a1=[o1,a.pop()];a.push(a1); oR=only(o1,a1, o0);   if(oR){
+          lg(oCaller,o0,oR,o1)
+        if((logs(Math.abs)(l(oCaller)-l(o0),oCaller,o0)>1||oCaller==0)&&l(oCaller)<l(o0)){ o0=oR; a.splice(iArg-1,0,oR); _p();lg(a,o0)}
+        else if(l(o0)>=l(oR)){a.unshift(oR); _p()}
+        else return oR;}
+      } else _p();
+    }
+    return null; // no fall-rewrite
+  }    
 */
