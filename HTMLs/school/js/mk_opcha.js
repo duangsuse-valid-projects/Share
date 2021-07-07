@@ -30,6 +30,6 @@ rua=runOptab({
   ["="]:[3, ],
   ["&"]:[2, ],
   ["|"]:[1, ], // U can use L/R precedence for RAssoc, add a Map for type-RHS-like special ops.
-  [0]:[0, ]
+  [0]:[0, ] // for parser stream see: scan.js
 })
 //ss("a&b|c b&a=1|x b|a=1&x b&a=1|x b|a=1=5&x b&a=1=c|x b&a=1=c|x|d b&a=1=c|x&c").map(s=>(r=>[s,r.join(),r])(rua(s)))

@@ -13,8 +13,9 @@ const next=g=>g.next().value,
     else for(;i<n;i++)if(isNon(a[i]=next(g))){a.splice(i,n-i); break;}  return a // type-check&lazy stream
   },
   isStrm=o=>o.next||isFunc(o),
+  map2D=(op,a)=>a.map(r=>r.map(op)),
 
-  useEquiv=([f,back], get_op)=>get_op(f).vals.map(back)
+  useEquiv=([f,back], get_op)=>(r=>!r.n_st1? r.vals.map(back) : map2D(back,r.vals) )(st.go(get_op(f), equ.nGo))
 {
   const
     plist=([x,...xs])=>!x? null : [x,plist(xs)],
@@ -53,7 +54,7 @@ class State{
     State.cfg.onRun(this);
     let vs=this.vars(argNames(goal_ctx)); let rs=goal_ctx(...vs)(this);
     let st=!n_st1? next(rs)||null : nextN(n_st1,rs),  tr=st=>vs.map(v=>st.get(v));
-    return Object.assign(st, {vs, get vals(){return !n_st1? (!st?st: tr(st)) : st.map(s=>tr(s)) }  })
+    return Object.assign(st, {vs, n_st1, get vals(){return !n_st1? (!st?st: tr(st)) : st.map(s=>tr(s)) }  })
   }
   static cfg={
     onRun(st){st.d.clear()},
@@ -189,7 +190,7 @@ const // fuzzy parsing, short, sorry. no stream/stmt separating parse so mainly 
   },
 
   opChain=(x,o,lev)=>{
-    let aTop=[], oR;//rec
+    let aTop=[0,], oR;//rec
     const only=(o0,a)=>{ //v for b|a=1&x depth:1,3,2
       let v,o1, l=lev,  iArg, _p=()=>{v=x(); if(!v)throw[o0,a,aTop,oR]; iArg=a.push(v);}
       _p();
@@ -208,11 +209,11 @@ const // fuzzy parsing, short, sorry. no stream/stmt separating parse so mainly 
       }
       return null; // done, not fall-rewrite
     }
-    only(0,aTop); return aTop[0]
+    only(0,aTop); return aTop
   },
   readOptab=(d,ss)=>{
     let op=p=>()=>{let v=ss.next().value; return (v in d)==p? v:null; }, res=opChain(op(false), op(true), o=>d[o][0]),
-    run=(walk=(ko,arg,d)=>{let o=d[ko][1]; return n(o)==0? o(arg) : arg.reduce(o)}, t=res)=>walk(t[0], t.slice(1).map(tt=> (tt instanceof Array)? run(walk,tt) : tt), d);
+    run=(t=res, walk=(ko,arg,d)=>{let o=d[ko][1]; return n(o)==0? o(arg) : arg.reduce(o)})=>walk(t[0], t.slice(1).map(tt=> (tt instanceof Array)? run(tt,walk) : tt), d);
     return Object.assign(res, {run})
   },
 
@@ -221,26 +222,54 @@ const // fuzzy parsing, short, sorry. no stream/stmt separating parse so mainly 
     //->(Args){body} = puts((...a)=>body)
     // in eval UI, ()body can denote ->()
     const
-      pputs=subPaired(braces, /->\(([\w\s,]*?)\)\s*{/, n("->"), (sa,code)=>`puts((${ss(sa).join()})=> ${goExpr(code).run()})` ), // expand fst.
-      read=s=>goExpr(pputs(s)).run();
-    if(s[0]=='('){ let i1=pairedIdx(parens,s), argv=ss(s.slice(1,i1)); argv.unshift(`{${Object.keys(go).join()}}`);
-      let gofn=Function(argv.join(), "return "+read(s.slice(i1+1))), fn=(...a)=>gofn.call(fn,go,...a); argv.shift();
-      return Object.assign(fn, {code: String(gofn), src: s, args: argv}) } //gofn. bind() no supp. currying
-    with(go){return eval(read(s))}
+      expr=s=>goExpr(puts(s)).run(),
+      puts=subPaired(braces, /->\(([\w\s,]*?)\)\s*{/, n("->"), (sa,code)=>`puts((${ss(sa).join()})=> ${expr(code)})` ), // inner fst.
+      gos=s=>{if(s[0]!='(') return s;
+        let i1=pairedIdx(parens,s), r=[ss(s.slice(1,i1)), mapI(1,gos(s.slice(i1+1)),expr)]; // (a,b)=, (a)^(b)=translated here
+        if(isObj(r[1])){r[0].push(...r[1][0]); r[1]=r[1][1]} return r
+      },
+      mapI=(i,a,f)=>{let p=isObj(a); if(p)a[i]=f(a[i]); return p?a:f(a)};
+      let r=mapI(1,gos(s), t=>t);
+      if(isObj(r)){
+        let [argv,code]=r; argv.unshift(`{${Object.keys(go).join()}}`);
+        let gofn=Function(argv.join(), "return "+code), rec=(...a)=>gofn.call(rec,go,...a); argv.shift();
+        return Object.assign(rec, {code: String(gofn), src: s, args: argv}) //gofn. bind() no supp. currying
+      } else with(go){return eval(r)}
   },
   scall=(name,dup="")=>(a,b)=>`${name}(${a.startsWith(name)? dup+a.slice(n(name)):a}, ${b})`,
   goExpr=(s,optab={ //^ yes, due to eval order, opChain not always flat. but rel semantic has no "ordering". offen 1st arg same-op
     ["="]:[5, scall("eq")],
     ["&"]:[4, scall("all", "...inn")],
     ["|"]:[3, scall("one", "...inn")],
-    [0]:[0]
+    [0]:[0,a=>a[0]]
   })=>readOptab(optab, nosplitIf(/([=&|])(?!\1)/g, s, (xLast,o,x1)=>o in optab&&(xLast.endsWith(o) ||o=='='&&x1.startsWith(">") )).values());
 globalThis.inn=(...a)=>a;
+
+propCall=(c,o={})=>new Proxy(o, isObj(c)?c : {get:(_,k)=>(...a)=>c(k)(...a)}),
+kSet=o=>propCall(k=>get_v1=>{if(o[k])o[k]=get_v1(o[k])}),
+prop=o=>propCall({set:(o,sp,v)=>{ //kw:Meta
+  let m=/([gs]et)_([^_]+)(_[Crev]*)?/.exec(sp), c={}; if(!m)return (o[sp]=v);
+  let [_, mod,k,flg]=m;
+  const fs=ss("configurable readonly enumerable value"); // get_k_v=1; set_k_v=[get|v0, set]; set_k=(v0,v)=>v; prop(doc).location/qs
+  if(flg)for(let fl of flg.slice(1)){let i="Crev".indexOf(fl); c[fs[i]]=i<2? false:true}
+  let v0, isF=isObj(v)&&isFunc(v[1]); //console.log(c,isF,flg,v)
+  if(c.value) if(isF){c[mod]=v[1]; isFunc(v[0])?(c.get=v[0]):(v0=v[0]); delete c.value} else c.value=v; else { c[mod]=v; isF=true; }
+  if(isF) { kSet(c).get(g=>()=>g(v0)); kSet(c).set(g=>(v)=>{v0=g(v0,v)}) }
+  return Object.defineProperty(o,k, c)
+}, get:(o,k)=>isFunc(o[k])?o[k].bind(o):o[k]}, o),
+logs=op=>(...a)=>{let r=op(...a); console.log(r,...a); return r}
 
 {
   let join=goal(`(a b s) b=s&a=null | ->(x,ra,rs){ a=[x,ra]&s=[x,rs]&this(ra,b,rs) }`)
   lg("compiled", join)
   lg(
-    st.go(x=>join(null,[1,null],x))
+    st.go(x=>join(null,[1,null],x)),
+    useEquiv(equ.list, f=>x=>join(f("he"),f("llo"), x ))
+  )
+  prop(equ).get_nGo_v=[10, (v)=>(/\bgo.*s\s/.test(Error().stack))? v:null];
+  goL=goLs=go=>useEquiv(equ.list, go);
+  goN=goNs=go=>useEquiv(equ.peano, go);
+  lg(
+    goLs(f=>x=>join(x,f("llo"), f("hello") ))
   )
 }
