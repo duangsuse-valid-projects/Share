@@ -47,8 +47,8 @@ class State{
     let {grab,cfg:{undef}}=State;
     let r=this.d.get(v); return (r!==undef)? grab(this,r)||r : grab(this,v)||v // null is value.
   }
-  vars(ks){let {eqSym:[sym,_],undef}=State.cfg; return ks.map(k=>{ let v=sym(k); this.d.set(v,undef); return v})} // look, v and "v alue". k is just Symbol tag
 
+  vars(ks){let {eqSym:[sym,_],undef}=State.cfg; return ks.map(k=>{ let v=sym(k); this.d.set(v,undef); return v})} // look, v and "v alue". k is just Symbol tag
   goIter(f){return f(...this.vars(argNames(f)))(this)}
   go(goal_ctx,n_st1=null){
     State.cfg.onRun(this);
@@ -225,11 +225,9 @@ const // fuzzy parsing, short, sorry. no stream/stmt separating parse so mainly 
       expr=s=>goExpr(puts(s)).run(),
       puts=subPaired(braces, /->\(([\w\s,]*?)\)\s*{/, n("->"), (sa,code)=>`puts((${ss(sa).join()})=> ${expr(code)})` ), // inner fst.
       gos=s=>{if(s[0]!='(') return s;
-        let i1=pairedIdx(parens,s), r=[ss(s.slice(1,i1)), mapI(1,gos(s.slice(i1+1)),expr)]; // (a,b)=, (a)^(b)=translated here
-        if(isObj(r[1])){r[0].push(...r[1][0]); r[1]=r[1][1]} return r
-      },
-      mapI=(i,a,f)=>{let p=isObj(a); if(p)a[i]=f(a[i]); return p?a:f(a)};
-      let r=mapI(1,gos(s), t=>t);
+        let i1=pairedIdx(parens,s), r=gos(s.slice(i1+1)); return [ss(s.slice(1,i1)), isObj(r)? `(${r[0].join()})=>${expr(r[1])}`: expr(r)];
+      };
+      let r=gos(s);
       if(isObj(r)){
         let [argv,code]=r; argv.unshift(`{${Object.keys(go).join()}}`);
         let gofn=Function(argv.join(), "return "+code), rec=(...a)=>gofn.call(rec,go,...a); argv.shift();
@@ -260,16 +258,29 @@ prop=o=>propCall({set:(o,sp,v)=>{ //kw:Meta
 logs=op=>(...a)=>{let r=op(...a); console.log(r,...a); return r}
 
 {
-  let join=goal(`(a b s) b=s&a=null | ->(x,ra,rs){ a=[x,ra]&s=[x,rs]&this(ra,b,rs) }`)
+  let join=goal(`(a b s) b=s&a=null | ->(x,ra,rs){ a=[x,ra]&s=[x,rs]&this(ra,b,rs) }`), add,times,  goes=op=>op() // don't =r on returned
   lg("compiled", join)
   lg(
     st.go(x=>join(null,[1,null],x)),
     useEquiv(equ.list, f=>x=>join(f("he"),f("llo"), x ))
   )
   prop(equ).get_nGo_v=[10, (v)=>(/\bgo.*s\s/.test(Error().stack))? v:null];
-  goL=goLs=go=>useEquiv(equ.list, go);
-  goN=goNs=go=>useEquiv(equ.peano, go);
+  goL=go=>useEquiv(equ.list, go);
+  goN=go=>useEquiv(equ.peano, go);
   lg(
-    goLs(f=>x=>join(x,f("llo"), f("hello") ))
+    goL(f=>x=>join(x,f("llo"), f("hello") )),
+    goes(()=>goL(f=>(a,b)=>join(a,b,f("hello"))) )
+  )
+  lg(
+    goN(f=>x=>join(f(5),f(2),x)),
+    goN(f=>x=>join(x,f(2),f(5))),
+    goes(()=>goN(f=>(a,b)=>join(a,b,f(8))) )
+  )
+  add=goal(`(b a c) a=null&b=c | ->(ra rc){ a=[1,ra]&c=[1,rc]&this(b,ra,rc) }`); go.add=add;
+  times=goal(`(b a c) a=null&c=null | ->(ra rc){ a=[1,ra]&add(rc,b,c)&this(b,ra,rc) }`);
+  lg(
+    goN(f=>x=>add(f(2),f(5),x)),
+    goN(f=>x=>times(f(2),f(5),x)),
+    goN(f=>a=>times(a,f(2),f(10)))
   )
 }
