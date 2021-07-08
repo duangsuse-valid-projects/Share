@@ -53,7 +53,7 @@ class State{
   go(goal_ctx,n_st1=null){
     State.cfg.onRun(this);
     let vs=this.vars(argNames(goal_ctx)); let rs=goal_ctx(...vs)(this);
-    let st=!n_st1? next(rs)||null : nextN(n_st1,rs),  tr=st=>vs.map(v=>st.get(v));
+    let st=!n_st1? next(rs)||null : nextN(n_st1,rs),  tr=st=>vs.map(v=>st.get(v)); // TODO add .next(n=nSt)
     return Object.assign(st, {vs, n_st1, get vals(){return !n_st1? (!st?st: tr(st)) : st.map(s=>tr(s)) }  })
   }
   static cfg={
@@ -218,9 +218,9 @@ const // fuzzy parsing, short, sorry. no stream/stmt separating parse so mainly 
   },
 
   goal=s=>{
-    //goal(Args)(a1) body = (...a)=>body
+    //goal= {(Args)(a1) body}=(...a)=>body
     //->(Args){body} = puts((...a)=>body)
-    // in eval UI, ()body can denote ->()
+    // in eval UI, ()body can denote ->() // NOTE nope, use Proxy ,dynamic get free-vars: with(new Proxy({},{get:console.log,has:(o,k)=>k!="eval"})){eval("x")}
     const
       expr=s=>goExpr(puts(s)).run(),
       puts=subPaired(braces, /->\(([\w\s,]*?)\)\s*{/, n("->"), (sa,code)=>`puts((${ss(sa).join()})=> ${expr(code)})` ), // inner fst.
@@ -284,3 +284,18 @@ logs=op=>(...a)=>{let r=op(...a); console.log(r,...a); return r}
     goN(f=>a=>times(a,f(2),f(10)))
   )
 }
+
+/*
+那么，mkey 将会单开项目，继续开发；内部及语言 API 的测试将被抽离。
+我发现了 opChain 的更易算法 逆波兰，语言上亦有小偏差，比如 {(a) a} 和 {x+1=2} 成为唯一形式，完全成为 JS mk.load 子语言，语句划分都不做
+之前的计划 :someGoal(a) end 和 ;; 切分显得比较幼稚，我相信子语言对 JS 侧更友好，也期待未来几天能学到更多关于相等关系的程序。
+
+作为重中之重的 UI ，我希望 横(历史(可展开表格), 竖(编辑器,输入框)) ；移动端则 历史,输入框,编辑器 ，编辑器能有示例
+
+Monkey.js 是最近的我唯一能在对编程的认识上和 OI,Math/SMach/Phys 大佬站在同层次的展示性项目，也是我从编程或函数式以来的梦想、里程碑
+尽管大头是重写，我会努力让它能被人喜欢，认识到非 app/game 开发者并不低能；它含 DOM UI 会混合物理命名法与 el() 写在仅二 ES6 文件内。
+
+mk.op["+"]=infixL(9, symVers((a,a1)=>, (n,n1)=> )) 自定义运算符会令 {a+b=10 ;; "he"+x="hello"} 的直白表达成为可能，甚至能 let{x}=mk(`x+1=10+1`); mk(x=>x+1*5==num, _=>y) 做到真正的内联关系式求解，这会是有利的，也显示了物理命名的用途(拿bound变量名)。
+未来 unify() 有机会支持所有 ES6 destruct ，类似 [a,...b] 前缀我想接口为 [a,rA] 即 [a,goP.rest(a)] 的「变量位置属性」的代码形式影响归一化算法
+它还将支持 a+1*2 == rel(+,rel(*,1,2),var.a) 的可逆关系 unify(5,it) ，peano 只成为入门示例
+*/
