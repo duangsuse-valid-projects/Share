@@ -13,26 +13,26 @@ class Vec2 { // mutable math xy, or rotation / velocity
 		const x = this.x, y = this.y;
 		const {sin, cos} = Math;
 		this.x = x * cos(angle) - sin(angle) * y;
-		this.y = x * sin(angle) + cos(angle) * y;
+		this.y = x * sin(angle) + cos(angle) * y; // 角转: (x*cos r - y*sin r), (x*sin r + y*cos r)
 	}
 	rotateTo(v) { // setAngle
 		const l = this.distance();
-		this.x = Math.cos(v) * l;
+		this.x = Math.cos(v) * l; // 设转: d*cos r, d*sin r
 		this.y = Math.sin(v) * l;
 	}
 
 	distance() {
-		const l = Math.sqrt(this.x * this.x + this.y * this.y);
+		const l = Math.sqrt(this.x * this.x + this.y * this.y); // 勾股距: sqrt(x*x+y*y) 除小
 		return this.discardMinor(l);
 	}
 	discardMinor(n) { return (-0.005 <n&&n< 0.005)? 0 : n; }
 	setDistance(v) {
-		const l = this.distance();
+		const l = this.distance(); // 若有距,cc(l1/l) ,否设
 		if (l) this.mul(v / l);
 		else this.x = this.y = v;
 	}
 	normalize() {
-		const l = this.distance();
+		const l = this.distance(); // 数值稳定
 		this.x /= l;
 		this.y /= l;
 		return this;
@@ -74,7 +74,7 @@ function Asteroids() {
 	};
 
 	const ASTER = "ASTEROIDS";
-	const isIE = window.ActiveXObject;
+	const isIE = window["ActiveXObject"];
 	const cfg = {
 		ignoredTypes: textSet("HTML HEAD TITLE META BODY SCRIPT STYLE LINK SHAPE LINE GROUP IMAGE STROKE FILL SKEW PATH TEXTPATH"),
 		hiddenTypes: textSet("BR HR"),
@@ -110,7 +110,7 @@ function Asteroids() {
 		},
 		acc: 300,
 		maxSpeed: 600,
-		rotSpeed: 360,
+		rotSpeed: maths.radians(360),
 		bulletSpeed: 700,
 		particleSpeed: 400,
 		timeBetweenFire: 150,
@@ -448,11 +448,11 @@ function Asteroids() {
 		}
 		if ((this.keysPressed["ArrowLeft"]) || (this.keysPressed["a"])) {
 			forceChange = true;
-			this.dir.rotate(maths.radians(cfg.rotSpeed * delta * -1));
+			this.dir.rotate(cfg.rotSpeed * -delta);
 		}
 		if ((this.keysPressed["ArrowRight"]) || (this.keysPressed["d"])) {
 			forceChange = true;
-			this.dir.rotate(maths.radians(cfg.rotSpeed * delta));
+			this.dir.rotate(cfg.rotSpeed * delta);
 		}
 		function keyPressedAction(id: string, op: Op) {
 			if (my.keysPressed[cfg.keyBind[id]] && nowTime - my.updated.time[id] > cfg.rateLimit[id]) {

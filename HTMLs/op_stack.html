@@ -31,7 +31,8 @@ infix=(xs,w, sP="()")=>{
 exam1=`3 且 1 或 2
 3 且 (1 或 2)
 a 且 b是b1 或 d
-a 或 b是b1 且 d`.split("\n").map(s=>
+a 或 b是b1 且 d
+(a 且 b 或 c)`.split("\n").map(s=>
   /\s+|([()=是])/[Symbol.split](s).filter(x=>x!=null&&x!="")
 )
 log(exam1.map(c))

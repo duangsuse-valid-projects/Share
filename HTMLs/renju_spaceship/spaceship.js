@@ -1,30 +1,3 @@
-var __read = (this && this.__read) || function (o, n) {
-    var m = typeof Symbol === "function" && o[Symbol.iterator];
-    if (!m) return o;
-    var i = m.call(o), r, ar = [], e;
-    try {
-        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
-    }
-    catch (error) { e = { error: error }; }
-    finally {
-        try {
-            if (r && !r.done && (m = i["return"])) m.call(i);
-        }
-        finally { if (e) throw e.error; }
-    }
-    return ar;
-};
-var __values = (this && this.__values) || function(o) {
-    var s = typeof Symbol === "function" && Symbol.iterator, m = s && o[s], i = 0;
-    if (m) return m.call(o);
-    if (o && typeof o.length === "number") return {
-        next: function () {
-            if (o && i >= o.length) o = void 0;
-            return { value: o && o[i++], done: !o };
-        }
-    };
-    throw new TypeError(s ? "Object is not iterable." : "Symbol.iterator is not defined.");
-};
 // Rewrite of http://www.websiteasteroids.com
 var ASTEROIDS = ASTEROIDS || { nKill: 0, players: [] };
 var Vec2 = /** @class */ (function () {
@@ -40,27 +13,27 @@ var Vec2 = /** @class */ (function () {
         var x = this.x, y = this.y;
         var sin = Math.sin, cos = Math.cos;
         this.x = x * cos(angle) - sin(angle) * y;
-        this.y = x * sin(angle) + cos(angle) * y;
+        this.y = x * sin(angle) + cos(angle) * y; // 角转: (x*cos r - y*sin r), (x*sin r + y*cos r)
     };
     Vec2.prototype.rotateTo = function (v) {
         var l = this.distance();
-        this.x = Math.cos(v) * l;
+        this.x = Math.cos(v) * l; // 设转: d*cos r, d*sin r
         this.y = Math.sin(v) * l;
     };
     Vec2.prototype.distance = function () {
-        var l = Math.sqrt(this.x * this.x + this.y * this.y);
+        var l = Math.sqrt(this.x * this.x + this.y * this.y); // 勾股距: sqrt(x*x+y*y) 除小
         return this.discardMinor(l);
     };
     Vec2.prototype.discardMinor = function (n) { return (-0.005 < n && n < 0.005) ? 0 : n; };
     Vec2.prototype.setDistance = function (v) {
-        var l = this.distance();
+        var l = this.distance(); // 若有距,cc(l1/l) ,否设
         if (l)
             this.mul(v / l);
         else
             this.x = this.y = v;
     };
     Vec2.prototype.normalize = function () {
-        var l = this.distance();
+        var l = this.distance(); // 数值稳定
         this.x /= l;
         this.y /= l;
         return this;
@@ -110,7 +83,7 @@ function Asteroids() {
         px: function (s) { return s + "px"; }
     };
     var ASTER = "ASTEROIDS";
-    var isIE = window.ActiveXObject;
+    var isIE = window["ActiveXObject"];
     var cfg = {
         ignoredTypes: textSet("HTML HEAD TITLE META BODY SCRIPT STYLE LINK SHAPE LINE GROUP IMAGE STROKE FILL SKEW PATH TEXTPATH"),
         hiddenTypes: textSet("BR HR"),
@@ -146,7 +119,7 @@ function Asteroids() {
         },
         acc: 300,
         maxSpeed: 600,
-        rotSpeed: 360,
+        rotSpeed: maths.radians(360),
         bulletSpeed: 700,
         particleSpeed: 400,
         timeBetweenFire: 150,
@@ -158,7 +131,7 @@ function Asteroids() {
     };
     var my = this;
     var w, h, wh; // init in canvasResize
-    var _a = __read(cfg.whPlayer, 2), wPlayer = _a[0], hPlayer = _a[1];
+    var _a = cfg.whPlayer, wPlayer = _a[0], hPlayer = _a[1];
     var playerVerts = [
         [-1 * hPlayer / 2, -1 * wPlayer / 2],
         [-1 * hPlayer / 2, wPlayer / 2],
@@ -198,38 +171,19 @@ function Asteroids() {
             });
     };
     function updateEnemyIndex() {
-        var e_1, _a, e_2, _b;
-        try {
-            for (var _c = __values(my.enemies), _d = _c.next(); !_d.done; _d = _c.next()) {
-                var enemy = _d.value;
-                enemy.classList.remove(cfg.cssEnemy);
-            }
-        }
-        catch (e_1_1) { e_1 = { error: e_1_1 }; }
-        finally {
-            try {
-                if (_d && !_d.done && (_a = _c["return"])) _a.call(_c);
-            }
-            finally { if (e_1) throw e_1.error; }
+        for (var _i = 0, _a = my.enemies; _i < _a.length; _i++) {
+            var enemy = _a[_i];
+            enemy.classList.remove(cfg.cssEnemy);
         }
         my.enemies = [];
-        try {
-            for (var _e = __values(Array.from(document.body.getElementsByTagName("*"))), _f = _e.next(); !_f.done; _f = _e.next()) {
-                var el_1 = _f.value;
-                if (!(el_1 instanceof HTMLElement))
-                    continue;
-                if (!cfg.ignoredTypes.has(el_1.tagName.toUpperCase()) && el_1.prefix !== "g_vml_" && hasOnlyTextualChildren(el_1) && (el_1.className !== cfg.cssYeah) && el_1.offsetHeight > 0) {
-                    my.enemies.push(el_1);
-                    el_1.classList.add(cfg.cssEnemy);
-                }
+        for (var _b = 0, _c = Array.from(document.body.getElementsByTagName("*")); _b < _c.length; _b++) {
+            var el_1 = _c[_b];
+            if (!(el_1 instanceof HTMLElement))
+                continue;
+            if (!cfg.ignoredTypes.has(el_1.tagName.toUpperCase()) && el_1.prefix !== "g_vml_" && hasOnlyTextualChildren(el_1) && (el_1.className !== cfg.cssYeah) && el_1.offsetHeight > 0) {
+                my.enemies.push(el_1);
+                el_1.classList.add(cfg.cssEnemy);
             }
-        }
-        catch (e_2_1) { e_2 = { error: e_2_1 }; }
-        finally {
-            try {
-                if (_f && !_f.done && (_b = _e["return"])) _b.call(_e);
-            }
-            finally { if (e_2) throw e_2.error; }
         }
     }
     updateEnemyIndex();
@@ -297,19 +251,9 @@ function Asteroids() {
         return element;
     }
     function makeShipsVisible(v) {
-        var e_3, _a;
-        try {
-            for (var _b = __values(ASTEROIDS.players), _c = _b.next(); !_c.done; _c = _b.next()) {
-                var p = _c.value;
-                p.gameContainer.style.visibility = v ? "visible" : "hidden";
-            }
-        }
-        catch (e_3_1) { e_3 = { error: e_3_1 }; }
-        finally {
-            try {
-                if (_c && !_c.done && (_a = _b["return"])) _a.call(_b);
-            }
-            finally { if (e_3) throw e_3.error; }
+        for (var _i = 0, _a = ASTEROIDS.players; _i < _a.length; _i++) {
+            var p = _a[_i];
+            p.gameContainer.style.visibility = v ? "visible" : "hidden";
         }
     }
     function addParticles(startPos) {
@@ -340,7 +284,6 @@ function Asteroids() {
         return true;
     }
     function el(tagName, confs) {
-        var e_4, _a, e_5, _b;
         var childs = [];
         for (var _i = 2; _i < arguments.length; _i++) {
             childs[_i - 2] = arguments[_i];
@@ -349,31 +292,13 @@ function Asteroids() {
         if (typeof confs == "function")
             confs(e);
         else
-            try {
-                for (var confs_1 = __values(confs), confs_1_1 = confs_1.next(); !confs_1_1.done; confs_1_1 = confs_1.next()) {
-                    var conf = confs_1_1.value;
-                    conf(e);
-                }
+            for (var _a = 0, confs_1 = confs; _a < confs_1.length; _a++) {
+                var conf = confs_1[_a];
+                conf(e);
             }
-            catch (e_4_1) { e_4 = { error: e_4_1 }; }
-            finally {
-                try {
-                    if (confs_1_1 && !confs_1_1.done && (_a = confs_1["return"])) _a.call(confs_1);
-                }
-                finally { if (e_4) throw e_4.error; }
-            }
-        try {
-            for (var childs_1 = __values(childs), childs_1_1 = childs_1.next(); !childs_1_1.done; childs_1_1 = childs_1.next()) {
-                var e1 = childs_1_1.value;
-                e.appendChild(e1);
-            }
-        }
-        catch (e_5_1) { e_5 = { error: e_5_1 }; }
-        finally {
-            try {
-                if (childs_1_1 && !childs_1_1.done && (_b = childs_1["return"])) _b.call(childs_1);
-            }
-            finally { if (e_5) throw e_5.error; }
+        for (var _b = 0, childs_1 = childs; _b < childs_1.length; _b++) {
+            var e1 = childs_1[_b];
+            e.appendChild(e1);
         }
         return e;
     }
@@ -526,7 +451,6 @@ function Asteroids() {
         phy.pos.add(phy.dir.copy().mul(cfg.particleSpeed * delta * Math.random()));
     }
     this.update = function (nowTime, delta, next) {
-        var e_6, _a;
         var _this = this;
         var forceChange = false;
         var drawFlame = false;
@@ -545,11 +469,11 @@ function Asteroids() {
         }
         if ((this.keysPressed["ArrowLeft"]) || (this.keysPressed["a"])) {
             forceChange = true;
-            this.dir.rotate(maths.radians(cfg.rotSpeed * delta * -1));
+            this.dir.rotate(cfg.rotSpeed * -delta);
         }
         if ((this.keysPressed["ArrowRight"]) || (this.keysPressed["d"])) {
             forceChange = true;
-            this.dir.rotate(maths.radians(cfg.rotSpeed * delta));
+            this.dir.rotate(cfg.rotSpeed * delta);
         }
         function keyPressedAction(id, op) {
             if (my.keysPressed[cfg.keyBind[id]] && nowTime - my.updated.time[id] > cfg.rateLimit[id]) {
@@ -646,36 +570,17 @@ function Asteroids() {
             }
         }
         this.lastPos = this.pos;
-        try {
-            for (var _b = __values(this.updated.ids), _c = _b.next(); !_c.done; _c = _b.next()) {
-                var k = _c.value;
-                this.updated[k] = false;
-            }
-        }
-        catch (e_6_1) { e_6 = { error: e_6_1 }; }
-        finally {
-            try {
-                if (_c && !_c.done && (_a = _b["return"])) _a.call(_b);
-            }
-            finally { if (e_6) throw e_6.error; }
+        for (var _i = 0, _a = this.updated.ids; _i < _a.length; _i++) {
+            var k = _a[_i];
+            this.updated[k] = false;
         }
         next();
     };
     refreshMainloop(this.update.bind(this))();
     function destroy() {
-        var e_7, _a;
-        try {
-            for (var eventCancellers_1 = __values(eventCancellers), eventCancellers_1_1 = eventCancellers_1.next(); !eventCancellers_1_1.done; eventCancellers_1_1 = eventCancellers_1.next()) {
-                var op = eventCancellers_1_1.value;
-                op();
-            }
-        }
-        catch (e_7_1) { e_7 = { error: e_7_1 }; }
-        finally {
-            try {
-                if (eventCancellers_1_1 && !eventCancellers_1_1.done && (_a = eventCancellers_1["return"])) _a.call(eventCancellers_1);
-            }
-            finally { if (e_7) throw e_7.error; }
+        for (var _i = 0, eventCancellers_1 = eventCancellers; _i < eventCancellers_1.length; _i++) {
+            var op = eventCancellers_1[_i];
+            op();
         }
         doms.removeElement(cfg.eidStyles);
         document.body.classList.remove(cfg.cssYeah);
