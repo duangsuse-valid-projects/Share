@@ -1,0 +1,129 @@
+./ 7
+l512
+0x5570f8fb5000 3078
+
+|73|0
+f 0 dlopen 0
+u 0 dl_iterate_phdr 0
+f 0 dlerror 0
+f 0 dlsym 0
+f b3 dllMain 16d0;9
+--
+linux-vdso.so.1 4
+0x7ffeafcc9000 ffff800150337000
+
+|11|13
+--
+/usr/lib/libdl.so.2 11
+l474
+l484
+0x7fd0f7f42000 5f18
+
+|44|44
+f 0 _dl_catch_error 0
+f 0 _dl_signal_error 0
+f 0 _dl_vsym 0
+f 0 _dl_addr 0
+f 0 _dl_sym 0
+f 0 _dl_rtld_di_serinfo 0
+f 45 dlclose 2470;11
+f 86 dlinfo 2f30;11
+f 4a dladdr1 2e00;11
+f cf dlsym 24e0;11
+f 2a dladdr 2dd0;11
+f 9a dlopen 23b0;11
+v 8 _dlfcn_hook 6040;1b
+f 9b dlmopen 30c0;11
+f 2b2 dlerror 2870;11
+f 9 __libdl_freeres 3180;11
+F cf dlvsym 25e0;11
+--
+/usr/lib/libc.so.6 14
+l24983
+0x7fd0f7d76000 1bfba0
+
+|2417|2418
+f 0 _dl_fatal_printf 0
+f 0 _dl_exception_create 0
+f 0 _dl_find_dso_for_object 0
+U 0 __libdl_freeres 0
+v 0 _dl_argv 0
+f 4a _dl_signal_exception 138bb0
+f 6a _dl_catch_error 138d80
+f 28 readlinkat f1390
+f 14 __readlink_chk 10cab0
+F 203 dl_iterate_phdr 137a70
+f 31 _dl_mcount_wrapper_check 138080
+f 28 name_to_handle_at ff650
+f 114 _dl_catch_exception 138c60
+f 35b _dl_addr 137c80
+f 11 _dl_sym 138ae0
+v 8 _dl_open_hook 1cb038;22
+f 179 __libc_dlvsym 138380
+f 9b open_by_handle_at febb0
+f 35 __libc_dlclose 138500
+F 25 readlink f1360
+f fa _dl_vsym 1389e0
+f 1b _dl_mcount_wrapper 138060
+f 171 __nss_readline 121670
+f 57 _dl_signal_error 138c00
+v 8 obstack_alloc_failed_handler 1c12a0;1e
+f a9 __libc_dlsym 1382d0
+v 8 _dl_open_hook2 1cb030;22
+f 80 __libc_dlopen_mode 138250
+f 14 __readlinkat_chk 10cad0
+--
+/lib/ld-2.33.so 11
+0x7fd0f7f6c000 2ffc0
+
+|31|31
+f 2b _dl_exception_free 16e70;d
+f e3 _dl_catch_exception 1d540;d
+f d4 _dl_exception_create 16900;d
+f 28f _dl_rtld_di_serinfo a090;d
+f 488 _dl_exception_create_format 169e0;d
+f c _dl_x86_get_cpu_features 1b160;d
+v 8 _dl_argv 2ecc0;12
+f 5 _dl_debug_state 103c0;d
+f 80 _dl_allocate_tls 12d30;d
+f 45 _dl_catch_error 1d630;d
+f 46 _dl_signal_exception 1d370;d
+f 19 _dl_get_tls_static_info 129f0;d
+f 53 _dl_signal_error 1d3c0;d
+f 241 _dl_mcount 12150;d
+f 23e _dl_allocate_tls_init 12af0;d
+f 48 _dl_make_stack_executable 134f0;d
+f a7 _dl_fatal_printf 10f30;d
+f 83 _dl_deallocate_tls 12db0;d
+f c4 _dl_find_dso_for_object 13840;d
+--
+/usr/lib/libpcre.so 11
+l884
+l900
+0x7fd0f7cfc000 ffff802f08304000
+
+|58|0
+--
+/usr/lib/libpthread.so.0 13
+l4941
+l4951
+0x7fd0f7cdb000 1bd00
+
+|342|342
+f 0 __libc_dlclose 0
+f 0 _dl_deallocate_tls 0
+f 0 __libc_dlopen_mode 0
+f 0 _dl_make_stack_executable 0
+f 0 __libc_dlsym 0
+f 0 _dl_allocate_tls 0
+f 0 _dl_get_tls_static_info 0
+f 0 _dl_allocate_tls_init 0
+F 56 mtx_timedlock 15050
+f 1ed __pthread_rwlock_rdlock d8e0
+F 23b pthread_rwlock_clockrdlock dd00
+F f pthread_mutex_timedlock c7b0
+f a6 pthread_rwlock_tryrdlock ea40
+F 22a pthread_rwlock_timedrdlock dad0
+F 1ed pthread_rwlock_rdlock d8e0
+f a6 __pthread_rwlock_tryrdlock ea40
+--

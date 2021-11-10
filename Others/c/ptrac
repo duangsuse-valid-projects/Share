@@ -1,0 +1,301 @@
+https://www.mivm.cn/archlinux-installation-guide-simple
+
+sed -Ei 's/^(HOOKS=.*[^e])\)/\1 resume)/g' /etc/mkinitcpio.conf
+sed -Ei 's/(_url = )(.*)(github.com)/\1\2ghproxy.com\/\2\3/g' `find -name *.wrap`
+sed -Ei 's/(.*)(github.com)/\1ghproxy.com\/\2/g' PKGBUILD
+sed -Ei 's/(git clone --mirror )"/\1--depth=1 "/g' /usr/share/makepkg/source/git.sh #_commit=origin/HEAD, 自定pkgver
+alias stra='strace --quiet=attach,exit -f -e "signal=!chld" -e'
+sudo pacman -S --needed xf86-video-amdgpu mesa-vdpau libva-mesa-driver vulkan-icd-loader vulkan-radeon ocl-icd opencl-mesa
+pacaur -S opencl-amd scrcpy
+
+#include <sys/ptrace.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
+
+/* For the clone flags
+ */
+#include <sched.h>
+
+/* #include <errno.h> */
+
+#include <sys/ptrace.h>
+#include <sys/user.h>
+
+/* Defines our syscalls like
+ */
+#include <sys/syscall.h>
+
+#include <sys/reg.h>
+#include <stdio.h>
+
+#include <signal.h>
+
+#include <ctype.h>
+
+#include <map>
+
+using namespace std;
+
+char bufstr[4096];
+
+#ifdef __x86_64__
+#define REG_ACC  RAX
+#define REG_ARG1 RDI
+#define REG_ARG2 RSI
+#else
+#define REG_ACC  EAX
+#define REG_ARG1 EBX
+#define REG_ARG2 ECX
+#endif
+
+/* Trace control structure per PID that we're tracking
+ */
+class tcb {
+    int      pid_;
+    int entering_;
+
+    public:
+
+    tcb(int pid, int entering = 1) : pid_(pid), entering_(entering) {};
+    tcb()                          : pid_(-1)                       {};
+    // tcb(const tcb& p)              : pid_(pid.pid()), entering_(entering.entering()) {};
+    int&       pid() { return      pid_; }
+    int&  entering() { return entering_; }
+};
+
+/* Fetch a string from process (pid) at location (ptr).  Buf is the place
+ * to store the data with size limit (size).  Return the number of bytes
+ * copied.
+ */
+int get_string(int pid, long ptr, char *buf, int size)
+{
+    long data;
+    char *p = (char *) &data;
+    int j = 0;
+
+    while ((data = ptrace(PTRACE_PEEKTEXT, pid, (void *) ptr, 0)) && j < size) {
+        int i;
+
+        for (i = 0; i < sizeof(data) && j < size; i++, j++) {
+            if (!(buf[j] = p[i]))
+                goto done;
+        }
+        ptr += sizeof(data);
+    }
+
+    done:
+
+    buf[j] = '\0';
+
+    return j;
+}
+
+int main(int argc, char *argv[])
+{
+    int status = 0;
+    long scno = 0;
+    // int entering = 1;
+    struct user_regs_struct regs;
+    map<int, tcb> pidTable;
+    struct sigaction sa;
+
+
+    /* Setup
+     */
+
+
+    int pid = fork();
+
+
+
+    if (!pid && argc) {
+        if (ptrace(PTRACE_TRACEME, 0, 0, 0) < 0) {
+            perror("ptrace(PTRACE_ME,... ");
+
+            exit(1);
+        }
+        execvp(argv[1], &argv[1]);
+    } else {
+        sa.sa_flags = 0;
+        sa.sa_handler = SIG_DFL;
+        sigemptyset(&sa.sa_mask);
+        sigaction(SIGCHLD, &sa, NULL);
+
+        waitpid(pid, &status, 0);
+
+        pidTable[pid] = tcb(pid);
+
+        fprintf(stderr, "pid is %d\n", pidTable[pid].pid());
+
+        while (!pidTable.empty()) {
+            if (pid > 0) {
+                //fprintf(stderr, "%d: Restarting %d\n", getpid(), pid);
+                if (ptrace(PTRACE_SYSCALL, pid, 0, 0) < 0) {
+                    perror("ptrace(PTRACE_SYSCALL,...");
+                    exit(1);
+                }
+            }
+
+            // waitpid(pid, &status, 0);
+            // pid = waitpid(-1, &status, 0);
+            pid = wait3(&status, __WALL, 0);
+
+            // fprintf(stderr, "Pid from wait is %d\n", pid);
+
+            if (pid < 0) {
+                perror("waitpid");
+                break;
+            } else {
+
+                /* fprintf(stderr, "%d: Status is: ", pid); */
+
+                /*
+                if (WIFEXITED(status)) {
+                    fprintf(stderr, "exited");
+                } else if (WIFSIGNALED(status)) {
+                    fprintf(stderr, "exited");
+                } else if (WIFSTOPPED(status), "stopped") {
+                    fprintf(stderr, "stopped");
+                } else if (WIFCONTINUED(status)) {
+                    fprintf(stderr, "continued");
+                }
+                fprintf(stderr, "\n");
+                */
+
+                if (WIFEXITED(status) || WIFSIGNALED(status)) {
+                    /* Probably empty the table here */
+                    pidTable.erase(pid);
+
+                    fprintf(stderr, "Detect process term/kill %d\n", pid);
+
+                    /* if (ptrace(PTRACE_DETACH, pid, 0, 0) < 0) {
+                        perror("ptrace");
+                    } */
+
+                    pid = -1;
+
+                    continue;
+                }
+            }
+
+            ptrace(PTRACE_GETREGS, pid, 0, &regs);
+
+#ifdef __x86_64__
+            scno = regs.orig_rax;
+#else
+            scno = regs.orig_eax;
+#endif /* __x86_64__ */
+
+            if (scno == SYS_execve) {
+                fprintf(stderr, "%d: Exec branch\n", pid);
+                if (pidTable[pid].entering()) {
+                    long ldata, ptr, ptr1;
+
+                    ptrace(PTRACE_GETREGS, pid, 0, &regs);
+
+                    #ifdef __x86_64__
+                    ptr = regs.rdi;
+                    #else
+                    ptr = regs.ebx;
+                    #endif /* __x86_64__ */
+
+                    fprintf(stderr, "%d: exec(", pid);
+
+                    if (ptr) {
+                        get_string(pid, ptr, bufstr, sizeof(bufstr));
+
+                        fprintf(stderr, "%s", bufstr);
+
+                    }
+
+                    #ifdef __x86_64__
+                    ptr1 = regs.rsi;
+                    #else
+                    ptr1 = regs.ecx;
+                    #endif /* __x86_64__ */
+
+
+                    for (; ptr1; ptr1 += sizeof(unsigned long)) {
+                        ptr = ptr1;
+                        /* Indirect through ptr since we have char *argv[] */
+                        ptr = ptrace(PTRACE_PEEKTEXT, pid, (void *) ptr, 0);
+
+                        if (!ptr)
+                            break;
+
+                        get_string(pid, ptr, bufstr, sizeof(bufstr));
+                        fprintf(stderr, ", %s", bufstr);
+                    }
+                    fprintf(stderr, ")\n");
+
+                    pidTable[pid].entering() = 0;
+                }
+                else {
+                    long acc = ptrace(PTRACE_PEEKUSER, pid, sizeof(unsigned long) * REG_ACC, 0);
+                    pidTable[pid].entering() = 1;
+                    fprintf(stderr, "%d: Leaving exec: eax is %ld\n", pid, acc);
+                }
+            } else if (scno == SYS_fork || scno == SYS_clone) {
+                fprintf(stderr, "%d: fork/clone branch\n", pid);
+                if (pidTable[pid].entering()) {
+                    long flags = ptrace(PTRACE_PEEKUSER, pid, (sizeof(unsigned long) * REG_ARG1), 0);
+
+                    fprintf(stderr, "%d: Entering fork/clone\n", pid);
+                    pidTable[pid].entering() = 0;
+
+                    if (ptrace(PTRACE_POKEUSER, pid, (sizeof(unsigned long) * REG_ARG1), flags | CLONE_PTRACE &
+                                                                                         ~(flags & CLONE_VFORK ?
+                                                                                         CLONE_VFORK | CLONE_VM : 0)) < 0) {
+                        perror("ptrace");
+                    }
+
+                    if (ptrace(PTRACE_POKEUSER, pid, (sizeof(unsigned long) * REG_ARG2), 0) < 0) {
+                        perror("ptrace");
+                    }
+
+                } else {
+                    // int child;
+
+                    ptrace(PTRACE_GETREGS, pid, 0, &regs);
+
+                    #ifdef __x86_64__
+                    fprintf(stderr, "%d: Leaving fork/clone: rax = %ld\n", pid, regs.rax);
+                    #else
+                    fprintf(stderr, "%d: Leaving fork/clone: eax = %ld\n", pid, regs.eax);
+                    #endif
+
+                    pidTable[pid].entering() = 1;
+
+                    #ifdef __x86_64__
+                    if (regs.rax <= 0) {
+                    #else
+                    if (regs.eax <= 0) {
+                    #endif
+                        continue;
+                    }
+
+                    #ifdef __x86_64__
+                    int newpid = regs.rax;
+                    #else
+                    int newpid = regs.eax;
+                    #endif
+                    pidTable[newpid] = tcb(newpid, 0);
+                    //pidTable[newpid] = tcb(newpid, 1);
+                    //pidTable[newpid] = pidTable[pid];
+                    fprintf(stderr, "%d: forked child is %d\n", pid, newpid);
+                }
+            } else if (scno == SYS_exit) {
+                fprintf(stderr, "%d: exit syscall detected\n", pid);
+            } else if (scno < 0) {
+                fprintf(stderr, "Negative syscall number for %d\n", pid);
+                exit(1);
+            } else {
+                fprintf(stderr, "%d: Scno is %ld\n", pid, scno);
+            }
+        }
+    }
+    return 0;
+}
