@@ -1,0 +1,51 @@
+<style>
+p{display:grid;gap: 0.1em;transform: rotate3d(12, 1, 1,
+313deg);
+    height: 99%;margin-left: 4%;
+}
+hr{    border: 0;
+    width: 100%;height: 100%;
+    background: gray;
+    transition: .5s background;}
+input{position:absolute}
+.ripple{background:radial-gradient(1px,black,var(--siz), #0000); transition:.4s --siz; background-repeat:no-repeat}
+.ripple:hover{--siz:30em}
+@property --siz{syntax:'<length>';initial-value:1px;inherits:false}/*@propi siz=1px:length !CSSUnparsed*/
+</style>
+<input type=submit onclick="dfs(a,a.indexOf(3))"><p id=map>
+<script>doc=document
+mkGrid=(e,a,f)=>{
+let i=0, c=e.style
+for(;i<a.length;i++)f(e.appendChild(doc.createElement("hr")),i)
+c.gridTemplateRows=c.gridTemplateColumns=`repeat(${a.w},calc(100% / ${a.w}))`
+c.justifyContent=c.alignContent="center"
+}
+cSty="gray red blue green".split(" ");
+((_,N,w)=>{ a=Array(N).fill(0);a.w=w ;es=Array(N)}
+)(...(location.search||'?100?10').split('?').map(Number) )
+
+mkGrid(map, a, (e,i)=>{ e.onclick=()=>{
+  a[i]=(a[i]+1)%4
+  es[i].background=cSty[a[i]]
+}; es[i]=e.style })
+ord="LRUD"
+dfs=(a,p0)=>{
+if(p0==-1)return alert`点几下某方块吧`
+let w=a.w,sib=[...ord].map(k=> ({L:-1,R:+1,U:-w,D:+w}[k] )), bg=(c,i)=>es[i].background=c,r=0,
+at=p=>(a[p]==2)?r=1:(a[p]==1||p<0||p>=a.length)?0: Promise.any(map(sib,async(d)=>{ //all(async at()仍是Promise),故新点后走
+await delay(.5);bg('sandybrown',p);await at(p+d)
+//bg('sandybrown',p);await delay(.5) ;let v=a[p];a[p]=1; await at(p+d); a[p]=v  //允重走，r=1 时的队列 就大概能画线
+await delay(1);bg(r==1?'yellow':'rosybrown',p)
+}))
+function*map(a,f){for(let x of a)if(r)break;else yield f(x)}
+return at(p0)
+}
+function*mapNot(v,a,f){let x,y;for(x of a){y=f(x); if(y==v)break; yield y} }
+delay=dur=>new Promise(ok=>setTimeout(ok,dur*1000))
+// mkey/love和tv/点计算 也是await (但支持队或栈序)， Share/lrud是基于canvas 录制
+
+$e=map
+$e.className="ripple"
+$e.onmouseenter=ev=>{let e=ev.target;e.style.backgroundPosition=`${x(ev)-w(e)/2} ${y(ev)-h(e)/2}`}
+[..."xywh"].forEach(k=>{let sk=(k=='w'?'Width':k=='h'?'Height': k.toUpperCase()); this[k]=e=>e["offset"+sk] })
+</script>
