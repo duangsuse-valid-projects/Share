@@ -1,0 +1,100 @@
+﻿foldReplace(/(\S+)\s+(\S+)("[^"]*")?/, (a,b,c) => a+capitalize(b)+c?`(${c})`:"", "apple fd")
+function capitalize(s) { return (s=="")?"" : s[0].toUpperCase()+s.substr(1, s.length); }
+function foldReplace(re, op, input) { var text=input; var matched=false; do { matched=false; text = text.replace(re, (_, ...args) => { matched=true; return op(...args); }); } while(matched); return text; }
+
+今天下午在实现 Tokenizer DOM/JS 应用（基本就是包一下 Trie 树，方便咱唱有日文假名字的歌用的，这个功能苹果有，网易云音乐早就该加了哼。）
+
+因为这个家伙设计得比较方便，可以查看字典树结构和合并后的词对应关系表（而且还能用来查单词……带自动补全草），必须设计一个字典树 string-value 遍历算法。
+
+这个算法咱在 ParserKt 里实践过（毕竟字典树是一遍过解析关键字的重要结构），那时候写了一个纯函数（优点是没有参数所以直接 public 即可），大概就是各种 flatMap 修改合并下一层递归返回的列表啊，麻烦死了，而且性能不高
+
+字典树这个结构也没比嵌套 Map (K-V 里 V 是 Map 的那种) 复杂多少，就是每层映射本身多对应一个『节点本身的值』而已 (比如 "stand", "standby" 里 "d" 也有存值，这种很常见的)
+
+开始我避免了使用递归算法（虽然我最爱写递归算法了 误），想想这个遍历是嵌套 1-N 次组合，肯定要用栈，当时觉得有 keySeq, stack 这两个栈就够了（对应关系是 `stack[i] = keySeq.subSeq(0,i-1).fold(routes) { it,k -> it[k] }` ，主要是缓存路径结果）
+
+我开始发现现在写的算法虽然都很麻烦，但就像是思考“通项公式”一样，就是一个状态机或者操作一两个结构，明白了就很简单。
+
+写的是每层 Trie 先给其值（如果有），然后访问它的子节点，这时候我就发现为了能递归完成这个动作，循环必须可以打断（循环的 label TypeScript 是支持的，然后要保存索引……）
+
+我把 for in 变成 `o[Object.keys(o)[i]]` 这样可以保存迭代状态（ES6 也不支持 ObjectIterator ，然后 Object.entries 在 TS 上很麻烦），写出来了（递归的话直接把 i 给 push 上去 然后 i == length 的时候就 pop），现在也感觉好不爽啊…… 索性又换成了带副作用的递归的形式。
+
+写了好多次显式栈之后，我果然还是觉得递归好，至少不需要你加 hack 。
+
+一天半后，项目完成了，然后我突然想到了一个 #Kotlin #coroutine 必须要 executor 来执行的理由(之前一直搞不懂 runBlocking, launch 什么的是干嘛)
+一个协程 yield 后要把执行权交出去，如果只是用 CPS (理解为无返回，只 callback ，但在这里收 callback 的还能恢复协程) 的话会造成调用栈不断增长，所以不能直接这样干，只能先把 Continuation 交给收它的地方，返回调度器取任务继续
+关于 await/async 不知道能不能完全只用 CPS 变换来实现（反正我觉得实现起来枚举语法生成很复杂），但完整的协程是可以的
+
+
+http://64f1aq.coding-pages.com/HTMLs/Tokenizer/?%E6%97%A5%E5%B9%B3%E5%81%87=jp_katakana-romanji.txt&%E6%97%A5%E7%89%87%E5%81%87=jp_hiragana-romanji.txt&%E8%8B%B1%E5%AD%97%E6%AF%8D%E5%81%87%E5%90%8D=jp_alphabet-hiragana.txt&%E5%81%87%E5%90%8D%E6%B1%89%E5%AD%97=cn_jpkana-hanzi.txt&%E8%8B%B1%E5%B0%8F%E8%87%B3%E5%A4%A7%E5%86%99=en_lowcase-upcase.txt&%E5%8F%8D%E5%B9%B3%E5%81%87=~:%E6%97%A5%E5%B9%B3%E5%81%87&%E5%81%87%E5%90%8D=:%E6%97%A5%E5%B9%B3%E5%81%87+:%E6%97%A5%E7%89%87%E5%81%87&%E5%8F%8D%E5%81%87%E5%90%8D=~:%E5%81%87%E5%90%8D&%E7%BD%97%E9%A9%AC%E8%87%B3%E6%8B%BC%E9%9F%B3=cn_romanji-pinyin.txt&%E5%81%87%E5%90%8D%E6%8B%BC%E9%9F%B3=:%E5%81%87%E5%90%8D%3E:%E7%BD%97%E9%A9%AC%E8%87%B3%E6%8B%BC%E9%9F%B3
+
+http://lrc.o-oo.net.cn/#
+
+https://github.com/kajweb/dict/tree/master/book
+
+薄红の时を彩る花びら
+ひらひら舞う光の中
+仆は笑えたはず
+鲜やかな日々に
+仆らが残した
+砂の城は波に溶けて
+きっと梦が终わる
+真っ白な世界で目を覚ませば
+伸ばす腕は何もつかめない
+见上げた空が近くなるほどに
+仆は何を失った?
+透通る波
+映る仆らの影は苍く逺く
+あの日仆は世界を知り
+それは光となった
+仆は歌うよ
+笑颜をくれた君が泣いてるとき
+ほんの少しだけでもいい
+君の支えになりたい
+仆が泣いてしまった日に
+君がそうだったように
+...music...
+仆がここに忘れたもの
+全て君がくれた宝物
+形のないものだけが
+时の中で色褪せないまま
+透通る波
+何度消えてしまっても
+砂の城を仆は君と残すだろう
+そこに光を集め
+仆は歌うよ
+笑颜をくれた君が泣いてるとき
+頼りにのない仆だけれど
+君のことを守りたい
+逺く离れた君のもとへ
+この光が空を越えて羽ばたいてゆく
+そんな歌を届けたい
+仆が赠るものは全て
+形のないものだけと
+君の心の片隅で
+辉く星になりたい
+
+http://127.0.0.1:4000/HTMLs/Tokenizer/?conf=example/jp.ini&text=:example/%E6%98%9F%E4%B9%8B%E5%9C%A8%E5%A4%84.txt&feat=1&style=:highlight_2ndrecognize.css&inword-grep=%E3%81%97=%E3%81%97%E3%81%A6=%E3%81%A6
+
+渐渐感受到作为社会人，沉重的责任还有负担，
+止不住唉叹，命运的纠缠，好难。
+总是寻找借口，应付、凑合，渐渐的忘却铸成了遗憾。
+无数次唉叹，煎熬在无人夜晚。
+
+无论拖延多久、等待多久，根本就不会有所改观；
+信奉的那些、热爱的那些，好难。
+
+……
+这咸鱼在挣扎，我翻，我翻。
+
+坚持下去，总会变成鱼干吧。
+不知道该怎么说，当一个本来打算作周末小实验的东西，火力全开地对着刚打算加入应用编程的我。
+
+持续了三、四周，浏览器插件化决定后就没有大的进步过，更没有很大的成功仪式感，到现在甚至没有移植主要的交互。
+
+IME 太绕，卡了我一整个星期，实际上最后几天几乎没有继续探索过，总是觉得怪怪的缺了什么，到最后发现开始各种设计情况不成熟、没考虑到的时候，代码已经七七八八了。
+
+设计的时候莫名其妙加了很多本来可以下个版本才有的特性的，但只能先加上免得存 TODO List ，但应用又不能把单纯、没有逻辑的 UI 给 Release 出去。
+
+现在成天玩游戏、看番剧，也不运动，因为不用 timer 也没有“完成子目标”这个说法，不会打游戏，总在逃避什么。
+
+use_transwall, useno_dec, use_delay, yxP, isZeroOr(n, x), snake_head, snake_tail, snake_body, snakeN=0,0,WSAD; emscripten, putFruit, handleDir(dv, k, nk), remove pA

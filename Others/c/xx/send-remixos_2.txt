@@ -1,0 +1,130 @@
+cat>/usr/bin/qemu-android <<EOF
+#!/usr/bin/bash
+# By Chih-Wei Huang <cwhuang@linux.org.tw>
+# License: GNU Generic Public License v2
+
+continue_or_stop()
+{
+	echo "Please Enter to continue or Ctrl-C to stop."
+	read
+}
+
+QEMU_ARCH=`uname -m`
+QEMU=qemu-system-${QEMU_ARCH}
+
+which $QEMU > /dev/null 2>&1 || QEMU=qemu-system-i386
+if ! which $QEMU > /dev/null 2>&1; then
+	echo -e "Please install $QEMU to run the program.\n"
+	exit 1
+fi
+
+cd ${OUT:-/android-8.1-r5}
+
+[ -e system.img ] && SYSTEMIMG=system.img || SYSTEMIMG=system.sfs
+
+if [ -d data ]; then
+	if [ `id -u` -eq 0 ]; then
+		DATA="-virtfs local,id=data,path=data,security_model=passthrough,mount_tag=data"
+		DATADEV='DATA=9p'
+	else
+		echo -e "\n$(realpath data) subfolder exists.\nIf you want to save data to it, run $0 as root:\n\n$ sudo $0\n"
+		continue_or_stop
+	fi
+elif [ -e data.img ]; then
+	if [ -w data.img ]; then
+		DATA="-drive index=2,if=virtio,id=data,file=data.img"
+		DATADEV='DATA=vdc'
+	else
+		echo -e "\n$(realpath data.img) exists but is not writable.\nPlease grant the write permission if you want to save data to it.\n"
+		continue_or_stop
+	fi
+fi
+
+run_qemu_on_port()
+{
+	$QEMU -enable-kvm \
+	-kernel kernel \
+	-append "root=/dev/ram0 vmalloc=192M console=ttyS0 RAMDISK=vdb $DATADEV" \
+	-initrd initrd.img \
+	-m 2048 -smp 2 -cpu host \
+	-usb -device usb-tablet,bus=usb-bus.0 \
+	-machine vmport=off \
+	-soundhw ac97 \
+	-serial mon:stdio \
+	-boot menu=on \
+	-drive index=0,if=virtio,id=system,file=$SYSTEMIMG,format=raw,readonly \
+	-drive index=1,if=virtio,id=ramdisk,file=ramdisk.img,format=raw,readonly \
+	-netdev user,id=mynet,hostfwd=tcp::$port-:5555 -device virtio-net-pci,netdev=mynet \
+	$DATA $@
+}
+
+run_qemu()
+{
+	port=5555
+	while [ $port -lt 5600 ]; do
+		run_qemu_on_port $@ && break
+		let port++
+	done
+}
+
+# Try to run QEMU in several VGA modes
+run_qemu -vga virtio -display sdl,gl=on $@ || \
+run_qemu -vga qxl -display sdl $@ || \
+run_qemu -vga std -display sdl $@ || \
+run_qemu $@
+EOF
+
+# my.sh (each time boot)
+mkdir /mnt/a;mount -t btrfs /dev/block/sda2 /mnt/a&&mount --bind /mnt/a/cm-*/data /data
+
+cat>/etc/grub.d/41_android <<ENDOFF
+find_ax86() {
+	local os=$1; local name_ext=$2; local cmd_ext=${3:-quiet}
+	local cmd=`cat $os/cmdline`
+	echo -e "menuentry \"Android-x86 `basename ${os}`${name_ext}\" {\n\tsearch --set=root --file $os/kernel\n\tlinux $os/kernel ${cmd} ${cmd_ext}\n\tinitrd $os/initrd.img\n}"
+}
+for os in `find / -maxdepth 2 -name cmdline -and -! -size 0 -exec dirname {} \;`; do
+	echo Found Android-x86 at $os >&2
+	for ps in '>' '(DebugMode) DEBUG=2'; do find_ax86 $os $ps; done
+done
+
+cat>/dev/null <<EOF
+menuentry 'Android x86' {
+  insmod btrfs
+  set root='hd0,msdos2'
+  set os=/cm-x86-14.1-r4
+  linux $os/kernel 'root=/dev/ram0 androidboot.selinux=permissive buildvariant=userdebug console=ttyS0 RAMDISK=vdb DATA=9p'
+  initrd $os/initrd.img
+}
+EOF
+ENDOFF
+
+cat>pack.sh <<EOF
+repack() { 
+  local d=${1}.d
+  local dst=${1}.cpio
+  cd $d && find|cpio -o -H newc >../$dst &&cd - #7z a $dst $d
+  cat $dst|gzip ->$1
+}
+repack_un() {
+  local d=${1}.d
+  mkdir -p $d; mv $1 $d/${1}.gz; cd $d
+  gunzip ${1}.gz
+  7z x -y $1&&rm $1 # NOTE: 7z looks unsupported, use cpio -o ?
+  cd -
+}
+#no=1; while :; do  mkdir -p _$no&&mount $img _$no; if ! [ `ls _$no|wc -l` == 1 ]; then break; fi; img=`ls _$no/*`; let no++; done
+#^ mount multi-zipped squashfs
+#umount _*&&rmdir _*
+EOF
+
+zcat ../initrd.img|cpio -i - # initcpio
+sed 's/ANDROID_ROOT=\/system/\0\ncp \/my.sh \/android\&\&echo -e on init\n    sh \/my.sh>>\/android\/init.rc/' initrd.img.d/init 
+#^ try hard to auto-execute mount command
+
+possible:
+
+init L69 `case $(blkid $1) in *TYPE=*ntfs*)`
+L151 `for c in `cat /proc/cmdline`; do case $c in iso-scan/filename=*)` SRC= iso=
+
+boot with DEBUG=1 to test pre-boot environment

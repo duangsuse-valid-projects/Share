@@ -1,0 +1,63 @@
+rpm -Uvh cm-x86-*.x86_64.rpm # -e to uninstall
+rpm -q --dump cm-x86-14.1-r4.x86_64.rpm --scripts
+
+qemu-system-x86_64 -enable-kvm -kernel kernel -append 'root=/dev/ram0 androidboot.selinux=permissive buildvariant=userdebug console=ttyS0 RAMDISK=vdb DATA=9p' -initrd initrd.img -m 2048 -smp 2 -cpu host -usb -device usb-tablet,bus=usb-bus.0 -machine vmport=off -soundhw ac97 -serial mon:stdio -drive index=0,if=virtio,id=system,file=system.sfs,format=raw,readonly -drive index=1,if=virtio,id=ramdisk,file=ramdisk.img,format=raw,readonly -netdev user,id=mynet,hostfwd=tcp::5555-:5555 -device virtio-net-pci,netdev=mynet -virtfs local,id=data,path=data,security_model=passthrough,mount_tag=data -vga virtio -display sdl,gl=on
+sudo qemu-system-x86_64 -enable-kvm -kernel kernel -initrd initrd.img -serial mon:stdio -drive index=0,if=virtio,id=system,file=system.sfs,format=raw,readonly -drive index=1,if=virtio,id=ramdisk,file=ramdisk.img,format=raw,readonly -virtfs local,id=data,path=data,security_model=passthrough,mount_tag=data -append 'root=/dev/ram0 androidboot.selinux=permissive buildvariant=userdebug console=ttyS0 RAMDISK=vdb DATA=9p'
+qemu-system-x86_64 -enable-kvm -kernel kernel -initrd initrd.img -serial mon:stdio -drive index=0,if=virtio,id=system,file=system.sfs,format=raw,readonly -drive index=1,if=virtio,id=ramdisk,file=ramdisk.img,format=raw,readonly -virtfs local,id=data,path=data,security_model=passthrough,mount_tag=data -append 'root=/dev/ram0 androidboot.selinux=permissive buildvariant=userdebug console=ttyS0 RAMDISK=vdb DATA=9p' -m 2048 -smp 2 -cpu host -usb -device usb-tablet,bus=usb-bus.0 -machine vmport=off -soundhw ac97 -vga virtio -display sdl,gl=on -netdev user,id=mynet,hostfwd=tcp::5555-:5555 -device virtio-net-pci,netdev=mynet
+
+# no RAMDISK= DATA= kernel cmdline
+# search kw: Android-x86 menuentry
+cat <<EOF
+menuentry "Android-x86 14.1-r4" {
+	search --set=root --file /cm-x86-14.1-r4/kernel
+	linux /cm-x86-14.1-r4/kernel quiet root=/dev/ram0 androidboot.selinux=permissive buildvariant=userdebug 
+	initrd /cm-x86-14.1-r4/initrd.img
+}
+menuentry "Android-x86 14.1-r4 (DEBUG mode)" {
+	search --set=root --file /cm-x86-14.1-r4/kernel
+	linux /cm-x86-14.1-r4/kernel root=/dev/ram0 androidboot.selinux=permissive buildvariant=userdebug DEBUG=2
+	initrd /cm-x86-14.1-r4/initrd.img
+}
+EOF
+echo -e {\n\t} #>>/boot/grub/custom.cfg
+# install to /boot/grub or /boot/efi/EFI/
+# btrfs not supported; loopback lo root.sfs not possible?
+# Detecting Android-x86... found at /dev/sda3 (ext4 partition)
+# ramdisk.img initrd.img are .cpio.gz formatted RootFs
+# initrd/init is sh script 'Detect system.sfs' at L165, check_root() L111
+# scripts/2-mount 'mount_data' at L18, L28
+
+# NOTE, polkit UI required to run Thunar root mount, /usr/lib/mate-polkit/polkit-mate-authentication-agent-1
+# Dont know why added: sudo arp-scan 192.168.0.0/24; https://github.com/android-x86/android-x86.github.io
+# for f in `7z l rm.cpio |awk '{print $4}'`; do rm -rf $f; done
+# find ./ -exec file '{}' \;
+
+dmesg -r -s 2000 #-t
+am;pm;surfaceflinger;app_process -Xzygote;busybox;lndir;mke2fs;ld-linux.so.2
+
+# using btrfs on /, so I choose to make another ext4 part. contain system.sfs
+# and, make qemu-andoid L24 '-d /data' L26 ',path=/data' , add linux cmdline DATA=sda2 (/)
+# /my.sh: mkdir /mnt/a; mount -t btrfs /dev/block/sda2 /mnt/a; mount --bind /mnt/a/data /data
+# :( and add . /my.sh&&return to scripts/2-mount
+
+cat>pack.sh <<EOF
+repack() { 
+  if [ $1 == un ]; then
+    shift
+    local d=${1}.d
+    local dst=${1}.cpio
+    cd $d && find|cpio -o -H newc >../$dst &&cd - #7z a $dst $d
+    cat $dst|gzip ->$1
+  else
+    local d=${1}.d
+    mkdir -p $d; mv $1 $d/${1}.gz; cd $d
+    gunzip ${1}.gz
+    7z x -y $1&&rm $1
+  fi
+}
+EOF
+repack initrd.img
+echo 'echo Happy hacking'>>initrd.img.d/init
+repack un initrd.img
+
+See https://sites.google.com/site/anbadeol/software/linux-initcpio-tutorial

@@ -1,0 +1,214 @@
+Procmon.Efflux.Chunkspy 对 Lua OO 的理解不够深入，vtable 的 meta 方法向上查找没有注意到。
+
+本来应该是实例 __index 到本 class 的 vtable 找，每一 class 的 vtable 找不到就到上层找，我的是实例级别包办一切。
+而且我不知道可以给 __index 指定一个 table 作为代理..
+
+----
+Monad, Functor 和 flatMap.
+
+----
+添加的特性：
+
+Fucn helper:
+添加 static Func?<...> into(Func?<...>) 方法
+可以这么用：
+
+Funv2<String, User> $ = Func.into(users::put);
+
+添加 flip3 函数，重命名 curry 和 flip 的名字为带数字的版本
+将 curry 作为 default 实现
+
+var $ = Func.flip3$1(Func.into(db::getFromDictOrDefault)).curry1("user").curry1("阿强")
+$.apply("阿珍");
+
+为 Func3 和 Funv3 、Func2, Funv2 添加 curry2 函数
+让 Func2 和 Funv2 继承 java.util.function.Function
+让 Func1 和 Funv1 继承 java.util.function.Consumer
+让 Func0 和 Funv0 继承 java.lang.Runnable
+
+其他 Func 接口的 SAM 方法重命名为 invoke
+
+ADT 包的 Data 类我希望能加点反射 Annotation 元数据使用
+争取能做到低开销和快速原型都 OK
+
+class User extends Data {
+  String id, name, nick
+    bio;
+  int age;
+  Date created, lastOnline;
+}
+
+然后应该不需要任何其他东西来完成 equals, toString, hashCode
+
+----
+0. 用 6 种平台编写排序的 PoC (C++, C++/Qt, Java/Android, JavaScript/Web, Java/Servlet/MongoDB, Kotlin/SpringBoot)
+1. Java 8 的 @in @out type parameter annotation processor
+2. 编写 XML 解析器，讲解基于状态机模型的分词/解析-style parser 结构
+3. 解析组合子，计算器
+4. PHP 解析器
+
+----
+为什么 drakeet 有误解，剪刀石头布和偏序
+（只做 Java CLI 和 Android 的 PoC，要精）
+
+数学：sqrt 和 log 求底数和指数
+divrem 的『图示』
+从等式变换看 sum、求和公式
+
+到底时实践时有哪些注意的问题、解决方案
+
+infix chain 扫描的递归模型构筑和左递归/右递归/优先级
+直白说、符号示意
+----
+首先，在完成我打算的一门以小体积和 REPL 为特色的 JVM 脚本语言之前，我得先给自己入下门
+（一般来说，脚本语言都是由一条一条作为基本执行单元的『语句』构成的，他们总是描述动作而非数据、存储、操作什么的，而不是可能不能执行的定义，比如『函数定义、变量定义』）
+
+之前的入门也有，可是不顶用。（知识理解发生了变化）
+我也想写一个 LLVM 的 native 编译器练手，可是应该是之后的事情（先做简单一点的）
+
+当然，理论基础也是得有的，我最近会讲 infix 操作符的递归下降(recursive descent)解析、左递归和右递归、二元优先级
+
+我现在打算设计的这门语言叫做 ec, 名字是从 GNU bc 和 GNU dc 抄来的，它的目标是成为一个（不要求性能）的可编程计算器
+以后我也可能添加 JIT 支持，不过不是现在的事情（我要先准备一个 JVM binary stream 框架才可以写类代码的读写器）
+
+首先它继承我 BinOps 计算器的所有操作，不过有一些额外的特性：
+
+0. 它使用基于隐式状态机的解析组合子编写，代码很优雅
+1. 它支持二元操作符优先级 infixl 和 infixr
+2. 它支持函数定义，并且（可能）支持 pattern matching 和 tail recursion
+3. Unicode 语法，可以写的很像数学
+5. 支持和 Java 一定程度的互操作(interop)，它支持调用静态方法
+
+EC 的全名是 Electronic Calculator，它是一门多范式(multi-paradigm) 编程语言，主打函数式编程和过程式编程
+它是基于 lambda calculus 的，所以非常简单，只有
+x y z w a b c n 变量（只有两种变量，就是函数的参数和局部变量，函数参数是不可重新赋值的，全局作用域就是『全局函数』的作用域），这些名字默认是数值变量，ec 支持数值类型自动转换提升（和转换）
+
+它有五种基本类型：Any, Num, Bool, Str, List<A>，只能在函数参数和返回值里指定，并且支持这样的自动推导
+函数类型是 (T, T1, T2, ...) -> R, 当然函数类型也是类型，所以可以写接受函数或者返回函数的函数
+
+类型参数支持子类型的形变性（(in T) -> out R）
+不过还不开放用户数据的定义，所以也没有手动的类型参数型变
+
+其中 Any 是 Num / Bool / Str 的父类型，其他类型不存在子类型(subtyping)关系
+
++ x* y* z* w* k*; a b c; n 默认为 Num 变量；这里 * 必须是一个或多个数字 0-9
++ p.{1} q.{1} 默认为 Bool 变量，这里 .{1} 照样得是数字 [0-9]
+如果一个函数的名字类似 is* has*, 返回值默认为 Bool（当然变量也是一样...
++ name / str* 默认为 Str 变量
++ *s 的默认为 List<* 的自动推导>
++ 其他情况默认为 Any
++ List<A> 的 A 是一种类型，List 的 head 和 tail 是惰性计算的
+
+可以用 let ... in ... 和 variable 控制局部变量的作用域
+
+并且支持自定义转换器 implicit LongToInteger() = ... 和 explicit, as operator
+(\x -> x) 匿名函数(abstraction)
+f(x) = x 具名函数(function operator)
+(f 1) 函数应用(application)
+
+它的流程控制分支使用分支函数实现，也可以 if else，match，循环可以使用
+尾递归（自动优化）和 for x in iter 和 while p
+
+没有惰性求值特性，因为底层操作使用 JVM 的 Object 引用实现，所有操作都是传值(pass-by-value & copy)调用
+
+EC 使用 Lexical scoping，这意味着它存在闭包，EC 的闭包使用了类似 Lua 的 FuncState / UpValue 模型（不要时 close，每个函数一个 state），而不是 Ruby 1.9 的 Clone-stack 和简易 Scheme 实现的 dup-environment
+
+Java interop 的支持使用 import 语句
+
+import org.duangsuse.ec.Plugin.func
+import org.duangsuse.ec.Plugin (@EcExports 标记的类型)
+
+import org.duangsuse.ec
+import Plugin
+
+import Plugin hiding (func)
+import Plugin.func as fun
+
+关于 pattern matching 的函数定义，我想过了
+不过尾递归优化的分析还得做
+
+目前还在设计，举一点例子：
+
+let
+  id x = x
+  in id 1 
+
+put "Hello, world"
+
+assert 1+1 == 2
+assert 1+1 /= 3
+
+id = \x -> x
+
+abs(n >0) = n
+abs(n <=0) = neg n
+
+fib : (Num) -> Num
+fib(n) = fib(n-1) + fib(n-2)
+fib(1) = 1
+fib(2) = 2
+
+fold(f, v, []) = v
+fold(f, v, [x :: xs]) = fold(f, f(v, x), xs)
+product(xs) = fold: <*> 1 xs
+factorial(n) = product: [1..n]
+
+count [_ :: xs] = 1 + count: xs
+
+----
+这里先提一下 infix operator 扫描的一些事情：
+
+1. Infix chain 是什么？
+
+1 + 1 * 9 这种代码写多了
+可是不知道怎么解析
+
+a.toString().hashCode() 也写过
+可是也不知道怎么解析
+
+Int -> String -> Int 实际上是 Int -> (String -> Int)
+不知道如何解析成 data Type = ... | Fn Type Type 的形式
+(Fn Type "Int" (Fn (Type "String") (Type "Int")))
+
+Infix 是什么呢？
+你看上面的东西，是不是都遵循这种模式：
+
+chainr = item sep chainr
+
+（啊盲目 right recursive
+
+chainl = chainl sep item
+
+（胡乱 left recursive
+
+其实我是想说,,,,
+chain = item (sep item)+
+
+但是，以上两者确实是不错的思路，我们考虑两种递归解析子程序
+
+Expr scanChain(Item left, int precedence_l);
+它解析一个 (a ·) a · 的模式
+Expr scanChain(Item left);
+它解析一个 a [(·) a ·] 的模式（好像没有区别啊... 写错了
+
+考虑到为了决定操作符的优先级（可以分左右，这样就同时实现了 left 递归结合和 right 递归结合），
+前者需要 lookahead 一个 *(rhs) 一个 rhs op，第一层递归需要给出最小的优先级（实现一定 right assoc）
+后者则为了理论上的好看得 lookahead 三次，然后还不能直接归纳到 binary operation 的模式，必须得遗忘一个用于决策递归的 item...
+
+啊总之 ::Echo 频道之前讲过（搜索 chainl），也不是非常困难的问题，就是递归下去、判断 item 子解析器是否成功，一直 解析失败，回溯回来就可以了。目标就是关于二元运算建立递归的数据结构
+
+infixl 和 infixr 属于结合性，Int -> (String -> Int) 是 right(infixr)
+1 + 2 + 3 (+) 是 left, (a.toString()).hashCode() 也是 Left.
+
+然后上面的的确是搞错了，只能
+(lhs lop) op rhs
+然后做决定，如果是 left-to-right 扫描 a · b · c
+不能直接在第一个 · 决定（是这决定一层返回最终结果还是把 lhs 规约了传下去）
+
+这一层返回就是（read a, judge · < ·1 , chainr）
+a · (b ·1 c)
+lhs 规约再递归下去就是（read a, judge · > ·1, chainl）
+(a · b) ·1 c
+
+的话只能子解析器再去返回某种容器来决定是 C a 还是 a 类型了
+是不好的，只能在当前的层决定

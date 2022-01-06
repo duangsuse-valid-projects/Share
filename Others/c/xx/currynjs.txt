@@ -1,0 +1,51 @@
+关于 Curry 函数
+
+Curry 是什么呢？本来 curry 的意思是 Lambda composition ( f.g = \args -> f (g args) ) 很难去接受一些『多参数函数』（要不然处理起来就很迷人...）
+于是 Lambda calculus 有个 currying： \x y. x = \x. \y. x （原本一个多参数的 lambda 现在变成了多个单参数 lambda 的组合）
+
+这样就有一个好，因为 lambda 抽象(abstraction) 的 variable substraction 可以给一些项目提供参数，而未必要立刻『实际执行』这个函数：
+
+add = \a. \b. (a + b)
+add2 = add 2 = \b. (2 + b)
+add2 1 = 3
+
+它可以提供『不能重写』的参数默认值（因为那里 2 就是立即值或者 UpValue 了，递归的时候这个东西不是参数的）
+
+可是很多函数式编程语言，比如 Haskell 是这个样子，JavaScript 就不是这个样子。
+
+不过有 Function.prototype(参见我之前写的 LuaOOP 原型面向对象继承实现).bind
+可以给指定默认参数
+
+不过，指定就最好得一次指定完，不然很麻烦（因为 this 要传来传去的... 而且你还得手写 curry 参数的调用）
+
+我希望这样的 curry：
+
+var puts = bound(matrix, 'putXY').curry()
+var puts00 = puts(0)(0)
+puts00('0,0')
+
+然后我早上赖床（逃跑）的时候就在想，该怎么实现这个多参数 curry 呢？
+
+开始我很 naive 地想到，好像这是在针对 accumlator（计数器一样的东西，总之就是不断被『从自己构造』）
+去操作，于是非常自然地想到了 foldl, foldr （其实 foldr 的确是可以的，而且 compose = foldr (.) id，不过这里不提右递归的方法）
+
+可是我又想到，这显然是不行的。curry1 不管怎么样至少是接受一个参数返回接剩下参数的... 这样的话毫无意义，
+因为我实际上一直在提供第一个参数。
+
+然后我就想到了，既然是要构造这么一个递归的情况（第一次填 0、每次填第 n+1 个参数）
+为什么不先构造 curry 最后一个参数的情况，然后串起来呢？这样不就可以了？
+不过这当然是没有那么简单的，因为 bind 是 left-to-right，然后手动调用也得拿到每一个 curry 的参数
+不过我们可以用 effect. 创建的时候弄一个 array 每层去 push 一下就好了
+
+算了还是右递归 bind 吧（当然自己写也可以，就是给左边填一个参数返回右边剩下的）... 用 effect 没必要
+
+function _curryN(f, ff, n) {
+  if (n == 0) return ff;
+  return function nextDefault(x_)
+    { return _curryN(f, ff.bind(f, x_), n-1); };
+}
+
+Function.prototype.curryN(n) { return _curryN(this, this, n); }
+
+总之递归构造数据还是... 应该是符合直觉好 吧...
+
